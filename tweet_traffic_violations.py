@@ -147,7 +147,7 @@ def form_response_parts(query_result, username):
             if adjusted_now - timedelta(minutes=5) > adjusted_time:
 
                 # Add the new ticket info and previous lookup time to the string.
-                violations_string += 'Since the last time the vehicle was queried ({} at {}), #{}_{} has received {} new {}.\n\n'.format(adjusted_time.strftime('%B%e, %Y'), adjusted_time.strftime('%I:%M%p'), query_result['state'], query_result['plate'], new_violations, 'ticket' if new_violations == 1 else 'tickets')
+                violations_string += 'Since the last time the vehicle was queried ({} at {}), #{}_{} has received {} new {}.\n\n'.format(adjusted_time.strftime('%B %e, %Y'), adjusted_time.strftime('%I:%M%p'), query_result['state'], query_result['plate'], new_violations, 'ticket' if new_violations == 1 else 'tickets')
 
 
     violations_string += "Total parking and camera violation tickets: {}\n\n".format(total_violations)
@@ -530,7 +530,7 @@ def print_daily_summary():
     empty_lookups = query[2]
 
     if num_lookups > 0:
-        summary_string = 'On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets.'.format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', num_tickets, 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
+        summary_string = 'On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets.'.format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
 
         is_production and api.update_status(summary_string)
 
@@ -646,7 +646,7 @@ def process_message_response(message, response_args):
         else:
           logger.debug('We seem to be missing some important information.')
 
-          state_regex    = r'^(AL|AK|AS|AZ|AR|CA|CO|CT|DE|DC|FM|FL|GA|GU|HI|ID|IL|IN|IA|KS|KY|LA|ME|MH|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|MP|OH|OK|OR|PW|PA|PR|RI|SC|SD|TN|TX|UT|VT|VI|VA|WA|WV|WI|WY)$'
+          state_regex    = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QB|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
           numbers_regex  = r'[0-9]{4}'
 
           state_pattern  = re.compile(state_regex)
@@ -666,7 +666,7 @@ def process_message_response(message, response_args):
           else:
               logger.debug('The tweet is missing either state or plate or both.')
 
-              state_regex_minus_words   = r'^(AL|AK|AZ|AR|CA|CO|CT|DE|DC|FM|FL|GA|GU|ID|IL|IA|KS|KY|LA|MH|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|MP|PW|PA|PR|RI|SC|SD|STATE|TN|TX|UT|VT|VI|VA|WA|WV|WI|WY)$'
+              state_regex_minus_words   = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|IA|ID|IL|KS|KY|LA|MA|MB|MD|MH|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|PA|PE|PR|PW|QB|RI|SC|SD|SK|STATE|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
               state_minus_words_pattern = re.compile(state_regex_minus_words)
 
               state_minus_words_matches = [state_minus_words_pattern.search(s.upper()) != None for s in string_parts]
