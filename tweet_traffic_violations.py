@@ -284,7 +284,9 @@ def initiate_reply(received):
                     args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                     args_for_response['username']            = received.user.screen_name
 
-                    process_response_message(received, args_for_response)
+
+                    if received.user.screen_name != 'HowsMyDrivingNY':
+                        process_response_message(received, args_for_response)
 
 
     elif hasattr(received, 'entities'):
@@ -306,7 +308,8 @@ def initiate_reply(received):
                 args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                 args_for_response['username']            = received.user.screen_name
 
-                process_response_message(received, args_for_response)
+                if received.user.screen_name != 'HowsMyDrivingNY':
+                    process_response_message(received, args_for_response)
 
 
     elif hasattr(received, 'direct_message'):
@@ -326,7 +329,8 @@ def initiate_reply(received):
             args_for_response['string_parts']        = re.split(' ', modified_string.lower())
             args_for_response['username']            = sender['screen_name']
 
-            process_response_message(received, args_for_response)
+            if received.user.screen_name != 'HowsMyDrivingNY':
+                process_response_message(received, args_for_response)
 
 
 def perform_queries(args):
