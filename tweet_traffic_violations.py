@@ -585,7 +585,7 @@ def process_response_message(message, response_args):
     string_parts = response_args['string_parts']
     logger.debug('string_parts: %s', string_parts)
 
-    plate_tuples = [s.split(':') for s in [e.lower() for i,e in enumerate(string_parts) if (':' in e.lower() and 'state:' not in e.lower() and 'plate:' not in e.lower())]]
+    plate_tuples = [match.split(':') for match in [part.lower() for part in string_parts if (':' in part.lower() and '://' not in e.lower() and 'state:' not in part.lower() and 'plate:' not in part.lower())]]
     logger.debug('plate_tuples: %s', plate_tuples)
 
     potential_vehicles = infer_plate_and_state_data(plate_tuples)
@@ -596,7 +596,7 @@ def process_response_message(message, response_args):
     legacy_string_parts = response_args['legacy_string_parts']
     logger.debug('legacy_string_parts: %s', legacy_string_parts)
 
-    legacy_plate_data = dict([s.split(':') for s in [e.lower() for i,e in enumerate(legacy_string_parts) if ('state:' in e.lower() or 'plate:' in e.lower())]])
+    legacy_plate_data = dict([match.split(':') for match in [part.lower() for part in legacy_string_parts if ('state:' in part.lower() or 'plate:' in part.lower())]])
     if legacy_plate_data:
         if detect_state(legacy_plate_data.get('state')):
             legacy_plate_data['valid_plate'] = True
