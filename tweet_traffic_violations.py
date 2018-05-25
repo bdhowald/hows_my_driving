@@ -749,8 +749,6 @@ def process_response_message(message, response_args):
         logging.exception("stack trace")
 
 
-    pdb.set_trace()
-
     # Respond to user
     if message_type == 'direct_message':
 
