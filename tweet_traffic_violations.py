@@ -585,7 +585,7 @@ def process_response_message(message, response_args):
     string_parts = response_args['string_parts']
     logger.debug('string_parts: %s', string_parts)
 
-    plate_tuples = [match.split(':') for match in re.findall(r'(\b[a-zA-Z9]{2}:[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+:[a-zA-Z9]{2}\b)', ' '.join(string_parts))]
+    plate_tuples = [match.split(':') for match in re.findall(r'(\b[a-zA-Z9]{2}:[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+:[a-zA-Z9]{2}\b)', ' '.join(string_parts)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
     logger.debug('plate_tuples: %s', plate_tuples)
 
     potential_vehicles = infer_plate_and_state_data(plate_tuples)
@@ -748,6 +748,8 @@ def process_response_message(message, response_args):
         logger.error(e.args)
         logging.exception("stack trace")
 
+
+    pdb.set_trace()
 
     # Respond to user
     if message_type == 'direct_message':
