@@ -56,7 +56,7 @@ def main():
     userstream = twitterStream.userstream()
 
 
-def determine_state(state_input):
+def detect_state(state_input):
     state_abbr_regex   = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QB|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
     # state_full_regex   = r'^(ALABAMA|ALASKA|ARKANSAS|ARIZONA|CALIFORNIA|COLORADO|CONNECTICUT|DELAWARE|D\.C\.|DISTRICT OF COLUMBIA|FEDERATED STATES OF MICRONESIA|FLORIDA|GEORGIA|GUAM|HAWAII|IDAHO|ILLINOIS|INDIANA|IOWA|KANSAS|KENTUCKY|LOUISIANA|MAINE|MARSHALL ISLANDS|MARYLAND|MASSACHUSETTS|MICHIGAN|MINNESTOA|MISSISSIPPI|MISSOURI|MONTANA|NEBRASKA|NEVADA|NEW HAMPSHIRE|NEW JERSEY|NEW MEXICO|NEW YORK|NORTH CAROLINA|NORTH DAKOTA|NORTHERN MARIANA ISLANDS|OHIO|OKLAHOMA|OREGON|PALAU|PENNSYLVANIA|PUERTO RICO|RHODE ISLAND|SOUTH CAROLINA|SOUTH DAKOTA|TENNESSEE|TEXAS|UTAH|VERMONT|U\.S\. VIRGIN ISLANDS|US VIRGIN ISLANDS|VIRGIN ISLANDS|VIRGINIA|WASHINGTON|WEST VIRGINIA|WISCONSIN|WYOMING)$'
 
@@ -80,7 +80,7 @@ def find_campaign_hashtags(string_parts):
     return result
 
 
-def form_response_parts(query_result, username):
+def form_successful_response_parts(query_result, username):
 
     MAX_TWITTER_STATUS_LENGTH = 280
 
@@ -220,6 +220,35 @@ def handle_short_response(message_id, message_type, response_message, username):
     logger.debug("%s %s", username, response_message)
 
 
+def infer_plate_and_state_data(list_of_vehicle_tuples):
+    plate_data = []
+
+    for vehicle_tuple in list_of_vehicle_tuples:
+        this_plate = { 'original_string': ':'.join(vehicle_tuple), 'valid_plate': False }
+
+        if len(vehicle_tuple) != 2:
+            this_plate['valid_plate'] = False
+        else:
+            part0 = vehicle_tuple[0]
+            part1 = vehicle_tuple[1]
+
+            is_part0_state = detect_state(part0)
+            is_part1_state = detect_state(part1)
+
+            if is_part0_state and len(part1) > 0:
+                this_plate['state'] = part0
+                this_plate['plate'] = part1
+                this_plate['valid_plate'] = True
+            elif is_part1_state and len(part0) > 0:
+                this_plate['state'] = part1
+                this_plate['plate'] = part0
+                this_plate['valid_plate'] = True
+
+        plate_data.append(this_plate)
+
+    return plate_data
+
+
 def initiate_reply(received):
     logger.info('\n')
     logger.info('Calling initiate_reply')
@@ -248,13 +277,14 @@ def initiate_reply(received):
                     full_text       = extended_tweet['full_text']
                     modified_string = ' '.join(full_text.split())
 
-                    args_for_response['created_at']      = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                    args_for_response['id']              = received.id
-                    args_for_response['mentioned_users'] = [s.lower() for s in array_of_usernames]
-                    args_for_response['string_parts']    = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                    args_for_response['username']        = received.user.screen_name
+                    args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+                    args_for_response['id']                  = received.id
+                    args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
+                    args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                    args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                    args_for_response['username']            = received.user.screen_name
 
-                    process_message_response(received, args_for_response)
+                    process_response_message(received, args_for_response)
 
 
     elif hasattr(received, 'entities'):
@@ -269,13 +299,14 @@ def initiate_reply(received):
                 text            = received.text
                 modified_string = ' '.join(text.split())
 
-                args_for_response['created_at']      = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                args_for_response['id']              = received.id
-                args_for_response['mentioned_users'] = [s.lower() for s in array_of_usernames]
-                args_for_response['string_parts']    = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                args_for_response['username']        = received.user.screen_name
+                args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+                args_for_response['id']                  = received.id
+                args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
+                args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                args_for_response['username']            = received.user.screen_name
 
-                process_message_response(received, args_for_response)
+                process_response_message(received, args_for_response)
 
 
     elif hasattr(received, 'direct_message'):
@@ -289,12 +320,13 @@ def initiate_reply(received):
             text            = direct_message['text']
             modified_string = ' '.join(text.split())
 
-            args_for_response['created_at']   = direct_message['created_at']
-            args_for_response['id']           = direct_message['id']
-            args_for_response['string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-            args_for_response['username']     = sender['screen_name']
+            args_for_response['created_at']          = direct_message['created_at']
+            args_for_response['id']                  = direct_message['id']
+            args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+            args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+            args_for_response['username']            = sender['screen_name']
 
-            process_message_response(received, args_for_response)
+            process_response_message(received, args_for_response)
 
 
 def perform_queries(args):
@@ -538,48 +570,72 @@ def print_daily_summary():
     conn.close()
 
 
-
-def process_message_response(message, response_args):
+def process_response_message(message, response_args):
 
     logger.info('\n')
-    logger.info("Calling process_message_response")
+    logger.info("Calling process_response_message")
 
     # Print args
     logger.info('args:')
     logger.info('message: %s', message)
     logger.info('response_args: %s', response_args)
 
-    # Print message_type
-    message_type = 'direct_message' if hasattr(message, 'direct_message') else 'status'
-    logger.debug('message_type: %s', message_type)
-
-    # Grab username for reply.
-    username =  '@' + response_args['username']
-    logger.debug('username: %s', username)
 
     # Grab string parts
     string_parts = response_args['string_parts']
     logger.debug('string_parts: %s', string_parts)
 
+    plate_tuples = [s.split(':') for s in [e.lower() for i,e in enumerate(string_parts) if (':' in e.lower() and 'state:' not in e.lower() and 'plate:' not in e.lower())]]
+    logger.debug('plate_tuples: %s', plate_tuples)
+
+    potential_vehicles = infer_plate_and_state_data(plate_tuples)
+    logger.debug('potential_vehicles: %s', potential_vehicles)
+
+
+    # Grab legacy string parts
+    legacy_string_parts = response_args['legacy_string_parts']
+    logger.debug('legacy_string_parts: %s', legacy_string_parts)
+
+    legacy_plate_data = dict([s.split(':') for s in [e.lower() for i,e in enumerate(legacy_string_parts) if ('state:' in e.lower() or 'plate:' in e.lower())]])
+    if legacy_plate_data:
+        if detect_state(legacy_plate_data.get('state')):
+            legacy_plate_data['valid_plate'] = True
+        else:
+            legacy_plate_data['valid_plate'] = False
+
+        potential_vehicles.append(legacy_plate_data)
+
+    logger.debug('potential_vehicles: %s', potential_vehicles)
+
+
+    # Grab user info
+    username =  '@' + response_args['username']
+    logger.debug('username: %s', username)
+
     mentioned_users = response_args['mentioned_users'] if 'mentioned_users' in response_args else []
     logger.debug('mentioned_users: %s', mentioned_users)
 
-    # Grab tweet id for reply.
+
+    # Grab tweet details for reply.
     message_id = response_args['id']
     logger.debug("message id: %s", message_id)
 
     message_created_at = response_args['created_at']
     logger.debug('message created at: %s', message_created_at)
 
-    # Format plate and state information for query.
-    necessary_parts = [e.lower() for i,e in enumerate(string_parts) if ('state:' in e.lower() or 'plate:' in e.lower())]
-    logger.debug("necessary parts: %s", necessary_parts)
+    message_type = 'direct_message' if hasattr(message, 'direct_message') else 'status'
+    logger.debug('message_type: %s', message_type)
+
+
+    # Collect response parts here.
+    response_parts    = []
+    successful_lookup = False
 
 
     # Wrap in try/catch block
     try:
         # Split plate and state strings into key/value pairs.
-        query_info = dict([x.strip() for x in l] for l in [s.split(':') for s in necessary_parts])
+        query_info = {}
 
         query_info['created_at']         = message_created_at
         query_info['message_id']         = message_id
@@ -589,118 +645,137 @@ def process_message_response(message, response_args):
 
         logger.debug("lookup info: %s", query_info)
 
-        # If we have both parts, continue
-        if 'state' in query_info and 'plate' in query_info:
+        # for each vehicle, we need to determine if the supplied information amounts to a valid plate
+        # then we need to look up each valid plate
+        # then we need to respond in a single thread in order with the responses
 
-            # If plate not two characters, abort.
-            if determine_state(query_info['state']):
+        for potential_vehicle in potential_vehicles:
 
-                if len(query_info['plate']) > 0:
-                    result = perform_queries(query_info)
+            if potential_vehicle.get('valid_plate'):
 
-                    # Favorite every look-up from a status
-                    if message_type != 'direct_message':
-                        try:
-                            is_production and api.create_favorite(message_id)
-                        except tweepy.error.TweepError as te:
-                            # There's no easy way to know if this status has already been favorited
-                            pass
+                query_info['plate'] = potential_vehicle.get('plate')
+                query_info['state'] = potential_vehicle.get('state')
 
-                    # If query returns, format output
-                    if any(result['violations']):
+                # Do the real work!
+                result = perform_queries(query_info)
 
-                        response_parts = form_response_parts(result, username)
+                # Record successful lookup.
+                successful_lookup = True
 
-                        if message_type == 'direct_message':
+                # If query returns, format output.
+                if any(result['violations']):
 
-                            logger.debug('responding as direct message')
+                    response_parts.append(form_successful_response_parts(result, username))
+                    # [[campaign_stuff], tickets_0, tickets_1, etc.]
 
-                            combined_message = recursively_process_direct_messages(response_parts)
-
-                            logger.debug('combined_message: %s', combined_message)
-
-                            is_production and api.send_direct_message(screen_name = username, text = combined_message)
-
-                        else:
-                            logger.debug('responding as status update')
-
-                            recursively_process_status_updates(response_parts, message_id)
-
-                    else:
-                        # Let user know we didn't find anything.
-                        sorry_message = "{} Sorry, I couldn't find any tickets for that plate.".format(username)
-
-                        handle_short_response(message_id, message_type, sorry_message, username)
                 else:
-                    # Report blank plate to user
-                    sorry_message = "{} Sorry, but the plate appears to be blank.".format(username)
-
-                    handle_short_response(message_id, message_type, sorry_message, username)
+                    # Let user know we didn't find anything.
+                    # sorry_message = "{} Sorry, I couldn't find any tickets for that plate.".format(username)
+                    response_parts.append(["{} Sorry, I couldn't find any tickets for {}:{}.".format(username, potential_vehicle.get('state').upper(), potential_vehicle.get('plate').upper())])
 
             else:
+
+                # Legacy data where state is not a valid abbreviation.
+                if potential_vehicle.get('state'):
+                    logger.debug("We have a state, but it's invalid.")
+
+                    response_parts.append(["{} The state should be two characters, but you supplied '{}'. Please try again.".format(username, potential_vehicle.get('state'))])
+
+                # '<state>:<plate>' format, but no valid state could be detected.
+                elif potential_vehicle.get('original_string'):
+                    logger.debug("We don't have a state, but we have an attempted lookup with the new format.")
+
+                    response_parts.append(["{} Sorry, a plate and state could not be inferred from {}.".format(username, potential_vehicle.get('original_string'))])
+
+
+        # If we don't look up a single plate successfully,
+        # figure out how we can help the user.
+        if not successful_lookup:
+
+            logger.debug('The data seems to be in the wrong format.')
+
+            state_regex    = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QB|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
+            numbers_regex  = r'[0-9]{4}'
+
+            state_pattern  = re.compile(state_regex)
+            number_pattern = re.compile(numbers_regex)
+
+            state_matches  = [state_pattern.search(s.upper()) != None for s in string_parts]
+            number_matches = [number_pattern.search(s.upper()) != None for s in list(filter(lambda part: re.sub(r'\.|@', '', part.lower()) not in set(mentioned_users), string_parts))]
+
+            # We have what appears to be a plate and a state abbreviation.
+            if all([any(state_matches), any(number_matches)]):
+                logger.debug('There is both plate and state information in this message.')
+
                 # Let user know plate format
-                help_message = "The state should be two characters, {}, but you supplied '{}'. Please try again.".format(username, query_info['state'])
+                response_parts.append(["{} I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234".format(username)])
 
-                handle_short_response(message_id, message_type, help_message, username)
+            # Maybe we have plate or state. Let's find out.
+            else:
+                logger.debug('The tweet is missing either state or plate or both.')
 
-        else:
-          logger.debug('We seem to be missing some important information.')
+                state_regex_minus_words   = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|IA|ID|IL|KS|KY|LA|MA|MB|MD|MH|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|PA|PE|PR|PW|QB|RI|SC|SD|SK|STATE|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
+                state_minus_words_pattern = re.compile(state_regex_minus_words)
 
-          state_regex    = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QB|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
-          numbers_regex  = r'[0-9]{4}'
+                state_minus_words_matches = [state_minus_words_pattern.search(s.upper()) != None for s in string_parts]
 
-          state_pattern  = re.compile(state_regex)
-          number_pattern = re.compile(numbers_regex)
+                number_matches = [number_pattern.search(s.upper()) != None for s in list(filter(lambda part: re.sub(r'\.|@', '', part.lower()) not in set(mentioned_users), string_parts))]
 
-          state_matches  = [state_pattern.search(s.upper()) != None for s in string_parts]
-          number_matches = [number_pattern.search(s.upper()) != None for s in list(filter(lambda part: re.sub(r'\.|@', '', part.lower()) not in set(mentioned_users), string_parts))]
+                # We have either plate or state.
+                if any(state_minus_words_matches) or any(number_matches):
 
-          if all([any(state_matches), any(number_matches)]):
-              logger.debug('There is both plate and state information in this tweet.')
+                    # Let user know plate format
+                    response_parts.append(["{} I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234".format(username)])
 
-              # Let user know plate format
-              help_message = "{} I’d be happy to look that up for you!\n\nJust a reminder, the format is plate:abc1234 state:NY".format(username)
-
-              handle_short_response(message_id, message_type, help_message, username)
-
-          else:
-              logger.debug('The tweet is missing either state or plate or both.')
-
-              state_regex_minus_words   = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|IA|ID|IL|KS|KY|LA|MA|MB|MD|MH|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|PA|PE|PR|PW|QB|RI|SC|SD|SK|STATE|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
-              state_minus_words_pattern = re.compile(state_regex_minus_words)
-
-              state_minus_words_matches = [state_minus_words_pattern.search(s.upper()) != None for s in string_parts]
-
-              number_matches = [number_pattern.search(s.upper()) != None for s in list(filter(lambda part: re.sub(r'\.|@', '', part.lower()) not in set(mentioned_users), string_parts))]
-
-              if any(state_minus_words_matches) or any(number_matches):
-
-                  # Let user know plate format
-                  help_message = "{} I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is plate:abc1234 state:NY".format(username)
-
-                  handle_short_response(message_id, message_type, help_message, username)
-
-              else:
-                  logger.debug('ignoring message since no plate or state information to respond to.')
-
-
+                # We have neither plate nor state. Do nothing.
+                else:
+                    logger.debug('ignoring message since no plate or state information to respond to.')
 
 
     except Exception as e:
         # Log error
 
-        response_message = "{} Sorry, I encountered an error. Tagging @bdhowald.".format(username)
+        response_parts.append(["{} Sorry, I encountered an error. Tagging @bdhowald.".format(username)])
 
-        if message_type == 'direct_message':
-            is_production and api.send_direct_message(screen_name = username, text = response_message)
-        else:
-            is_production and api.update_status(response_message, message_id)
+        # if message_type == 'direct_message':
+        #     is_production and api.send_direct_message(screen_name = username, text = response_message)
+        # else:
+        #     is_production and api.update_status(response_message, message_id)
 
         logger.error('Missing necessary information to continue')
         logger.error(e)
         logger.error(str(e))
         logger.error(e.args)
         logging.exception("stack trace")
+
+
+    # Respond to user
+    if message_type == 'direct_message':
+
+        logger.debug('responding as direct message')
+
+        combined_message = recursively_process_direct_messages(response_parts)
+
+        logger.debug('combined_message: %s', combined_message)
+
+        is_production and api.send_direct_message(screen_name = username, text = combined_message)
+
+    else:
+        # If we have at least one successful lookup, favorite the status
+        if successful_lookup:
+
+            # Favorite every look-up from a status
+            try:
+                is_production and api.create_favorite(message_id)
+
+            # But don't crash on error
+            except tweepy.error.TweepError as te:
+                # There's no easy way to know if this status has already been favorited
+                pass
+
+        logger.debug('responding as status update')
+
+        recursively_process_status_updates(response_parts, message_id)
 
 
 def recursively_process_direct_messages(response_parts):
