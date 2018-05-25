@@ -691,7 +691,7 @@ def process_response_message(message, response_args):
 
                     response_parts.append(["{} Sorry, a plate and state could not be inferred from {}.".format(username, potential_vehicle.get('original_string'))])
 
-                elif potential_vehicle.get('plate')
+                elif potential_vehicle.get('plate'):
                     logger.debug("We have a plate, but no state")
 
                     response_parts.append(["{} Sorry, the state appears to be blank.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234".format(username, query_info['state'])])
