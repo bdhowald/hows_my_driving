@@ -600,7 +600,7 @@ def process_response_message(message, response_args):
     legacy_string_parts = response_args['legacy_string_parts']
     logger.debug('legacy_string_parts: %s', legacy_string_parts)
 
-    legacy_plate_data = dict([match.split(':') for match in [part.lower() for part in legacy_string_parts if ('state:' in part.lower() or 'plate:' in part.lower())]])
+    legacy_plate_data = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower() for part in legacy_string_parts if ('state:' in part.lower() or 'plate:' in part.lower())]])
     if legacy_plate_data:
         if detect_state(legacy_plate_data.get('state')):
             legacy_plate_data['valid_plate'] = True
