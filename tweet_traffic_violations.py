@@ -329,7 +329,7 @@ def initiate_reply(received):
             args_for_response['string_parts']        = re.split(' ', modified_string.lower())
             args_for_response['username']            = sender['screen_name']
 
-            if received.user.screen_name != 'HowsMyDrivingNY':
+            if sender['screen_name'] != 'HowsMyDrivingNY':
                 process_response_message(received, args_for_response)
 
 
