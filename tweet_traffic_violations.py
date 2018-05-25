@@ -585,7 +585,7 @@ def process_response_message(message, response_args):
     string_parts = response_args['string_parts']
     logger.debug('string_parts: %s', string_parts)
 
-    plate_tuples = [match.split(':') for match in [part.lower() for part in string_parts if (':' in part.lower() and '://' not in e.lower() and 'state:' not in part.lower() and 'plate:' not in part.lower())]]
+    plate_tuples = [match.split(':') for match in [part.lower() for part in string_parts if (':' in part.lower() and '://' not in part.lower() and 'state:' not in part.lower() and 'plate:' not in part.lower())]]
     logger.debug('plate_tuples: %s', plate_tuples)
 
     potential_vehicles = infer_plate_and_state_data(plate_tuples)
