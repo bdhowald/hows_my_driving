@@ -24,11 +24,10 @@ LOGGING_LEVELS = {'critical': logging.CRITICAL,
 
 
 
-class TweetTrafficViolations:
+class TrafficViolationsTweeter:
 
     def __init__(self):
-        self.__username = getpass.getuser()
-        password_str    = 'SafeStreetsNow2018!' if self.__username == 'safestreets' else ''
+        password_str = 'SafeStreetsNow2018!' if getpass.getuser() == 'safestreets' else ''
 
 
         # Create a engine for connecting to MySQL
@@ -221,9 +220,9 @@ class TweetTrafficViolations:
 
     def handle_short_response(self, message_id, message_type, response_message, username):
         if message_type == 'direct_message':
-            self.is_production() and api.send_direct_message(screen_name = username, text = response_message)
+            self.is_production() and self.api.send_direct_message(screen_name = username, text = response_message)
         else:
-            self.is_production() and api.update_status(response_message, in_reply_to_status_id = message_id)
+            self.is_production() and self.api.update_status(response_message, in_reply_to_status_id = message_id)
 
         self.logger.debug("%s %s", username, response_message)
 
@@ -342,7 +341,7 @@ class TweetTrafficViolations:
 
 
     def is_production(self):
-        return True if self.__username == 'safestreets' else False
+        return True if getpass.getuser() == 'safestreets' else False
 
 
     def perform_queries(self, args):
@@ -580,7 +579,7 @@ class TweetTrafficViolations:
         if num_lookups > 0:
             summary_string = 'On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets.'.format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
 
-            self.is_production() and api.update_status(summary_string)
+            self.is_production() and self.api.update_status(summary_string)
 
         # Close connection.
         conn.close()
@@ -760,9 +759,9 @@ class TweetTrafficViolations:
             response_parts.append(["{} Sorry, I encountered an error. Tagging @bdhowald.".format(username)])
 
             # if message_type == 'direct_message':
-            #     is_production and api.send_direct_message(screen_name = username, text = response_message)
+            #     is_production and self.api.send_direct_message(screen_name = username, text = response_message)
             # else:
-            #     is_production and api.update_status(response_message, message_id)
+            #     is_production and self.api.update_status(response_message, message_id)
 
             logger.error('Missing necessary information to continue')
             logger.error(e)
@@ -780,7 +779,7 @@ class TweetTrafficViolations:
 
             self.logger.debug('combined_message: %s', combined_message)
 
-            self.is_production() and api.send_direct_message(screen_name = username, text = combined_message)
+            self.is_production() and self.api.send_direct_message(screen_name = username, text = combined_message)
 
         else:
             # If we have at least one successful lookup, favorite the status
@@ -788,7 +787,7 @@ class TweetTrafficViolations:
 
                 # Favorite every look-up from a status
                 try:
-                    self.is_production() and api.create_favorite(message_id)
+                    self.is_production() and self.api.create_favorite(message_id)
 
                 # But don't crash on error
                 except tweepy.error.TweepError as te:
@@ -822,7 +821,7 @@ class TweetTrafficViolations:
             if isinstance(part, list):
                 message_id = self.recursively_process_status_updates(part, message_id)
             else:
-                new_message = self.is_production() and api.update_status(part, in_reply_to_status_id = message_id)
+                new_message = self.is_production() and self.api.update_status(part, in_reply_to_status_id = message_id)
                 message_id  = self.is_production() and new_message.id
 
                 self.logger.debug("message_id: %s", str(message_id))
@@ -925,9 +924,9 @@ class MyStreamListener (tweepy.StreamListener):
 
 if __name__ == '__main__':
     if sys.argv[-1] == 'print_daily_summary':
-        tweeter = TweetTrafficViolations()
+        tweeter = TrafficViolationsTweeter()
         tweeter.print_daily_summary()
     else:
-        tweeter = TweetTrafficViolations()
+        tweeter = TrafficViolationsTweeter()
         tweeter.run()
         app.run()
