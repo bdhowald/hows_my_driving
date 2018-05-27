@@ -313,10 +313,10 @@ class TrafficViolationsTweeter:
                         args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                         args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                         args_for_response['username']            = received.user.screen_name
-
+                        args_for_response['type']                = 'status'
 
                         if received.user.screen_name != 'HowsMyDrivingNY':
-                            self.process_response_message(received, args_for_response)
+                            self.process_response_message(args_for_response)
 
 
         elif hasattr(received, 'entities'):
@@ -337,9 +337,10 @@ class TrafficViolationsTweeter:
                     args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                     args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                     args_for_response['username']            = received.user.screen_name
+                    args_for_response['type']                = 'status'
 
                     if received.user.screen_name != 'HowsMyDrivingNY':
-                        self.process_response_message(received, args_for_response)
+                        self.process_response_message(args_for_response)
 
 
         elif hasattr(received, 'direct_message'):
@@ -358,9 +359,10 @@ class TrafficViolationsTweeter:
                 args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
                 args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                 args_for_response['username']            = sender['screen_name']
+                args_for_response['type']                = 'direct_message'
 
                 if sender['screen_name'] != 'HowsMyDrivingNY':
-                    self.process_response_message(received, args_for_response)
+                    self.process_response_message(args_for_response)
 
 
     def is_production(self):
@@ -620,14 +622,13 @@ class TrafficViolationsTweeter:
         conn.close()
 
 
-    def process_response_message(self, message, response_args):
+    def process_response_message(self, response_args):
 
         self.logger.info('\n')
         self.logger.info("Calling process_response_message")
 
         # Print args
         self.logger.info('args:')
-        self.logger.info('message: %s', message)
         self.logger.info('response_args: %s', response_args)
 
 
@@ -667,14 +668,13 @@ class TrafficViolationsTweeter:
         message_created_at = response_args['created_at']
         self.logger.debug('message created at: %s', message_created_at)
 
-        message_type = 'direct_message' if hasattr(message, 'direct_message') else 'status'
+        message_type = response_args['type']
         self.logger.debug('message_type: %s', message_type)
 
 
         # Collect response parts here.
         response_parts    = []
         successful_lookup = False
-
 
         # Wrap in try/catch block
         try:
@@ -791,21 +791,15 @@ class TrafficViolationsTweeter:
 
 
         except Exception as e:
+
             # Log error
-
             response_parts.append(["{} Sorry, I encountered an error. Tagging @bdhowald.".format(username)])
-
-            # if message_type == 'direct_message':
-            #     is_production and self.api.send_direct_message(screen_name = username, text = response_message)
-            # else:
-            #     is_production and self.api.update_status(response_message, message_id)
 
             self.logger.error('Missing necessary information to continue')
             self.logger.error(e)
             self.logger.error(str(e))
             self.logger.error(e.args)
             logging.exception("stack trace")
-
 
         # Respond to user
         if message_type == 'direct_message':
@@ -873,7 +867,8 @@ class MyStreamListener (tweepy.StreamListener):
 
     def __init__(self, tweeter):
         # Create a logger
-        self.logger = logging.getLogger('hows_my_driving')
+        self.logger  = logging.getLogger('hows_my_driving')
+        self.tweeter = tweeter
 
         super(MyStreamListener,self).__init__()
 
@@ -906,7 +901,7 @@ class MyStreamListener (tweepy.StreamListener):
 
             message = tweepy.Status.parse(self.api, data_dict)
 
-            tweeter.initiate_reply(message)
+            self.tweeter.initiate_reply(message)
             # if self.on_direct_message(status) is False:
             #     return False
         elif 'friends' in data_dict:
@@ -943,7 +938,7 @@ class MyStreamListener (tweepy.StreamListener):
 
             status = tweepy.Status.parse(self.api, data_dict)
 
-            tweeter.initiate_reply(status)
+            self.tweeter.initiate_reply(status)
             # if self.on_status(status) is False:
             #     return False
         else:
@@ -956,7 +951,7 @@ class MyStreamListener (tweepy.StreamListener):
 
     def on_error(self, status):
         self.logger.debug("on_error: %s", status)
-        self.logger.debug("self: %s", self)
+        # self.logger.debug("self: %s", self)
 
     def on_direct_message(self, status):
         self.logger.debug("on_direct_message: %s", status)

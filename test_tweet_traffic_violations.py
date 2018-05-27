@@ -8,13 +8,16 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 # import class
-from tweet_traffic_violations import TrafficViolationsTweeter
+from tweet_traffic_violations import MyStreamListener, TrafficViolationsTweeter
 
 import pdb
 
 import getpass
+import json
 import requests
 import pytz
+import tweepy
+
 from datetime import datetime, timezone, time, timedelta
 
 
@@ -27,19 +30,114 @@ def inc(part, in_reply_to_status_id):
     int_mock.id = (in_reply_to_status_id + 1)
     return int_mock
 
+def create_error(arg):
+    raise ValueError('generic error')
+
+
+class TestMyStreamListener(unittest.TestCase):
+
+    def setUp(self):
+        self.listener = MyStreamListener(TrafficViolationsTweeter())
+
+
+    def test_on_data(self):
+        direct_message_data = '{"direct_message": "stuff"}'
+
+        parse_mock = MagicMock(name='parse')
+        parse_mock.return_value = 123
+
+        status_mock = MagicMock(name='status')
+        status_mock.parse = parse_mock
+
+        tweepy.Status = status_mock
+
+        initiate_reply_mock = MagicMock(name='initiate_reply')
+
+        self.listener.tweeter.initiate_reply = initiate_reply_mock
+
+        self.listener.on_data(direct_message_data)
+
+        self.listener.tweeter.initiate_reply.assert_called_with(123)
+        parse_mock.assert_called_with(self.listener.api, json.loads(direct_message_data))
+
+
+        event_data = '{"event": "stuff"}'
+
+        self.listener.on_data(event_data)
+
+        parse_mock.assert_called_with(self.listener.api, json.loads(event_data))
+
+
+        in_reply_to_status_id_data = '{"in_reply_to_status_id": "stuff"}'
+
+        self.listener.on_data(in_reply_to_status_id_data)
+
+        self.listener.tweeter.initiate_reply.assert_called_with(123)
+        parse_mock.assert_called_with(self.listener.api, json.loads(in_reply_to_status_id_data))
+
+
+    def test_on_direct_message(self):
+        status_mock = MagicMock(name='status')
+
+        debug_mock  = MagicMock(name='debug')
+        logger_mock = MagicMock(name='logger')
+        logger_mock.debug = debug_mock
+
+        self.listener.logger = logger_mock
+
+        self.listener.on_direct_message(status_mock)
+
+        debug_mock.assert_called_with("on_direct_message: %s", status_mock)
+
+
+    def test_on_error(self):
+        status_mock = MagicMock(name='status')
+
+        debug_mock  = MagicMock(name='debug')
+        logger_mock = MagicMock(name='logger')
+        logger_mock.debug = debug_mock
+
+        self.listener.logger = logger_mock
+
+        self.listener.on_error(status_mock)
+
+        debug_mock.assert_called_with("on_error: %s", status_mock)
+
+
+    def test_on_event(self):
+        status_mock = MagicMock(name='status')
+
+        debug_mock  = MagicMock(name='debug')
+        logger_mock = MagicMock(name='logger')
+        logger_mock.debug = debug_mock
+
+        self.listener.logger = logger_mock
+
+        self.listener.on_event(status_mock)
+
+        debug_mock.assert_called_with("on_event: %s", status_mock)
+
+
+    def test_on_status(self):
+        status_mock = MagicMock(name='status')
+        status_mock.text = 'Here is some text!'
+
+        debug_mock  = MagicMock(name='debug')
+        logger_mock = MagicMock(name='logger')
+        logger_mock.debug = debug_mock
+
+        self.listener.logger = logger_mock
+
+        self.listener.on_status(status_mock)
+
+        debug_mock.assert_called_with("\n\n\non_status: %s\n\n\n", status_mock.text)
+
+
 
 class TestTrafficViolationsTweeter(unittest.TestCase):
 
     def setUp(self):
         self.tweeter = TrafficViolationsTweeter()
-
-    # def tearDown(self):
-    #     self.tweeter.dispose()
-
-    # @pytest.fixture
-    # def tweeter(self):
-    #     '''Returns a TrafficViolationsTweeter instance'''
-    #     return TrafficViolationsTweeter()
 
 
     def test_detect_campaign_hashtags(self):
@@ -147,7 +245,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         response_parts = [
           'bdhowald #NY_HME6483 has been queried 8 times.\n'
           '\n'
-          'Since the last time the vehicle was queried (May 26, 2018 at ' + adjusted_time.strftime('%I:%M%p') + '), '
+          'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
           '#NY_HME6483 has received 2 new tickets.\n'
           '\n'
           'Total parking and camera violation tickets: 25\n'
@@ -205,7 +303,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'ca:cad4534',
             'ny:456efgh'
           ],
-          'username': 'bdhowald'
+          'username': 'bdhowald',
+          'type': 'direct_message'
         }
 
 
@@ -250,7 +349,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'ny:456efgh',
             'bex:az:1234567'
           ],
-          'username': 'bdhowald'
+          'username': 'bdhowald',
+          'type': 'status'
         }
 
 
@@ -293,7 +393,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'ny:ny',
             'ca:1234567'
           ],
-          'username': 'bdhowald'
+          'username': 'bdhowald',
+          'type': 'status'
         }
 
 
@@ -306,17 +407,17 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.tweeter.initiate_reply(direct_message_mock)
 
-        process_response_message_mock.assert_called_with(direct_message_mock, direct_message_args_for_response)
+        process_response_message_mock.assert_called_with(direct_message_args_for_response)
 
 
         self.tweeter.initiate_reply(entities_mock)
 
-        process_response_message_mock.assert_called_with(entities_mock, entities_args_for_response)
+        process_response_message_mock.assert_called_with(entities_args_for_response)
 
 
         self.tweeter.initiate_reply(extended_tweet_mock)
 
-        process_response_message_mock.assert_called_with(extended_tweet_mock, extended_tweet_args_for_response)
+        process_response_message_mock.assert_called_with(extended_tweet_args_for_response)
 
 
     def test_is_production(self):
@@ -466,9 +567,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         midnight_yesterday = (eastern.localize(datetime.combine(today, time.min)) - timedelta(days=1)).astimezone(utc)
         end_of_yesterday   = (eastern.localize(datetime.combine(today, time.min)) - timedelta(seconds=1)).astimezone(utc)
 
-        num_lookups   = 123
-        num_tickets   = 456
-        empty_lookups = 0
+        num_lookups   = random.randint(1, 10000)
+        num_tickets   = random.randint(1, 1000000)
+        empty_lookups = random.randint(1, 100)
 
 
         cursor_mock = MagicMock(name='cursor')
@@ -500,8 +601,252 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         update_status_mock.assert_called_with(result_str)
 
 
-    # def test_process_response_message(self):
-    #     1+1
+    def test_process_response_message(self):
+        now           = datetime.now()
+        previous_time = now - timedelta(minutes=10)
+        utc           = pytz.timezone('UTC')
+        eastern       = pytz.timezone('US/Eastern')
+        utc_time      = utc.localize(now).astimezone(timezone.utc)
+        # eastern_time  = utc.localize(now).astimezone(eastern)
+        previous_utc  = utc.localize(previous_time).astimezone(timezone.utc)
+
+
+
+        ######################################
+        # Test direct message and new format #
+        ######################################
+
+        username1   = 'bdhowald'
+        message_id  = random.randint(10000000000000000000, 20000000000000000000)
+        response_args1 = {
+          'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
+          'id': message_id,
+          'legacy_string_parts': ['@howsmydrivingny',
+                                  'ny:hme6483'],
+          'string_parts': ['@howsmydrivingny',
+                           'ny:hme6483'],
+          'type': 'direct_message',
+          'username': username1
+        }
+        plate_lookup1 = {
+          'frequency': 1,
+           'plate': 'HME6483',
+           'previous_result': {'created_at': previous_time,
+                               'num_tickets': 15},
+           'state': 'NY',
+           'violations': [{'count': 4, 'name': 'No Standing - Day/Time Limits'},
+                          {'count': 3, 'name': 'No Parking - Street Cleaning'},
+                          {'count': 1, 'name': 'Failure To Display Meter Receipt'},
+                          {'count': 1, 'name': 'No Violation Description Available'},
+                          {'count': 1, 'name': 'Bus Lane Violation'},
+                          {'count': 1, 'name': 'Failure To Stop At Red Light'},
+                          {'count': 1, 'name': 'No Standing - Commercial Meter Zone'},
+                          {'count': 1, 'name': 'Expired Meter'},
+                          {'count': 1, 'name': 'Double Parking'},
+                          {'count': 1, 'name': 'No Angle Parking'}
+            ]
+        }
+
+        combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n"
+
+        plate_lookup_mock = MagicMock(name='plate_lookup')
+        plate_lookup_mock.return_value = plate_lookup1
+
+        is_production_mock = MagicMock(name='is_production')
+        is_production_mock.return_value = True
+
+        send_direct_message_mock = MagicMock('send_direct_message_mock')
+
+        api_mock = MagicMock(name='api')
+        api_mock.send_direct_message = send_direct_message_mock
+
+        self.tweeter.perform_plate_lookup = plate_lookup_mock
+        self.tweeter.is_production = is_production_mock
+        self.tweeter.api = api_mock
+
+        self.tweeter.process_response_message(response_args1)
+
+        send_direct_message_mock.assert_called_with(screen_name=('@' + username1), text=combined_message)
+
+
+
+        ##############################
+        # Test status and old format #
+        ##############################
+
+        username2      = 'BarackObama'
+        response_args2 = {
+          'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
+          'id': message_id,
+          'legacy_string_parts': ['@howsmydrivingny',
+                                  'plate:glf7467',
+                                  'state:pa'],
+          'string_parts': ['@howsmydrivingny',
+                           'plate:glf7467'
+                           'state:pa'],
+          'type': 'status',
+          'username': username2
+        }
+        plate_lookup2 = {
+          'frequency': 1,
+          'plate': 'GLF7467',
+          'previous_result': {'created_at': previous_time,
+                              'num_tickets': 49},
+          'state': 'PA',
+          'violations': [{'count': 17, 'name': 'No Parking - Street Cleaning'},
+                         {'count': 6, 'name': 'Expired Meter'},
+                         {'count': 5, 'name': 'No Violation Description Available'},
+                         {'count': 3, 'name': 'Fire Hydrant'},
+                         {'count': 3, 'name': 'No Parking - Day/Time Limits'},
+                         {'count': 3, 'name': 'Failure To Display Meter Receipt'},
+                         {'count': 3, 'name': 'School Zone Speed Camera Violation'},
+                         {'count': 2, 'name': 'No Parking - Except Authorized Vehicles'},
+                         {'count': 2, 'name': 'Bus Lane Violation'},
+                         {'count': 1, 'name': 'Failure To Stop At Red Light'},
+                         {'count': 1, 'name': 'No Standing - Day/Time Limits'},
+                         {'count': 1, 'name': 'No Standing - Except Authorized Vehicle'},
+                         {'count': 1, 'name': 'Obstructing Traffic Or Intersection'},
+                         {'count': 1, 'name': 'Double Parking'}]
+        }
+
+        response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n"]]
+
+        plate_lookup_mock.return_value = plate_lookup2
+
+        create_favorite_mock = MagicMock(name='is_production')
+        create_favorite_mock.return_value = True
+
+        recursively_process_status_updates_mock = MagicMock('recursively_process_status_updates')
+
+        api_mock.create_favorite = create_favorite_mock
+
+        self.tweeter.recursively_process_status_updates = recursively_process_status_updates_mock
+
+        self.tweeter.process_response_message(response_args2)
+
+        recursively_process_status_updates_mock.assert_called_with(response_parts2, message_id)
+
+
+
+        #############################
+        # Test campaign-only lookup #
+        #############################
+
+        username3        = 'NYCMayorsOffice'
+        campaign_hashtag = '#SaferSkillman'
+        response_args3   = {
+          'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
+          'id': message_id,
+          'legacy_string_parts': ['@howsmydrivingny',
+                                  campaign_hashtag],
+          'string_parts': ['@howsmydrivingny',
+                           campaign_hashtag],
+          'type': 'status',
+          'username': username3
+        }
+
+
+        campaign_tickets  = random.randint(1000, 2000)
+        campaign_vehicles = random.randint(100, 200)
+
+        campaign_result = {
+          'included_campaigns': [
+            {
+              'campaign_hashtag': campaign_hashtag,
+              'campaign_tickets': campaign_tickets,
+              'campaign_vehicles': campaign_vehicles
+            }
+          ]
+        }
+
+        included_campaigns = [(1, campaign_hashtag)]
+
+        response_parts3 = [['@' + username3 + ' ' + str(campaign_vehicles) + ' vehicles with a total of ' + str(campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n']]
+
+        detect_campaign_hashtags_mock = MagicMock(name='detect_campaign_hashtags')
+        detect_campaign_hashtags_mock.return_value = included_campaigns
+
+        perform_campaign_lookup_mock = MagicMock(name='perform_campaign_lookup')
+        perform_campaign_lookup_mock.return_value = campaign_result
+
+        self.tweeter.detect_campaign_hashtags = detect_campaign_hashtags_mock
+        self.tweeter.perform_campaign_lookup  = perform_campaign_lookup_mock
+
+        self.tweeter.process_response_message(response_args3)
+
+        perform_campaign_lookup_mock.assert_called_with(included_campaigns)
+        recursively_process_status_updates_mock.assert_called_with(response_parts3, message_id)
+
+
+
+        #########################
+        # Test plateless lookup #
+        #########################
+
+        username4        = 'NYC_DOT'
+        response_args4   = {
+          'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
+          'id': message_id,
+          'legacy_string_parts': ['@howsmydrivingny',
+                                  'plate',
+                                  'dkr9364',
+                                  'state',
+                                  'ny'],
+          'string_parts': ['@howsmydrivingny',
+                           'plate',
+                           'dkr9364',
+                           'state',
+                           'ny'],
+          'type': 'status',
+          'username': username4
+        }
+
+        response_parts4 = [['@' + username4 + ' I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234']]
+
+        detect_campaign_hashtags_mock.return_value = []
+
+        self.tweeter.process_response_message(response_args4)
+
+        recursively_process_status_updates_mock.assert_called_with(response_parts4, message_id)
+
+
+        username5        = 'NYCDDC'
+        response_args5   = {
+          'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
+          'id': message_id,
+          'legacy_string_parts': ['@howsmydrivingny',
+                                  'the',
+                                  'state',
+                                  'is',
+                                  'ny'],
+          'string_parts': ['@howsmydrivingny',
+                           'the',
+                           'state',
+                           'is',
+                           'ny'],
+          'type': 'status',
+          'username': username5
+        }
+
+        response_parts5 = [['@' + username5 + " I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
+
+        self.tweeter.process_response_message(response_args5)
+
+        recursively_process_status_updates_mock.assert_called_with(response_parts5, message_id)
+
+
+
+        #######################
+        # Test error handling #
+        #######################
+
+        response_parts6 = [['@' + username2 + " Sorry, I encountered an error. Tagging @bdhowald."]]
+
+        self.tweeter.perform_plate_lookup = create_error
+
+        self.tweeter.process_response_message(response_args2)
+
+        recursively_process_status_updates_mock.assert_called_with(response_parts6, message_id)
 
 
     def test_recursively_process_direct_messages(self):
@@ -544,17 +889,5 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         new_response_parts = [[[[str1]]]]
 
         self.assertEqual(self.tweeter.recursively_process_status_updates(response_parts, original_id), original_id + len(response_parts))
-
-
-
-
-
-
-
-
-
-
-
-
 
 
