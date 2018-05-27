@@ -26,22 +26,22 @@ LOGGING_LEVELS = {'critical': logging.CRITICAL,
 
 class TrafficViolationsTweeter:
 
+    MAX_TWITTER_STATUS_LENGTH = 280
+
     def __init__(self):
         password_str = 'SafeStreetsNow2018!' if getpass.getuser() == 'safestreets' else ''
-
 
         # Create a engine for connecting to MySQL
         self.engine = create_engine('mysql+pymysql://root:' + password_str + '@localhost/traffic_violations?charset=utf8')
 
-
         # Create a logger
         self.logger = logging.getLogger('hows_my_driving')
-
 
         # Set up Twitter auth
         self.auth = tweepy.OAuthHandler('UzW1c1Gy4FmktSkfXF1dgfupr', '17Uf3vrk44m5fjTUEBPx8sPltX45OfZZtApWhWqt139O0GBgkV')
         self.auth.set_access_token('976593574732222465-YKv9y3mT9Vhu7Ufm7xkfk6Z2T3By3K9', 'B9dNrNT5io8GrB18Roy4eUSqDoR9YvJoErHKfT8aw3sGl')
 
+        # keep reference to twitter api
         self.api = tweepy.API(self.auth, retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
 
 
@@ -63,17 +63,7 @@ class TrafficViolationsTweeter:
         userstream = twitterStream.userstream()
 
 
-    def detect_state(self, state_input):
-        state_abbr_regex   = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QB|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
-        # state_full_regex   = r'^(ALABAMA|ALASKA|ARKANSAS|ARIZONA|CALIFORNIA|COLORADO|CONNECTICUT|DELAWARE|D\.C\.|DISTRICT OF COLUMBIA|FEDERATED STATES OF MICRONESIA|FLORIDA|GEORGIA|GUAM|HAWAII|IDAHO|ILLINOIS|INDIANA|IOWA|KANSAS|KENTUCKY|LOUISIANA|MAINE|MARSHALL ISLANDS|MARYLAND|MASSACHUSETTS|MICHIGAN|MINNESTOA|MISSISSIPPI|MISSOURI|MONTANA|NEBRASKA|NEVADA|NEW HAMPSHIRE|NEW JERSEY|NEW MEXICO|NEW YORK|NORTH CAROLINA|NORTH DAKOTA|NORTHERN MARIANA ISLANDS|OHIO|OKLAHOMA|OREGON|PALAU|PENNSYLVANIA|PUERTO RICO|RHODE ISLAND|SOUTH CAROLINA|SOUTH DAKOTA|TENNESSEE|TEXAS|UTAH|VERMONT|U\.S\. VIRGIN ISLANDS|US VIRGIN ISLANDS|VIRGIN ISLANDS|VIRGINIA|WASHINGTON|WEST VIRGINIA|WISCONSIN|WYOMING)$'
-
-        state_abbr_pattern = re.compile(state_abbr_regex)
-        # state_full_pattern = re.compile(state_full_regex)
-
-        return state_abbr_pattern.search(state_input.upper()) != None# or state_full_pattern.search(state_input.upper()) != None
-
-
-    def find_campaign_hashtags(self, string_parts):
+    def detect_campaign_hashtags(self, string_parts):
         # Instantiate a connection.
         conn = self.engine.connect()
 
@@ -87,40 +77,73 @@ class TrafficViolationsTweeter:
         return result
 
 
-    def form_successful_response_parts(self, query_result, username):
+    def detect_state(self, state_input):
+        state_abbr_regex   = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QB|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
+        # state_full_regex   = r'^(ALABAMA|ALASKA|ARKANSAS|ARIZONA|CALIFORNIA|COLORADO|CONNECTICUT|DELAWARE|D\.C\.|DISTRICT OF COLUMBIA|FEDERATED STATES OF MICRONESIA|FLORIDA|GEORGIA|GUAM|HAWAII|IDAHO|ILLINOIS|INDIANA|IOWA|KANSAS|KENTUCKY|LOUISIANA|MAINE|MARSHALL ISLANDS|MARYLAND|MASSACHUSETTS|MICHIGAN|MINNESTOA|MISSISSIPPI|MISSOURI|MONTANA|NEBRASKA|NEVADA|NEW HAMPSHIRE|NEW JERSEY|NEW MEXICO|NEW YORK|NORTH CAROLINA|NORTH DAKOTA|NORTHERN MARIANA ISLANDS|OHIO|OKLAHOMA|OREGON|PALAU|PENNSYLVANIA|PUERTO RICO|RHODE ISLAND|SOUTH CAROLINA|SOUTH DAKOTA|TENNESSEE|TEXAS|UTAH|VERMONT|U\.S\. VIRGIN ISLANDS|US VIRGIN ISLANDS|VIRGIN ISLANDS|VIRGINIA|WASHINGTON|WEST VIRGINIA|WISCONSIN|WYOMING)$'
 
-        MAX_TWITTER_STATUS_LENGTH = 280
+        state_abbr_pattern = re.compile(state_abbr_regex)
+        # state_full_pattern = re.compile(state_full_regex)
+
+        return state_abbr_pattern.search(state_input.upper()) != None# or state_full_pattern.search(state_input.upper()) != None
+
+
+    def find_potential_vehicles(self, list_of_strings, use_legacy_logic=False):
+        # Find potential plates
+
+        # Use old logic of 'state:<state> plate:<plate>'
+        if use_legacy_logic:
+            potential_vehicles = []
+            legacy_plate_data  = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower() for part in list_of_strings if ('state:' in part.lower() or 'plate:' in part.lower())]])
+
+            if legacy_plate_data:
+                if self.detect_state(legacy_plate_data.get('state')):
+                    legacy_plate_data['valid_plate'] = True
+                else:
+                    legacy_plate_data['valid_plate'] = False
+
+                potential_vehicles.append(legacy_plate_data)
+
+            return potential_vehicles
+
+        # Use new logic of '<state>:<plate>'
+        else:
+            plate_tuples = [match.split(':') for match in re.findall(r'(\b[a-zA-Z9]{2}:[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+:[a-zA-Z9]{2}\b)', ' '.join(list_of_strings)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
+            # self.logger.debug('plate_tuples: %s', plate_tuples)
+
+            return self.infer_plate_and_state_data(plate_tuples)
+
+
+    def form_campaign_lookup_response_parts(self, query_result, username):
+        campaign_chunks  = []
+        campaign_string = ""
+
+        for campaign in query_result['included_campaigns']:
+            num_vehicles = campaign['campaign_vehicles']
+            num_tickets  = campaign['campaign_tickets']
+
+            next_string_part = "{} {} {} {} {} been tagged with {}.\n".format(num_vehicles, 'vehicle with' if num_vehicles == 1 else 'vehicles with a total of', num_tickets, 'ticket' if num_tickets == 1 else 'tickets', 'has' if num_vehicles == 1 else 'have', campaign['campaign_hashtag'])
+
+            # how long would it be
+            potential_response_length = len(username + ' ' + campaign_string + next_string_part)
+
+            if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
+                campaign_string += next_string_part
+            else:
+                campaign_chunks.append(username + ' ' + campaign_string)
+                campaign_string = next_string_part
+
+        # Get any part of string left over
+        campaign_chunks.append(username + ' ' + campaign_string)
+
+        return campaign_chunks
+
+
+    def form_plate_lookup_response_parts(self, query_result, username):
 
         # response_chunks holds tweet-length-sized parts of the response
         # to be tweeted out or appended into a single direct message.
         response_chunks   = []
         violations_string = ""
-
-
-        if query_result.get('included_campaigns'):
-            campaign_chunk  = []
-            campaign_string = ""
-
-            for campaign in query_result['included_campaigns']:
-                num_vehicles = campaign['campaign_vehicles']
-                num_tickets  = campaign['campaign_tickets']
-
-                next_string_part = "{} {} {} {} {} been tagged with {}.\n".format(num_vehicles, 'vehicle with' if num_vehicles == 1 else 'vehicles with a total of', num_tickets, 'ticket' if num_tickets == 1 else 'tickets', 'has' if num_vehicles == 1 else 'have', campaign['campaign_hashtag'])
-
-                # how long would it be
-                potential_response_length = len(username + ' ' + campaign_string + next_string_part)
-
-                if (potential_response_length <= MAX_TWITTER_STATUS_LENGTH):
-                    campaign_string += next_string_part
-                else:
-                    campaign_chunk.append(username + ' ' + campaign_string)
-                    campaign_string = next_string_part
-
-            # Get any part of string left over
-            campaign_chunk.append(username + ' ' + campaign_string)
-
-            # Put campaign string in its own tweet
-            response_chunks.append(campaign_chunk)
 
 
         # Get total violations
@@ -188,7 +211,7 @@ class TrafficViolationsTweeter:
             potential_response_length = len(username + ' ' + violations_string + next_string_part)
 
             # If username, space, violation string so far and new part are less or equal than 280 characters, append to existing tweet string.
-            if (potential_response_length <= MAX_TWITTER_STATUS_LENGTH):
+            if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
                 violations_string += next_string_part
 
                 self.logger.debug("length: %s", len(violations_string))
@@ -218,13 +241,13 @@ class TrafficViolationsTweeter:
         return response_chunks
 
 
-    def handle_short_response(self, message_id, message_type, response_message, username):
-        if message_type == 'direct_message':
-            self.is_production() and self.api.send_direct_message(screen_name = username, text = response_message)
-        else:
-            self.is_production() and self.api.update_status(response_message, in_reply_to_status_id = message_id)
+    # def handle_short_response(self, message_id, message_type, response_message, username):
+    #     if message_type == 'direct_message':
+    #         self.is_production() and self.api.send_direct_message(screen_name = username, text = response_message)
+    #     else:
+    #         self.is_production() and self.api.update_status(response_message, in_reply_to_status_id = message_id)
 
-        self.logger.debug("%s %s", username, response_message)
+    #     self.logger.debug("%s %s", username, response_message)
 
 
     def infer_plate_and_state_data(self, list_of_vehicle_tuples):
@@ -286,14 +309,14 @@ class TrafficViolationsTweeter:
 
                         args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
                         args_for_response['id']                  = received.id
-                        args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                         args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                        args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                         args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                         args_for_response['username']            = received.user.screen_name
 
 
                         if received.user.screen_name != 'HowsMyDrivingNY':
-                            selfprocess_response_message(received, args_for_response)
+                            self.process_response_message(received, args_for_response)
 
 
         elif hasattr(received, 'entities'):
@@ -310,8 +333,8 @@ class TrafficViolationsTweeter:
 
                     args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
                     args_for_response['id']                  = received.id
-                    args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                     args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                    args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                     args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                     args_for_response['username']            = received.user.screen_name
 
@@ -326,7 +349,7 @@ class TrafficViolationsTweeter:
             recipient       = direct_message['recipient']
             sender          = direct_message['sender']
 
-            if recipient['screen_name']  == 'HowsMyDrivingNY':
+            if recipient['screen_name'] == 'HowsMyDrivingNY':
                 text            = direct_message['text']
                 modified_string = ' '.join(text.split())
 
@@ -344,7 +367,47 @@ class TrafficViolationsTweeter:
         return True if getpass.getuser() == 'safestreets' else False
 
 
-    def perform_queries(self, args):
+    def perform_campaign_lookup(self, included_campaigns):
+
+        self.logger.debug('Performing lookup for campaigns.')
+
+        # Instantiate connection.
+        conn = self.engine.connect()
+
+        result = {'included_campaigns': []}
+
+        for campaign in included_campaigns:
+            # get new total for tickets
+            campaign_tickets_query_string = """
+              select count(id) as campaign_vehicles, ifnull(sum(num_tickets), 0) as campaign_tickets
+                    from plate_lookups t1
+                   where id in
+                       (select plate_lookup_id
+                          from campaigns_plate_lookups
+                        where campaign_id = %s)
+                     and t1.created_at =
+                       (select MAX(t2.created_at)
+                          from plate_lookups t2
+                          join campaigns_plate_lookups cpl
+                            on t2.id = cpl.plate_lookup_id
+                         where t2.plate = t1.plate
+                           and t2.state = t1.state
+                           and count_towards_frequency = 1
+                           and t2.id = cpl.plate_lookup_id);
+            """
+
+            campaign_tickets_result = conn.execute(campaign_tickets_query_string.replace('\n', ''), (campaign[0])).fetchone()
+            # return data
+            # result['included_campaigns'].append((campaign[1], int(campaign_tickets), int(num_vehicles)))
+            result['included_campaigns'].append({'campaign_hashtag': campaign[1], 'campaign_tickets': int(campaign_tickets_result[1]), 'campaign_vehicles': int(campaign_tickets_result[0])})
+
+        # Close the connection.
+        conn.close()
+
+        return result
+
+
+    def perform_plate_lookup(self, args):
 
         self.logger.debug('Performing lookup for plate.')
 
@@ -471,6 +534,7 @@ class TrafficViolationsTweeter:
 
 
 
+
         # See if we've seen this vehicle before.
         previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, True))
         # Turn data into list of dicts with attribute keys
@@ -478,9 +542,9 @@ class TrafficViolationsTweeter:
 
         # if we have a previous lookup, add it to the return data.
         if previous_data:
-          result['previous_result'] = previous_data[0]
+            result['previous_result'] = previous_data[0]
 
-          self.logger.debug('we have previous data: %s', previous_data[0])
+            self.logger.debug('we have previous data: %s', previous_data[0])
 
 
         # Find the number of times we have seen this vehicle before.
@@ -498,38 +562,9 @@ class TrafficViolationsTweeter:
             insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, observed, message_id, lookup_source, created_at, twitter_handle, count_towards_frequency, num_tickets) values (%s, %s, NULL, %s, %s, %s, %s, %s, %s) """, (plate, state, message_id, message_type, created_at, username, count_towards_frequency, total_violations))
 
             # Iterate through included campaigns to tie lookup to each
-            if args.get('included_campaigns'):
-                result['included_campaigns'] = []
-
-                for campaign in args['included_campaigns']:
-                    # insert join record for campaign lookup
-                    conn.execute(""" insert into campaigns_plate_lookups (campaign_id, plate_lookup_id) values (%s, %s) """, (campaign[0], insert_lookup.lastrowid))
-
-                    # get new total for tickets
-                    campaign_tickets_query_string = """
-                      select count(id) as campaign_vehicles, ifnull(sum(num_tickets), 0) as campaign_tickets
-                            from plate_lookups t1
-                           where id in
-                               (select plate_lookup_id
-                                  from campaigns_plate_lookups
-                                where campaign_id = %s)
-                             and t1.created_at =
-                               (select MAX(t2.created_at)
-                                  from plate_lookups t2
-                                  join campaigns_plate_lookups cpl
-                                    on t2.id = cpl.plate_lookup_id
-                                 where t2.plate = t1.plate
-                                   and t2.state = t1.state
-                                   and count_towards_frequency = 1
-                                   and t2.id = cpl.plate_lookup_id);
-                    """
-
-                    campaign_tickets_result = conn.execute(campaign_tickets_query_string.replace('\n', ''), (campaign[0])).fetchone()
-
-                    # return data
-                    # result['included_campaigns'].append((campaign[1], int(campaign_tickets), int(num_vehicles)))
-                    result['included_campaigns'].append({'campaign_hashtag': campaign[1], 'campaign_tickets': int(campaign_tickets_result[1]), 'campaign_vehicles': int(campaign_tickets_result[0])})
-
+            for campaign in args['included_campaigns']:
+                # insert join record for campaign lookup
+                conn.execute(""" insert into campaigns_plate_lookups (campaign_id, plate_lookup_id) values (%s, %s) """, (campaign[0], insert_lookup.lastrowid))
 
 
         # how many times have we searched for this plate from a tweet
@@ -600,26 +635,20 @@ class TrafficViolationsTweeter:
         string_parts = response_args['string_parts']
         self.logger.debug('string_parts: %s', string_parts)
 
-        plate_tuples = [match.split(':') for match in re.findall(r'(\b[a-zA-Z9]{2}:[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+:[a-zA-Z9]{2}\b)', ' '.join(string_parts)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
-        self.logger.debug('plate_tuples: %s', plate_tuples)
-
-        potential_vehicles = self.infer_plate_and_state_data(plate_tuples)
+        # Find potential plates
+        potential_vehicles = self.find_potential_vehicles(string_parts)
         self.logger.debug('potential_vehicles: %s', potential_vehicles)
+
+        # Find included campaign hashtags
+        included_campaigns = self.detect_campaign_hashtags(string_parts)
+        self.logger.debug('included_campaigns: %s', included_campaigns)
 
 
         # Grab legacy string parts
         legacy_string_parts = response_args['legacy_string_parts']
         self.logger.debug('legacy_string_parts: %s', legacy_string_parts)
 
-        legacy_plate_data = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower() for part in legacy_string_parts if ('state:' in part.lower() or 'plate:' in part.lower())]])
-        if legacy_plate_data:
-            if self.detect_state(legacy_plate_data.get('state')):
-                legacy_plate_data['valid_plate'] = True
-            else:
-                legacy_plate_data['valid_plate'] = False
-
-            potential_vehicles.append(legacy_plate_data)
-
+        potential_vehicles += self.find_potential_vehicles(legacy_string_parts, True)
         self.logger.debug('potential_vehicles: %s', potential_vehicles)
 
 
@@ -653,10 +682,10 @@ class TrafficViolationsTweeter:
             query_info = {}
 
             query_info['created_at']         = message_created_at
+            query_info['included_campaigns'] = included_campaigns
             query_info['message_id']         = message_id
             query_info['message_type']       = message_type
             query_info['username']           = username
-            query_info['included_campaigns'] = self.find_campaign_hashtags(string_parts)
 
             self.logger.debug("lookup info: %s", query_info)
 
@@ -668,19 +697,19 @@ class TrafficViolationsTweeter:
 
                 if potential_vehicle.get('valid_plate'):
 
-                    query_info['plate'] = potential_vehicle.get('plate')
-                    query_info['state'] = potential_vehicle.get('state')
+                    query_info['plate']                  = potential_vehicle.get('plate')
+                    query_info['state']                  = potential_vehicle.get('state')
 
                     # Do the real work!
-                    result = self.perform_queries(query_info)
+                    plate_lookup = self.perform_plate_lookup(query_info)
 
                     # Record successful lookup.
                     successful_lookup = True
 
                     # If query returns, format output.
-                    if any(result['violations']):
+                    if any(plate_lookup['violations']):
 
-                        response_parts.append(self.form_successful_response_parts(result, username))
+                        response_parts.append(self.form_plate_lookup_response_parts(plate_lookup, username))
                         # [[campaign_stuff], tickets_0, tickets_1, etc.]
 
                     else:
@@ -707,6 +736,14 @@ class TrafficViolationsTweeter:
                         self.logger.debug("We have a plate, but no state")
 
                         response_parts.append(["{} Sorry, the state appears to be blank.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234".format(username, query_info['state'])])
+
+
+            # Look up campaign hashtags after doing the plate lookups and then prepend to response.
+            if included_campaigns:
+                campaign_lookup = self.perform_campaign_lookup(included_campaigns)
+                response_parts.insert(0, self.form_campaign_lookup_response_parts(campaign_lookup, username))
+
+                successful_lookup = True
 
 
             # If we don't look up a single plate successfully,
@@ -763,10 +800,10 @@ class TrafficViolationsTweeter:
             # else:
             #     is_production and self.api.update_status(response_message, message_id)
 
-            logger.error('Missing necessary information to continue')
-            logger.error(e)
-            logger.error(str(e))
-            logger.error(e.args)
+            self.logger.error('Missing necessary information to continue')
+            self.logger.error(e)
+            self.logger.error(str(e))
+            self.logger.error(e.args)
             logging.exception("stack trace")
 
 
@@ -821,10 +858,13 @@ class TrafficViolationsTweeter:
             if isinstance(part, list):
                 message_id = self.recursively_process_status_updates(part, message_id)
             else:
-                new_message = self.is_production() and self.api.update_status(part, in_reply_to_status_id = message_id)
-                message_id  = self.is_production() and new_message.id
+                if self.is_production():
+                    new_message = self.api.update_status(part, in_reply_to_status_id = message_id)
+                    message_id  = new_message.id
 
-                self.logger.debug("message_id: %s", str(message_id))
+                    self.logger.debug("message_id: %s", str(message_id))
+                else:
+                    self.logger.debug("This is where 'self.api.update_status(part, in_reply_to_status_id = message_id)' would be called in production.")
 
         return message_id
 
