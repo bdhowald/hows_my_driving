@@ -208,9 +208,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         campaign_data2 = {'included_campaigns': [{'campaign_hashtag': '#BetterPresident', 'campaign_tickets': 1, 'campaign_vehicles': 1}]}
         campaign_data3 = {'included_campaigns': [{'campaign_hashtag': '#BusTurnaround', 'campaign_tickets': 0, 'campaign_vehicles': 1}]}
 
-        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data1, '@bdhowald'), ['@bdhowald 6 vehicles with a total of 71 tickets have been tagged with #SaferSkillman.\n'])
-        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data2, '@BarackObama'), ['@BarackObama 1 vehicle with 1 ticket has been tagged with #BetterPresident.\n'])
-        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data3, '@FixQueensBlvd'), ['@FixQueensBlvd 1 vehicle with 0 tickets has been tagged with #BusTurnaround.\n'])
+        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data1, '@bdhowald'), ['@bdhowald 6 vehicles with a total of 71 tickets have been tagged with #SaferSkillman.\n\n'])
+        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data2, '@BarackObama'), ['@BarackObama 1 vehicle with 1 ticket has been tagged with #BetterPresident.\n\n'])
+        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data3, '@FixQueensBlvd'), ['@FixQueensBlvd 1 vehicle with 0 tickets has been tagged with #BusTurnaround.\n\n'])
 
 
     def test_form_plate_lookup_response_parts(self):
@@ -761,7 +761,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         included_campaigns = [(1, campaign_hashtag)]
 
-        response_parts3 = [['@' + username3 + ' ' + str(campaign_vehicles) + ' vehicles with a total of ' + str(campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n']]
+        response_parts3 = [['@' + username3 + ' ' + str(campaign_vehicles) + ' vehicles with a total of ' + str(campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n\n']]
 
         detect_campaign_hashtags_mock = MagicMock(name='detect_campaign_hashtags')
         detect_campaign_hashtags_mock.return_value = included_campaigns

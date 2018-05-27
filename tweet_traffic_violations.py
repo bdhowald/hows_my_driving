@@ -121,7 +121,7 @@ class TrafficViolationsTweeter:
             num_vehicles = campaign['campaign_vehicles']
             num_tickets  = campaign['campaign_tickets']
 
-            next_string_part = "{} {} {} {} {} been tagged with {}.\n".format(num_vehicles, 'vehicle with' if num_vehicles == 1 else 'vehicles with a total of', num_tickets, 'ticket' if num_tickets == 1 else 'tickets', 'has' if num_vehicles == 1 else 'have', campaign['campaign_hashtag'])
+            next_string_part = "{} {} {} {} {} been tagged with {}.\n\n".format(num_vehicles, 'vehicle with' if num_vehicles == 1 else 'vehicles with a total of', num_tickets, 'ticket' if num_tickets == 1 else 'tickets', 'has' if num_vehicles == 1 else 'have', campaign['campaign_hashtag'])
 
             # how long would it be
             potential_response_length = len(username + ' ' + campaign_string + next_string_part)
