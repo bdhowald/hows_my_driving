@@ -225,22 +225,33 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'plate': 'HME6483',
           'state': 'NY',
           'violations': [
-            {'name': 'No Standing - Day/Time Limits', 'count': 14},
-            {'name': 'No Parking - Street Cleaning', 'count': 3},
-            {'name': 'Failure To Display Meter Receipt', 'count': 1},
-            {'name': 'No Violation Description Available', 'count': 1},
-            {'name': 'Bus Lane Violation', 'count': 1},
-            {'name': 'Failure To Stop At Red Light', 'count': 1},
-            {'name': 'No Standing - Commercial Meter Zone', 'count': 1},
-            {'name': 'Expired Meter', 'count': 1}, {'name': 'Double Parking', 'count': 1},
-            {'name': 'No Angle Parking', 'count': 1}
+            {'title': 'No Standing - Day/Time Limits', 'count': 14},
+            {'title': 'No Parking - Street Cleaning', 'count': 3},
+            {'title': 'Failure To Display Meter Receipt', 'count': 1},
+            {'title': 'No Violation Description Available', 'count': 1},
+            {'title': 'Bus Lane Violation', 'count': 1},
+            {'title': 'Failure To Stop At Red Light', 'count': 1},
+            {'title': 'No Standing - Commercial Meter Zone', 'count': 1},
+            {'title': 'Expired Meter', 'count': 1},
+            {'title': 'Double Parking', 'count': 1},
+            {'title': 'No Angle Parking', 'count': 1}
           ],
-          'years': [('2016', 2), ('2017', 8), ('2018', 13)],
+          'years': [
+            {'title': '2016', 'count': 2},
+            {'title': '2017', 'count': 8},
+            {'title': '2018', 'count': 13}
+          ],
           'previous_result': {
             'num_tickets': 23,
             'created_at': previous_time
           },
-          'frequency': 8
+          'frequency': 8,
+          'boroughs': [
+            {'count': 1, 'title': 'Bronx'},
+            {'count': 7, 'title': 'Brooklyn'},
+            {'count': 2, 'title': 'Queens'},
+            {'count': 13, 'title': 'Staten Island'}
+          ]
         }
 
         response_parts = [
@@ -269,10 +280,45 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '\n'
           '2   | 2016\n'
           '8   | 2017\n'
-          '13 | 2018\n'
+          '13 | 2018\n',
+          '@bdhowald Violations by borough for #NY_HME6483:\n'
+          '\n'
+          '1   | Bronx\n'
+          '7   | Brooklyn\n'
+          '2   | Queens\n'
+          '13 | Staten Island\n'
         ]
 
         self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup, '@bdhowald'), response_parts)
+
+
+    def test_handle_response_part_formation(self):
+
+        plate      = 'HME6483'
+        state      = 'NY'
+        username   = '@NYC_DOT'
+
+        collection = [
+          {'title': '2017', 'count': 1},
+          {'title': '2018', 'count': 1}
+        ]
+
+        keys       = {
+          'count'                       : 'count',
+          'continued_format_string'     : "Violations by year for #{}_{}:, cont'd\n\n",
+          'continued_format_string_args': [state, plate],
+          'cur_string'                  : '',
+          'description'                 : 'title',
+          'default_description'         : 'No Year Available',
+          'prefix_format_string'        : 'Violations by year for #{}_{}:\n\n',
+          'prefix_format_string_args'   : [state, plate],
+          'result_format_string'        : '{}| {}\n',
+          'username'                    : username
+        }
+
+        result     = [(username + ' ' + keys['prefix_format_string']).format(state, plate) + '1 | 2017\n1 | 2018\n']
+
+        self.assertEqual(self.tweeter.handle_response_part_formation(collection, keys), result)
 
 
     def test_initiate_reply(self):
@@ -530,16 +576,22 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'violations': [
             {
               'count': 1,
-              'name': 'No Violation Description Available'
+              'title': 'No Violation Description Available'
             },
             {
               'count': 1,
-              'name': 'Fail To Dsply Muni Meter Recpt'
+              'title': 'Fail To Dsply Muni Meter Recpt'
             }
           ],
-          'years': [('2017', 1), ('2018', 1)],
+          'years': [
+            {'title': '2017', 'count': 1},
+            {'title': '2018', 'count': 1}
+          ],
           'previous_result': {},
-          'frequency': 2
+          'frequency': 2,
+          'boroughs': [
+            {'count': 2, 'title': 'Manhattan'}
+          ]
         }
 
         violations_mock = MagicMock(name='violations')
@@ -641,18 +693,21 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
            'previous_result': {'created_at': previous_time,
                                'num_tickets': 15},
            'state': 'NY',
-           'violations': [{'count': 4, 'name': 'No Standing - Day/Time Limits'},
-                          {'count': 3, 'name': 'No Parking - Street Cleaning'},
-                          {'count': 1, 'name': 'Failure To Display Meter Receipt'},
-                          {'count': 1, 'name': 'No Violation Description Available'},
-                          {'count': 1, 'name': 'Bus Lane Violation'},
-                          {'count': 1, 'name': 'Failure To Stop At Red Light'},
-                          {'count': 1, 'name': 'No Standing - Commercial Meter Zone'},
-                          {'count': 1, 'name': 'Expired Meter'},
-                          {'count': 1, 'name': 'Double Parking'},
-                          {'count': 1, 'name': 'No Angle Parking'}
+           'violations': [{'count': 4, 'title': 'No Standing - Day/Time Limits'},
+                          {'count': 3, 'title': 'No Parking - Street Cleaning'},
+                          {'count': 1, 'title': 'Failure To Display Meter Receipt'},
+                          {'count': 1, 'title': 'No Violation Description Available'},
+                          {'count': 1, 'title': 'Bus Lane Violation'},
+                          {'count': 1, 'title': 'Failure To Stop At Red Light'},
+                          {'count': 1, 'title': 'No Standing - Commercial Meter Zone'},
+                          {'count': 1, 'title': 'Expired Meter'},
+                          {'count': 1, 'title': 'Double Parking'},
+                          {'count': 1, 'title': 'No Angle Parking'}
             ],
-            'years': [('2017', 10), ('2018', 15)],
+            'years': [
+              {'title': '2017', 'count': 10},
+              {'title': '2018', 'count': 15}
+            ],
         }
 
         combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n"
@@ -701,20 +756,20 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'previous_result': {'created_at': previous_time,
                               'num_tickets': 49},
           'state': 'PA',
-          'violations': [{'count': 17, 'name': 'No Parking - Street Cleaning'},
-                         {'count': 6, 'name': 'Expired Meter'},
-                         {'count': 5, 'name': 'No Violation Description Available'},
-                         {'count': 3, 'name': 'Fire Hydrant'},
-                         {'count': 3, 'name': 'No Parking - Day/Time Limits'},
-                         {'count': 3, 'name': 'Failure To Display Meter Receipt'},
-                         {'count': 3, 'name': 'School Zone Speed Camera Violation'},
-                         {'count': 2, 'name': 'No Parking - Except Authorized Vehicles'},
-                         {'count': 2, 'name': 'Bus Lane Violation'},
-                         {'count': 1, 'name': 'Failure To Stop At Red Light'},
-                         {'count': 1, 'name': 'No Standing - Day/Time Limits'},
-                         {'count': 1, 'name': 'No Standing - Except Authorized Vehicle'},
-                         {'count': 1, 'name': 'Obstructing Traffic Or Intersection'},
-                         {'count': 1, 'name': 'Double Parking'}]
+          'violations': [{'count': 17, 'title': 'No Parking - Street Cleaning'},
+                         {'count': 6, 'title': 'Expired Meter'},
+                         {'count': 5, 'title': 'No Violation Description Available'},
+                         {'count': 3, 'title': 'Fire Hydrant'},
+                         {'count': 3, 'title': 'No Parking - Day/Time Limits'},
+                         {'count': 3, 'title': 'Failure To Display Meter Receipt'},
+                         {'count': 3, 'title': 'School Zone Speed Camera Violation'},
+                         {'count': 2, 'title': 'No Parking - Except Authorized Vehicles'},
+                         {'count': 2, 'title': 'Bus Lane Violation'},
+                         {'count': 1, 'title': 'Failure To Stop At Red Light'},
+                         {'count': 1, 'title': 'No Standing - Day/Time Limits'},
+                         {'count': 1, 'title': 'No Standing - Except Authorized Vehicle'},
+                         {'count': 1, 'title': 'Obstructing Traffic Or Intersection'},
+                         {'count': 1, 'title': 'Double Parking'}]
         }
 
         response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n"]]

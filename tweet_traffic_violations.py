@@ -180,125 +180,123 @@ class TrafficViolationsTweeter:
                     violations_string += 'Since the last time the vehicle was queried ({} at {}), #{}_{} has received {} new {}.\n\n'.format(adjusted_time.strftime('%B %e, %Y'), adjusted_time.strftime('%I:%M%p'), query_result['state'], query_result['plate'], new_violations, 'ticket' if new_violations == 1 else 'tickets')
 
 
-        violations_string += "Total parking and camera violation tickets: {}\n\n".format(total_violations)
+        violations_keys = {
+          'count'                       : 'count',
+          'continued_format_string'     : "Parking and camera violation tickets for #{}_{}, cont'd:\n\n",
+          'continued_format_string_args': [query_result['state'], query_result['plate']],
+          'cur_string'                  : violations_string,
+          'description'                 : 'title',
+          'default_description'         : 'No Year Available',
+          'prefix_format_string'        : "Total parking and camera violation tickets: {}\n\n",
+          'prefix_format_string_args'   : [total_violations],
+          'result_format_string'        : '{}| {}\n',
+          'username'                    : username
+        }
 
-        max_violation_count_length = len(str(max([i['count'] for i in query_result['violations']])))
-        violation_spaces_needed    = (max_violation_count_length * 2) + 1
-
-        self.logger.debug('\nviolation_spaces_needed: %s\n', violation_spaces_needed)
-
-        # Grab every violation grouped by name
-        for violation in query_result['violations']:
-
-            # Titleize for readability.
-            violation_name = violation['name'].title()
-            # Give no-name tickets a key
-            if len(violation_name) == 0:
-                violation_name = "No Violation Description Available"
-
-            violation_count        = violation['count']
-            violation_count_length = len(str(violation_count))
-
-            # e.g., if violation_spaces_needed is 5, and violation_count_length is 2, we need to pad to 3.
-            # e.g., if violation_spaces_needed is 5, and violation_count_length is 1, we need to pad to 4.
-            left_justify_amount    = violation_spaces_needed - violation_count_length
-            self.logger.debug('\nleft_justify_amount: %s\n', left_justify_amount)
-
-            # formulate next string part
-            next_string_part    = "{}| {}\n".format(str(violation_count).ljust(left_justify_amount), violation_name)
-
-            # how long would it be
-            potential_response_length = len(username + ' ' + violations_string + next_string_part)
-
-            # If username, space, violation string so far and new part are less or equal than 280 characters, append to existing tweet string.
-            if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
-                violations_string += next_string_part
-
-                self.logger.debug("length: %s", len(violations_string))
-                self.logger.debug("string: %s", violations_string)
-
-            else:
-                # Append ready string into parts for response.
-                response_chunks.append(username + ' ' + violations_string)
-
-                violations_string = "Parking and camera violation tickets for #{}_{}, cont'd:\n\n".format(query_result['state'], query_result['plate'])
-                violations_string += next_string_part
-
-                self.logger.debug("violations_string: %s", violations_string)
-                self.logger.debug("length: %s", len(violations_string))
-                self.logger.debug("string: %s", violations_string)
-
-
-        # If we finish the list with a non-empty string, append that string to response parts
-        if len(violations_string) != 0:
-            # Append ready string into parts for response.
-            response_chunks.append(username + ' ' + violations_string)
-
-            self.logger.debug("length: %s", len(violations_string))
-            self.logger.debug("string: %s", violations_string)
-
+        response_chunks += self.handle_response_part_formation(query_result['violations'], violations_keys)
 
 
         if query_result.get('years'):
-            years_string = "Violations by year for #{}_{}:\n\n".format(query_result['state'], query_result['plate'])
+            years_keys = {
+              'count'                       : 'count',
+              'continued_format_string'     : "Violations by year for #{}_{}, cont'd:\n\n",
+              'continued_format_string_args': [query_result['state'], query_result['plate']],
+              'description'                 : 'title',
+              'default_description'         : 'No Year Available',
+              'prefix_format_string'        : "Violations by year for #{}_{}:\n\n",
+              'prefix_format_string_args'   : [query_result['state'], query_result['plate']],
+              'result_format_string'        : '{}| {}\n',
+              'username'                    : username
+            }
 
-            max_violation_years_length = len(str(max([y[1] for y in query_result['years']])))
-            year_spaces_needed         = (max_violation_years_length * 2) + 1
+            response_chunks += self.handle_response_part_formation(query_result['years'], years_keys)
 
-            for year_tuple in query_result['years']:
-                year            = year_tuple[0]
-                year_violations = year_tuple[1]
 
-                year_violations_count_length = len(str(year_violations))
+        if query_result.get('boroughs'):
+            boroughs_keys = {
+              'count'                       : 'count',
+              'continued_format_string'     : "Violations by borough for #{}_{}, cont'd:\n\n",
+              'continued_format_string_args': [query_result['state'], query_result['plate']],
+              'description'                 : 'title',
+              'default_description'         : 'No Borough Available',
+              'prefix_format_string'        : "Violations by borough for #{}_{}:\n\n",
+              'prefix_format_string_args'   : [query_result['state'], query_result['plate']],
+              'result_format_string'        : '{}| {}\n',
+              'username'                    : username
+            }
 
-                # e.g., if year_spaces_needed is 5, and violation_count_length is 2, we need to pad to 3.
-                # e.g., if year_spaces_needed is 5, and violation_count_length is 1, we need to pad to 4.
-                left_justify_amount = year_spaces_needed -year_violations_count_length
-                self.logger.debug('\nleft_justify_amount: %s\n', left_justify_amount)
+            pdb.set_trace
+            response_chunks += self.handle_response_part_formation(query_result['boroughs'], boroughs_keys)
 
-                # formulate next string part
-                next_string_part    = "{}| {}\n".format(str(year_violations).ljust(left_justify_amount), year)
 
-                # how long would it be
-                potential_response_length = len(username + ' ' + years_string + next_string_part)
-
-                # If username, space, violation string so far and new part are less or equal than 280 characters, append to existing tweet string.
-                if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
-                    years_string += next_string_part
-
-                    self.logger.debug("length: %s", len(years_string))
-                    self.logger.debug("string: %s", years_string)
-
-                else:
-                    # Append ready string into parts for response.
-                    response_chunks.append(username + ' ' + years_string)
-
-                    years_string = "Violations by year for #{}_{}, cont'd:\n\n".format(query_result['state'], query_result['plate'])
-                    years_string += next_string_part
-
-                    self.logger.debug("years_string: %s", years_string)
-                    self.logger.debug("length: %s", len(years_string))
-                    self.logger.debug("string: %s", years_string)
-
-            # If we finish the list with a non-empty string, append that string to response parts
-            if len(years_string) != 0:
-                # Append ready string into parts for response.
-                response_chunks.append(username + ' ' + years_string)
-
-                self.logger.debug("length: %s", len(years_string))
-                self.logger.debug("string: %s", years_string)
 
         # Send it back!
         return response_chunks
 
 
-    # def handle_short_response(self, message_id, message_type, response_message, username):
-    #     if message_type == 'direct_message':
-    #         self.is_production() and self.api.send_direct_message(screen_name = username, text = response_message)
-    #     else:
-    #         self.is_production() and self.api.update_status(response_message, in_reply_to_status_id = message_id)
+    def handle_response_part_formation(self, collection, keys):
+        response_container = []
 
-    #     self.logger.debug("%s %s", username, response_message)
+        cur_string = keys['cur_string'] if keys.get('cur_string') else ''
+
+        if keys['prefix_format_string']:
+            cur_string += keys['prefix_format_string'].format(*keys['prefix_format_string_args'])
+
+        max_count_length = len(str(max( item[ keys['count'] ] for item in collection )))
+        spaces_needed    = (max_count_length * 2) + 1
+
+        # Grab item
+        for item in collection:
+
+            # Titleize for readability.
+            description = item[keys['description']].title()
+
+            # Use a default description if need be
+            if len(description) == 0:
+                description = keys['default_description']
+
+            count        = item[keys['count']]
+            count_length = len(str(count))
+
+            # e.g., if spaces_needed is 5, and count_length is 2, we need to pad to 3.
+            left_justify_amount = spaces_needed - count_length
+
+            # formulate next string part
+            next_part = keys['result_format_string'].format(str(count).ljust(left_justify_amount), description)
+
+            # determine current string length
+            potential_response_length = len(keys['username'] + ' ' + cur_string + next_part)
+
+            # If username, space, violation string so far and new part are less or
+            # equal than 280 characters, append to existing tweet string.
+            if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
+                cur_string += next_part
+            else:
+                response_container.append(keys['username'] + ' ' + cur_string)
+                if keys['continued_format_string']:
+                    cur_string = keys['continued_format_string'].format(*keys['continued_format_string_args'])
+                else:
+                    cur_string = ''
+
+                cur_string += next_part
+
+
+            self.logger.debug("cur_string: %s", cur_string)
+            self.logger.debug("length: %s", len(cur_string))
+            self.logger.debug("string: %s", cur_string)
+
+        # If we finish the list with a non-empty string,
+        # append that string to response parts
+        if len(cur_string) != 0:
+            # Append ready string into parts for response.
+            response_container.append(keys['username'] + ' ' + cur_string)
+
+            self.logger.debug("length: %s", len(cur_string))
+            self.logger.debug("string: %s", cur_string)
+
+        # Return parts
+        return response_container
+
 
 
     def infer_plate_and_state_data(self, list_of_vehicle_tuples):
@@ -481,7 +479,6 @@ class TrafficViolationsTweeter:
         self.logger.debug('Listing args... plate: %s, state: %s, message_id: %s, created_at: %s', plate, state, str(message_id), str(created_at))
 
 
-
         # Find medallion plates
         #
         medallion_regex    = r'^[0-9][A-Z][0-9]{2}$'
@@ -499,6 +496,30 @@ class TrafficViolationsTweeter:
         # search_query = conn.execute("""select violation as name, count(violation) as count from all_traffic_violations_redo where plate = %s and state = %s group by violation""", (plate, state))
         # # Query the result and get cursor.Dumping that data to a JSON is looked by extension
         # result = {'violations': [dict(zip(tuple (search_query.keys()), i)) for i in search_query.cursor]}
+
+        precincts = {
+          'manhattan': {
+            'manhattan_south': [1,5,6,7,9,10,13,14,17,18],
+            'manhattan_north': [19,20,22,23,24,25,26,28,30,32,33,34]
+          },
+          'bronx': {
+            'bronx'          : [40,41,42,43,44,45,46,47,48,49,50,52]
+          },
+          'brooklyn': {
+            'brooklyn_south' : [60,61,62,63,66,67,68,69,70,71.72,76,78],
+            'brooklyn_north' : [73,75,77,79,81,83,84,88,90,94]
+          },
+          'queens': {
+            'queens_south'   : [100,101,102,103,105,106,107,113],
+            'queens_north'   : [104,108,109,110,111,112,114,115]
+          },
+          'staten_island': {
+            'staten_island'  : [120,121,122,123]
+          }
+        }
+
+        precincts_by_boro = {borough: [precinct for grouping in [precinct_list for bureau, precinct_list in regions.items()] for precinct in grouping] for borough,regions in precincts.items()}
+
 
         # set up return data structure
         combined_violations = {}
@@ -522,7 +543,7 @@ class TrafficViolationsTweeter:
         opacv_humanized_names = {'': 'No Description Given',  'ALTERING INTERCITY BUS PERMIT' : 'Altered Intercity Bus Permit',  'ANGLE PARKING' : 'No Angle Parking',  'ANGLE PARKING-COMM VEHICLE' : 'No Angle Parking',  'BEYOND MARKED SPACE' : 'No Parking Beyond Marked Space',  'BIKE LANE' : 'Blocking Bike Lane',  'BLUE ZONE' : 'No Parking - Blue Zone',  'BUS LANE VIOLATION' : 'Bus Lane Violation',  'BUS PARKING IN LOWER MANHATTAN' : 'Bus Parking in Lower Manhattan',  'COMML PLATES-UNALTERED VEHICLE' : 'Commercial Plates on Unaltered Vehicle',  'CROSSWALK' : 'Blocking Crosswalk',  'DETACHED TRAILER' : 'Detached Trailer',  'DIVIDED HIGHWAY' : 'No Stopping - Divided Highway',  'DOUBLE PARKING' : 'Double Parking',  'DOUBLE PARKING-MIDTOWN COMML' : 'Double Parking - Midtown Commercial Zone',  'ELEVATED/DIVIDED HIGHWAY/TUNNL' : 'No Stopping in Tunnel or on Elevated Highway',  'EXCAVATION-VEHICLE OBSTR TRAFF' : 'No Stopping - Adjacent to Street Construction',  'EXPIRED METER' : 'Expired Meter',  'EXPIRED METER-COMM METER ZONE' : 'Expired Meter - Commercial Meter Zone',  'EXPIRED MUNI METER' : 'Expired Meter',  'EXPIRED MUNI MTR-COMM MTR ZN' : 'Expired Meter - Commercial Meter Zone',  'FAIL TO DISP. MUNI METER RECPT' : 'Failure to Display Meter Receipt',  'FAIL TO DSPLY MUNI METER RECPT' : 'Failure to Display Meter Receipt',  'FAILURE TO DISPLAY BUS PERMIT' : 'Failure to Display Bus Permit',  'FAILURE TO STOP AT RED LIGHT' : 'Failure to Stop at Red Light',  'FEEDING METER' : 'Feeding Meter',  'FIRE HYDRANT' : 'Fire Hydrant',  'FRONT OR BACK PLATE MISSING' : 'Front or Back Plate Missing',  'IDLING' : 'Idling',  'IMPROPER REGISTRATION' : 'Improper Registration',  'INSP STICKER-MUTILATED/C\'FEIT' : 'Inspection Sticker Mutilated or Counterfeit',  'INSP. STICKER-EXPIRED/MISSING' : 'Inspection Sticker Expired or Missing',  'INTERSECTION' : 'No Stopping - Intersection',  'MARGINAL STREET/WATER FRONT' : 'No Parking on Marginal Street or Waterfront',  'MIDTOWN PKG OR STD-3HR LIMIT' : 'Midtown Parking or Standing - 3 Hour Limit',  'MISCELLANEOUS' : 'Miscellaneous',  'MISSING EQUIPMENT' : 'Missing Required Equipment',  'NGHT PKG ON RESID STR-COMM VEH' : 'No Nighttime Parking on Residential Street - Commercial Vehicle',  'NIGHTTIME STD/ PKG IN A PARK' : 'No Nighttime Standing or Parking in a Park',  'NO MATCH-PLATE/STICKER' : 'Plate and Sticker Do Not Match',  'NO OPERATOR NAM/ADD/PH DISPLAY' : 'Failure to Display Operator Information',  'NO PARKING-DAY/TIME LIMITS' : 'No Parking - Day/Time Limits',  'NO PARKING-EXC. AUTH. VEHICLE' : 'No Parking - Except Authorized Vehicles',  'NO PARKING-EXC. HNDICAP PERMIT' : 'No Parking - Except Disability Permit',  'NO PARKING-EXC. HOTEL LOADING' : 'No Parking - Except Hotel Loading',  'NO PARKING-STREET CLEANING' : 'No Parking - Street Cleaning',  'NO PARKING-TAXI STAND' : 'No Parking - Taxi Stand',  'NO STANDING EXCP D/S' : 'No Standing - Except Department of State',  'NO STANDING EXCP DP' : 'No Standing - Except Diplomat',  'NO STANDING-BUS LANE' : 'No Standing - Bus Lane',  'NO STANDING-BUS STOP' : 'No Standing - Bus Stop',  'NO STANDING-COMM METER ZONE' : 'No Standing - Commercial Meter Zone',  'NO STANDING-COMMUTER VAN STOP' : 'No Standing - Commuter Van Stop',  'NO STANDING-DAY/TIME LIMITS' : 'No Standing - Day/Time Limits',  'NO STANDING-EXC. AUTH. VEHICLE' : 'No Standing - Except Authorized Vehicle',  'NO STANDING-EXC. TRUCK LOADING' : 'No Standing - Except Truck Loading',  'NO STANDING-FOR HIRE VEH STOP' : 'No Standing - For Hire Vehicle Stop',  'NO STANDING-HOTEL LOADING' : 'No Standing - Hotel Loading',  'NO STANDING-OFF-STREET LOT' : 'No Standing - Off-Street Lot',  'NO STANDING-SNOW EMERGENCY' : 'No Standing - Snow Emergency',  'NO STANDING-TAXI STAND' : 'No Standing - Taxi Stand',  'NO STD(EXC TRKS/GMTDST NO-TRK)' : 'No Standing - Except Trucks in Garment District',  'NO STOP/STANDNG EXCEPT PAS P/U' : 'No Stopping or Standing Except for Passenger Pick-Up',  'NO STOPPING-DAY/TIME LIMITS' : 'No Stopping - Day/Time Limits',  'NON-COMPLIANCE W/ POSTED SIGN' : 'Non-Compliance with Posted Sign',  'OBSTRUCTING DRIVEWAY' : 'Obstructing Driveway',  'OBSTRUCTING TRAFFIC/INTERSECT' : 'Obstructing Traffic or Intersection',  'OT PARKING-MISSING/BROKEN METR' : 'Overtime Parking at Missing or Broken Meter',  'OTHER' : 'Other',  'OVERNIGHT TRACTOR TRAILER PKG' : 'Overnight Parking of Tractor Trailer',  'OVERTIME PKG-TIME LIMIT POSTED' : 'Overtime Parking - Time Limit Posted',  'OVERTIME STANDING DP' : 'Overtime Standing - Diplomat',  'OVERTIME STDG D/S' : 'Overtime Standing - Department of State',  'PARKED BUS-EXC. DESIG. AREA' : 'Bus Parking Outside of Designated Area',  'PEDESTRIAN RAMP' : 'Blocking Pedestrian Ramp',  'PHTO SCHOOL ZN SPEED VIOLATION' : 'School Zone Speed Camera Violation',  'PKG IN EXC. OF LIM-COMM MTR ZN' : 'Parking in Excess of Limits - Commercial Meter Zone',  'PLTFRM LFTS LWRD POS COMM VEH' : 'Commercial Vehicle Platform Lifts in Lowered Position',  'RAILROAD CROSSING' : 'No Stopping - Railroad Crossing',  'REG STICKER-MUTILATED/C\'FEIT' : 'Registration Sticker Mutilated or Counterfeit',  'REG. STICKER-EXPIRED/MISSING' : 'Registration Sticker Expired or Missing',  'REMOVE/REPLACE FLAT TIRE' : 'Replacing Flat Tire on Major Roadway',  'SAFETY ZONE' : 'No Standing - Safety Zone',  'SELLING/OFFERING MCHNDSE-METER' : 'Selling or Offering Merchandise From Metered Parking',  'SIDEWALK' : 'Parked on Sidewalk',  'STORAGE-3HR COMMERCIAL' : 'Street Storage of Commercial Vehicle Over 3 Hours',  'TRAFFIC LANE' : 'No Stopping - Traffic Lane',  'TUNNEL/ELEVATED/ROADWAY' : 'No Stopping in Tunnel or on Elevated Highway',  'UNALTERED COMM VEH-NME/ADDRESS' : 'Commercial Plates on Unaltered Vehicle',  'UNALTERED COMM VEHICLE' : 'Commercial Plates on Unaltered Vehicle',  'UNAUTHORIZED BUS LAYOVER' : 'Bus Layover in Unauthorized Location',  'UNAUTHORIZED PASSENGER PICK-UP' : 'Unauthorized Passenger Pick-Up',  'VACANT LOT' : 'No Parking - Vacant Lot',  'VEH-SALE/WSHNG/RPRNG/DRIVEWAY' : 'No Parking on Street to Wash or Repair Vehicle',  'VEHICLE FOR SALE(DEALERS ONLY)' : 'No Parking on Street to Display Vehicle for Sale',  'VIN OBSCURED' : 'Vehicle Identification Number Obscured',  'WASH/REPAIR VEHCL-REPAIR ONLY' : 'No Parking on Street to Wash or Repair Vehicle',  'WRONG WAY' : 'No Parking Opposite Street Direction'}
 
         # only data we're looking for
-        opacv_desired_keys = ['amount_due', 'issue_date', 'payment_amount', 'violation']
+        opacv_desired_keys = ['amount_due', 'borough', 'issue_date', 'payment_amount', 'precinct', 'violation']
 
         # add violation if it's missing
         for record in opacv_data:
@@ -540,12 +561,19 @@ class TrafficViolationsTweeter:
                 except ValueError as ve:
                     record['has_date']   = False
 
+            if record.get('precinct'):
+                boros = [boro for boro, precincts in precincts_by_boro.items() if int(record['precinct']) in precincts]
+                if boros:
+                    record['borough'] = boros[0]
+                else:
+                    record['borough'] = 'No Borough Available'
+
 
             combined_violations[record['summons_number']] = { key: record.get(key) for key in opacv_desired_keys }
 
+
         # collect summons numbers to use for excluding duplicates later
         opacv_summons_numbers  = list(combined_violations.keys())
-
 
 
         # Grab data from each of the fiscal year violation datasets
@@ -558,7 +586,7 @@ class TrafficViolationsTweeter:
         fy_humanized_names = {'01-No Intercity Pmt Displ': 'Failure to Display Bus Permit',  '02-No operator N/A/PH': 'Failure to Display Operator Information',  '03-Unauth passenger pick-up': 'Unauthorized Passenger Pick-Up',  '04-Downtown Bus Area, 3 Hr Lim': 'Bus Parking in Lower Manhattan - Exceeded 3-Hour limit',  '04A-Downtown Bus Area, Non-Bus': 'Bus Parking in Lower Manhattan - Non-Bus',  '04B-Downtown Bus Area, No Prmt': 'Bus Parking in Lower Manhattan - No Permit',  '06-Nighttime PKG (Trailer)': 'Overnight Parking of Tractor Trailer',  '08-Engine Idling': 'Idling',  '09-Blocking the Box': 'Obstructing Traffic or Intersection',  '10-No Stopping': 'No Stopping or Standing Except for Passenger Pick-Up',  '11-No Stand (exc hotel load)': 'No Parking - Except Hotel Loading',  '12-No Stand (snow emergency)': 'No Standing - Snow Emergency',  '13-No Stand (taxi stand)': 'No Standing - Taxi Stand',  '14-No Standing': 'No Standing - Day/Time Limits',  '16-No Std (Com Veh) Com Plate': 'No Standing - Except Truck Loading/Unloading',  '16A-No Std (Com Veh) Non-COM': 'No Standing - Except Truck Loading/Unloading',  '17-No Stand (exc auth veh)': 'No Parking - Except Authorized Vehicles',  '18-No Stand (bus lane)': 'No Standing - Bus Lane',  '19-No Stand (bus stop)': 'No Standing - Bus Stop',  '20-No Parking (Com Plate)': 'No Parking - Day/Time Limits',  '20A-No Parking (Non-COM)': 'No Parking - Day/Time Limits',  '21-No Parking (street clean)': 'No Parking - Street Cleaning',  '22-No Parking (exc hotel load)': 'No Parking - Except Hotel Loading',  '23-No Parking (taxi stand)': 'No Parking - Taxi Stand',  '24-No Parking (exc auth veh)': 'No Parking - Except Authorized Vehicles',  '25-No Stand (commutr van stop)': 'No Standing - Commuter Van Stop',  '26-No Stnd (for-hire veh only)': 'No Standing - For Hire Vehicle Stop',  '27-No Parking (exc handicap)': 'No Parking - Except Disability Permit',  '28-O/T STD,DPL/Con,30 Mn,D Dec': 'Overtime Standing - Diplomat',  '29-Altered Intercity bus pmt': 'Altered Intercity Bus Permit',  '30-No stopping/standing': 'No Stopping/Standing',  '31-No Stand (Com. Mtr. Zone)': 'No Standing - Commercial Meter Zone',  '32-Overtime PKG-Missing Meter': 'Overtime Parking at Missing or Broken Meter',  '32A Overtime PKG-Broken Meter': 'Overtime Parking at Missing or Broken Meter',  '33-Feeding Meter': 'Feeding Meter',  '35-Selling/Offer Merchandise': 'Selling or Offering Merchandise From Metered Parking',  '37-Expired Muni Meter': 'Expired Meter', '37-Expired Parking Meter': 'Expired Meter', '38-Failure to Display Muni Rec': 'Failure to Display Meter Receipt', '38-Failure to Dsplay Meter Rec': 'Failure to Display Meter Receipt', '39-Overtime PKG-Time Limt Post': 'Overtime Parking - Time Limit Posted',  '40-Fire Hydrant': 'Fire Hydrant',  '42-Exp. Muni-Mtr (Com. Mtr. Z)': 'Expired Meter - Commercial Meter Zone', '42-Exp Meter (Com Zone)': 'Expired Meter - Commercial Meter Zone', '43-Exp. Mtr. (Com. Mtr. Zone)': 'Expired Meter - Commercial Meter Zone',  '44-Exc Limit (Com. Mtr. Zone)': 'Overtime Parking - Commercial Meter Zone',  '45-Traffic Lane': 'No Stopping - Traffic Lane',  '46-Double Parking (Com Plate)': 'Double Parking',  '46A-Double Parking (Non-COM)': 'Double Parking',  '46B-Double Parking (Com-100Ft)': 'Double Parking - Within 100 ft. of Loading Zone',  '47-Double PKG-Midtown': 'Double Parking - Midtown Commercial Zone',  '47A-Angle PKG - Midtown': 'Double Parking - Angle Parking',  '48-Bike Lane': 'Blocking Bike Lane',  '49-Excavation (obstruct traff)': 'No Stopping - Adjacent to Street Construction',  '50-Crosswalk': 'Blocking Crosswalk',  '51-Sidewalk': 'Parked on Sidewalk',  '52-Intersection': 'No Stopping - Intersection',  '53-Safety Zone': 'No Standing - Safety Zone',  '55-Tunnel/Elevated Roadway': 'No Stopping in Tunnel or on Elevated Highway',  '56-Divided Highway': 'No Stopping - Divided Highway',  '57-Blue Zone': 'No Parking - Blue Zone',  '58-Marginal Street/Water Front': 'No Parking on Marginal Street or Waterfront',  '59-Angle PKG-Commer. Vehicle': 'No Angle Parking',  '60-Angle Parking': 'No Angle Parking',  '61-Wrong Way': 'No Parking Opposite Street Direction',  '62-Beyond Marked Space': 'No Parking Beyond Marked Space',  '63-Nighttime STD/PKG in a Park': 'No Nighttime Standing or Parking in a Park',  '64-No STD Ex Con/DPL, D/S Dec': 'No Standing - Consul or Diplomat',  '65-O/T STD,Dpl/Con,30 Mn,D/S': 'Overtime Standing - Consul or Diplomat Over 30 Minutes',  '66-Detached Trailer': 'Detached Trailer',  '67-Blocking Ped. Ramp': 'Blocking Pedestrian Ramp',  '68-Not Pkg. Comp. w Psted Sign': 'Non-Compliance with Posted Sign',  '69-Failure to Disp Muni Recpt': 'Failure to Display Meter Receipt',  '69-Fail to Dsp Prking Mtr Rcpt': 'Failure to Display Meter Receipt', '70-Reg. Sticker Missing (NYS)': 'Registration Sticker Expired or Missing',  '70A-Reg. Sticker Expired (NYS)': 'Registration Sticker Expired or Missing',  '70B-Impropr Dsply of Reg (NYS)': 'Improper Display of Registration',  '71-Insp. Sticker Missing (NYS': 'Inspection Sticker Expired or Missing',  '71A-Insp Sticker Expired (NYS)': 'Inspection Sticker Expired or Missing',  '71B-Improp Safety Stkr (NYS)': 'Improper Safety Sticker',  '72-Insp Stkr Mutilated': 'Inspection Sticker Mutilated or Counterfeit',  '72A-Insp Stkr Counterfeit': 'Inspection Sticker Mutilated or Counterfeit',  '73-Reg Stkr Mutilated': 'Registration Sticker Mutilated or Counterfeit',  '73A-Reg Stkr Counterfeit': 'Registration Sticker Mutilated or Counterfeit',  '74-Missing Display Plate': 'Front or Back Plate Missing',  '74A-Improperly Displayed Plate': 'Improperly Displayed Plate',  '74B-Covered Plate': 'Covered Plate',  '75-No Match-Plate/Reg. Sticker': 'Plate and Sticker Do Not Match',  '77-Parked Bus (exc desig area)': 'Bus Parking Outside of Designated Area',  '78-Nighttime PKG on Res Street': 'Nighttime Parking on Residential Street - Commercial Vehicle',  '79-Bus Layover': 'Bus Layover in Unauthorized Location',  '80-Missing Equipment (specify)': 'Missing Required Equipment',  '81-No STD Ex C,A&D Dec, 30 Mn': 'No Standing - Except Diplomat',  '82-Unaltered Commerc Vehicle': 'Commercial Plates on Unaltered Vehicle',  '83-Improper Registration': 'Improper Registration',  '84-Platform lifts in low posit': 'Commercial Vehicle Platform Lifts in Lowered Position',  '85-Storage-3 hour Commercial': 'Street Storage of Commercial Vehicle Over 3 Hours',  '86-Midtown PKG or STD-3 hr lim': 'Midtown Parking or Standing - 3 Hour Limit',  '89-No Stand Exc Com Plate': 'No Standing - Except Trucks in Garment District',  '91-Veh for Sale (Dealer Only)': 'No Parking on Street to Display Vehicle for Sale',  '92-Washing/Repairing Vehicle': 'No Parking on Street to Wash or Repair Vehicle',  '93-Repair Flat Tire (Maj Road)': 'Replacing Flat Tire on Major Roadway',  '96-Railroad Crossing': 'No Stopping - Railroad Crossing',  '98-Obstructing Driveway': 'Obstructing Driveway',  'BUS LANE VIOLATION': 'Bus Lane Violation',  'FAILURE TO STOP AT RED LIGHT': 'Failure to Stop at Red Light',  'Field Release Agreement': 'Field Release Agreement',  'PHTO SCHOOL ZN SPEED VIOLATION': 'School Zone Speed Camera Violation'}
 
         # only data we're looking for
-        fy_desired_keys = ['issue_date', 'violation']
+        fy_desired_keys = ['borough', 'issue_date', 'violation', 'violation_precinct']
 
         # iterate through the endpoints
         for endpoint in fy_endpoints:
@@ -587,6 +615,13 @@ class TrafficViolationsTweeter:
                     except ValueError as ve:
                         record['has_date']   = False
 
+                if record.get('violation_precinct'):
+                    boros = [boro for boro, precincts in precincts_by_boro.items() if int(record['violation_precinct']) in precincts]
+                    if boros:
+                        record['borough'] = boros[0]
+                    else:
+                        record['borough'] = 'No Borough Available'
+
 
                 # structure response and only use the data we need
                 new_data = { key: record.get(key) for key in fy_desired_keys }
@@ -602,12 +637,14 @@ class TrafficViolationsTweeter:
         # Marshal all ticket data into form.
         tickets  = Counter([v['violation'] for k,v in combined_violations.items() if v.get('violation')]).most_common()
         years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for k,v in combined_violations.items()]).most_common()
+        boroughs = Counter([v['borough'] for k,v in combined_violations.items() if v.get('borough')]).most_common()
 
         result   = {
-          'plate': plate,
-          'state': state,
-          'violations': [{'name':k.title(),'count':v} for k,v in tickets],
-          'years': sorted(years, key=lambda tup: tup[0])
+          'boroughs'  : [{'title':k.title(),'count':v} for k, v in boroughs],
+          'plate'     : plate,
+          'state'     : state,
+          'violations': [{'title':k.title(),'count':v} for k,v in tickets],
+          'years'     : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
         }
 
         self.logger.debug('violations sorted: %s', result)
@@ -810,7 +847,7 @@ class TrafficViolationsTweeter:
                     elif potential_vehicle.get('plate'):
                         self.logger.debug("We have a plate, but no state")
 
-                        response_parts.append(["{} Sorry, the state appears to be blank.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234".format(username, query_info['state'])])
+                        response_parts.append(["{} Sorry, the state appears to be blank.".format(username, query_info['state'])])
 
 
             # Look up campaign hashtags after doing the plate lookups and then prepend to response.
@@ -866,7 +903,6 @@ class TrafficViolationsTweeter:
 
 
         except Exception as e:
-
             # Log error
             response_parts.append(["{} Sorry, I encountered an error. Tagging @bdhowald.".format(username)])
 
