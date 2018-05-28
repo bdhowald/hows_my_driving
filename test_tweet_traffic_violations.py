@@ -235,6 +235,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             {'name': 'Expired Meter', 'count': 1}, {'name': 'Double Parking', 'count': 1},
             {'name': 'No Angle Parking', 'count': 1}
           ],
+          'years': [('2016', 2), ('2017', 8), ('2018', 13)],
           'previous_result': {
             'num_tickets': 23,
             'created_at': previous_time
@@ -243,7 +244,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         }
 
         response_parts = [
-          'bdhowald #NY_HME6483 has been queried 8 times.\n'
+          '@bdhowald #NY_HME6483 has been queried 8 times.\n'
           '\n'
           'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
           '#NY_HME6483 has received 2 new tickets.\n'
@@ -252,7 +253,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '\n'
           '14 | No Standing - Day/Time Limits\n'
           '3   | No Parking - Street Cleaning\n',
-          "bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
           '1   | Failure To Display Meter Receipt\n'
           '1   | No Violation Description Available\n'
@@ -260,13 +261,18 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '1   | Failure To Stop At Red Light\n'
           '1   | No Standing - Commercial Meter Zone\n'
           '1   | Expired Meter\n',
-          "bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
           '1   | Double Parking\n'
-          '1   | No Angle Parking\n'
+          '1   | No Angle Parking\n',
+          '@bdhowald Violations by year for #NY_HME6483:\n'
+          '\n'
+          '2   | 2016\n'
+          '8   | 2017\n'
+          '13 | 2018\n'
         ]
 
-        self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup, 'bdhowald'), response_parts)
+        self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup, '@bdhowald'), response_parts)
 
 
     def test_initiate_reply(self):
@@ -499,7 +505,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'county': 'NY',
             'fine_amount': '65',
             'interest_amount': '0',
-            'issue_date': '01/20/2017',
+            'issue_date': '01/20/2018',
             'issuing_agency': 'TRAFFIC',
             'license_type': 'PAS',
             'payment_amount': '0',
@@ -531,6 +537,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
               'name': 'Fail To Dsply Muni Meter Recpt'
             }
           ],
+          'years': [('2017', 1), ('2018', 1)],
           'previous_result': {},
           'frequency': 2
         }
@@ -644,10 +651,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                           {'count': 1, 'name': 'Expired Meter'},
                           {'count': 1, 'name': 'Double Parking'},
                           {'count': 1, 'name': 'No Angle Parking'}
-            ]
+            ],
+            'years': [('2017', 10), ('2018', 15)],
         }
 
-        combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n"
+        combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n"
 
         plate_lookup_mock = MagicMock(name='plate_lookup')
         plate_lookup_mock.return_value = plate_lookup1
