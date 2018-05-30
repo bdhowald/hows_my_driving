@@ -168,6 +168,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
       string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
       string_parts2       = ['@HowsMyDrivingNY', 'I', 'love', 'you', 'very', 'much!']
+
       potential_vehicles1 = [
         {'original_string':'ny:123abcd', 'state': 'ny', 'plate': '123abcd', 'valid_plate': True},
         {'original_string':'ca:6vmd948', 'state': 'ca', 'plate': '6vmd948', 'valid_plate': True},
