@@ -224,7 +224,6 @@ class TrafficViolationsTweeter:
               'username'                    : username
             }
 
-            pdb.set_trace
             response_chunks += self.handle_response_part_formation(query_result['boroughs'], boroughs_keys)
 
 
@@ -520,11 +519,11 @@ class TrafficViolationsTweeter:
         precincts_by_boro = {borough: [precinct for grouping in [precinct_list for bureau, precinct_list in regions.items()] for precinct in grouping] for borough,regions in precincts.items()}
 
         county_codes = {
-          'Brooklyn'     : ['BK', 'BROOK', 'K', 'KINGS', 'PK'],
-          'Bronx'        : ['BRONX', 'BX', 'PBX'],
-          'Manhattan'    : ['MAH', 'MANHA', 'MN', 'NEUY', 'NY', 'PNY'],
-          'Queens'       : ['Q', 'QN', 'QNS', 'QUEEN'],
-          'Staten Island': ['R', 'RICH', 'ST'],
+          'brooklyn'     : ['BK', 'BROOK', 'K', 'KINGS', 'PK'],
+          'bronx'        : ['BRONX', 'BX', 'PBX'],
+          'manhattan'    : ['MAH', 'MANHA', 'MN', 'NEUY', 'NY', 'PNY'],
+          'queens'       : ['Q', 'QN', 'QNS', 'QUEEN'],
+          'staten island': ['R', 'RICH', 'ST'],
         }
 
         # set up return data structure
