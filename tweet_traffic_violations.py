@@ -3,6 +3,7 @@ import getpass
 import logging
 import json
 import optparse
+import os
 import pdb
 import pytz
 import re
@@ -44,6 +45,8 @@ class TrafficViolationsTweeter:
         # keep reference to twitter api
         self.api = tweepy.API(self.auth, retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
 
+        self.google_api_key = os.environ['GOOGLE_API_KEY'] if os.environ.get('GOOGLE_API_KEY') else ''
+
 
     def run(self):
         print('Setting up logging')
@@ -61,6 +64,27 @@ class TrafficViolationsTweeter:
         # twitterStream.filter(track=['howsmydrivingny'])
 
         userstream = twitterStream.userstream()
+
+
+    def detect_borough(self, location_str):
+        location_str = re.sub('[ENSW]B *', '', location_str)
+
+        url     = 'https://maps.googleapis.com/maps/api/geocode/json'
+        api_key = self.google_api_key
+        params  = {'address': ' '.join([location_str, 'New York City']), 'key': api_key}
+
+        req     = requests.get(url, params=params)
+        results = req.json()['results']
+
+        if results and results[0]:
+            if results[0].get('address_components'):
+                address_components = results[0].get('address_components')
+                boros = [comp['long_name'] for comp in results[0].get('address_components') if comp.get('types') and 'sublocality_level_1' in comp['types']]
+                if boros:
+                    return boros
+
+        return []
+
 
 
     def detect_campaign_hashtags(self, string_parts):
@@ -635,7 +659,15 @@ class TrafficViolationsTweeter:
                             if boros:
                                 record['borough'] = boros[0]
                         else:
-                            record['borough'] = 'No Borough Available'
+                            if record.get('street_name'):
+                                street_name         = record.get('street_name')
+                                intersecting_street = record.get('intersecting_street') or ''
+
+                                google_boros = self.detect_borough(street_name + ' ' + intersecting_street)
+                                if google_boros:
+                                    record['borough'] = google_boros[0].lower()
+                                else:
+                                    record['borough'] = 'No Borough Available'
 
 
                 # structure response and only use the data we need

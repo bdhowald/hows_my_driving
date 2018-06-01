@@ -14,6 +14,7 @@ import pdb
 
 import getpass
 import json
+import os
 import requests
 import pytz
 import tweepy
@@ -140,6 +141,52 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter = TrafficViolationsTweeter()
 
 
+    def test_detect_borough(self):
+        bronx_comp = {
+          'results': [
+            {
+              'address_components': [
+                {
+                  'long_name': 'Bronx',
+                  'short_name': 'Bronx',
+                  'types': [
+                    'political',
+                    'sublocality',
+                    'sublocality_level_1'
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+
+        empty_comp = {
+          'results': [
+            {
+              'address_components': [
+                {}
+              ]
+            }
+          ]
+        }
+
+        req_mock = MagicMock(name='json')
+        req_mock.json.return_value = bronx_comp
+
+        get_mock = MagicMock(name='get')
+        get_mock.return_value = req_mock
+
+        requests.get = get_mock
+
+        self.assertEqual(self.tweeter.detect_borough('Da Bronx'), ['Bronx'])
+
+
+        req_mock.json.return_value = empty_comp
+
+        self.assertEqual(self.tweeter.detect_borough('no match'), [])
+
+
+
     def test_detect_campaign_hashtags(self):
         cursor_mock = MagicMock(name='cursor')
         cursor_mock.cursor = [[6, '#TestCampaign']]
@@ -152,7 +199,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.tweeter.engine = connect_mock
 
-        assert self.tweeter.detect_campaign_hashtags(['#TestCampaign'])[0][1] == '#TestCampaign'
+        self.assertEqual(self.tweeter.detect_campaign_hashtags(['#TestCampaign'])[0][1], '#TestCampaign')
 
 
     def test_detect_state(self):
@@ -160,8 +207,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         regions = str.split('|')
 
         for region in regions:
-            assert self.tweeter.detect_state(region) == True
-            assert self.tweeter.detect_state(region + 'XX') == False
+            self.assertEqual(self.tweeter.detect_state(region), True)
+            self.assertEqual(self.tweeter.detect_state(region + 'XX'), False)
 
 
     def test_find_potential_vehicles(self):
