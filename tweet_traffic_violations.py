@@ -521,22 +521,22 @@ class TrafficViolationsTweeter:
 
         precincts = {
           'manhattan': {
-            'manhattan_south': [1,5,6,7,9,10,13,14,17,18],
-            'manhattan_north': [19,20,22,23,24,25,26,28,30,32,33,34]
+            'manhattan south': [1,5,6,7,9,10,13,14,17,18],
+            'manhattan north': [19,20,22,23,24,25,26,28,30,32,33,34]
           },
           'bronx': {
             'bronx'          : [40,41,42,43,44,45,46,47,48,49,50,52]
           },
           'brooklyn': {
-            'brooklyn_south' : [60,61,62,63,66,67,68,69,70,71.72,76,78],
-            'brooklyn_north' : [73,75,77,79,81,83,84,88,90,94]
+            'brooklyn south' : [60,61,62,63,66,67,68,69,70,71.72,76,78],
+            'brooklyn north' : [73,75,77,79,81,83,84,88,90,94]
           },
           'queens': {
-            'queens_south'   : [100,101,102,103,105,106,107,113],
-            'queens_north'   : [104,108,109,110,111,112,114,115]
+            'queens south'   : [100,101,102,103,105,106,107,113],
+            'queens north'   : [104,108,109,110,111,112,114,115]
           },
-          'staten_island': {
-            'staten_island'  : [120,121,122,123]
+          'staten island': {
+            'staten island'  : [120,121,122,123]
           }
         }
 
