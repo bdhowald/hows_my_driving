@@ -576,9 +576,7 @@ class TrafficViolationsTweeter:
 
         # add violation if it's missing
         for record in opacv_data:
-            if record.get('violation') is None:
-                record['violation'] = 'No Violation Description Available'
-            else:
+            if record.get('violation'):
                 record['violation'] = opacv_humanized_names[record['violation']]
 
             if record.get('issue_date') is None:
@@ -599,8 +597,6 @@ class TrafficViolationsTweeter:
                         boros = [name for name,codes in county_codes.items() if record.get('county') in codes]
                         if boros:
                             record['borough'] = boros[0]
-                    else:
-                        record['borough'] = 'No Borough Available'
 
 
             combined_violations[record['summons_number']] = { key: record.get(key) for key in opacv_desired_keys }
@@ -635,8 +631,6 @@ class TrafficViolationsTweeter:
                 if record.get('violation_description') is None:
                     if record.get('violation_code') and fy_humanized_names.get(record['violation_code']):
                         record['violation'] = fy_humanized_names.get(record['violation_code'])
-                    else:
-                        record['violation'] = "No Violation Description Available"
                 else:
                     if fy_humanized_names.get(record['violation_description']):
                         record['violation'] = fy_humanized_names.get(record['violation_description'])
@@ -669,8 +663,6 @@ class TrafficViolationsTweeter:
                                 google_boros = self.detect_borough(street_name + ' ' + intersecting_street)
                                 if google_boros:
                                     record['borough'] = google_boros[0].lower()
-                                else:
-                                    record['borough'] = 'No Borough Available'
 
 
                 # structure response and only use the data we need
@@ -679,8 +671,16 @@ class TrafficViolationsTweeter:
                 if combined_violations.get(record['summons_number']) is None:
                     combined_violations[record['summons_number']] = new_data
                 else:
+                    return_record = combined_violations[record['summons_number']]
+
                     # Merge records together, treating fiscal year data as authoritative.
-                    combined_violations[record['summons_number']] = {**combined_violations.get(record['summons_number']), **new_data}
+                    return_record = {**combined_violations.get(record['summons_number']), **new_data}
+
+                    # If we still don't have a violation after merging records, record it as blank
+                    if return_record.get('violation') is None:
+                        return_record['violation'] = "No Violation Description Available"
+                    if return_record.get('borough') is None:
+                        record['borough'] = 'No Borough Available'
 
 
 
