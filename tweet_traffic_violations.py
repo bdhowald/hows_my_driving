@@ -120,7 +120,7 @@ class TrafficViolationsTweeter:
             legacy_plate_data  = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower() for part in list_of_strings if ('state:' in part.lower() or 'plate:' in part.lower())]])
 
             if legacy_plate_data:
-                if self.detect_state(legacy_plate_data.get('state')):
+                if self.detect_state(legacy_plate_data.get('state')) and legacy_plate_data.get('plate'):
                     legacy_plate_data['valid_plate'] = True
                 else:
                     legacy_plate_data['valid_plate'] = False
