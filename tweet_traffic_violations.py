@@ -111,6 +111,31 @@ class TrafficViolationsTweeter:
         return state_abbr_pattern.search(state_input.upper()) != None# or state_full_pattern.search(state_input.upper()) != None
 
 
+    def find_max_camera_violations_streak(self, list_of_violation_times):
+        if list_of_violation_times:
+            max_streak      = 0
+            min_streak_date = None
+            max_streak_date = None
+
+            for date in list_of_violation_times:
+                year_later = date.replace(year = date.year + 1)
+
+                year_long_tickets = [comp_date for comp_date in list_of_violation_times if date <= comp_date < year_later]
+                this_streak       = len(year_long_tickets)
+
+                if this_streak > max_streak:
+
+                    max_streak      = this_streak
+                    min_streak_date = year_long_tickets[0]
+                    max_streak_date = year_long_tickets[-1]
+
+            return {
+              'min_streak_date': min_streak_date.strftime('%Y-%m-%d'),
+              'max_streak': max_streak,
+              'max_streak_date': max_streak_date.strftime('%Y-%m-%d')
+            }
+
+
     def find_potential_vehicles(self, list_of_strings, use_legacy_logic=False):
         # Find potential plates
 
@@ -250,6 +275,16 @@ class TrafficViolationsTweeter:
 
             response_chunks += self.handle_response_part_formation(query_result['boroughs'], boroughs_keys)
 
+
+        if query_result.get('camera_streak_data'):
+
+            streak_data = query_result['camera_streak_data']
+
+            # formulate streak string
+            streak_string = "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its {} camera violations from {} to {}.".format(streak_data['max_streak'], streak_data['min_streak_date'], streak_data['max_streak_date'])
+
+            # add to container
+            response_chunks.append(username + ' ' + streak_string)
 
 
         # Send it back!
@@ -671,10 +706,8 @@ class TrafficViolationsTweeter:
                 if combined_violations.get(record['summons_number']) is None:
                     combined_violations[record['summons_number']] = new_data
                 else:
-                    return_record = combined_violations[record['summons_number']]
-
                     # Merge records together, treating fiscal year data as authoritative.
-                    return_record = {**combined_violations.get(record['summons_number']), **new_data}
+                    return_record = combined_violations[record['summons_number']] = {**combined_violations.get(record['summons_number']), **new_data}
 
                     # If we still don't have a violation after merging records, record it as blank
                     if return_record.get('violation') is None:
@@ -683,19 +716,27 @@ class TrafficViolationsTweeter:
                         record['borough'] = 'No Borough Available'
 
 
-
         # Marshal all ticket data into form.
         tickets  = Counter([v['violation'] for k,v in combined_violations.items() if v.get('violation')]).most_common()
         years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for k,v in combined_violations.items()]).most_common()
         boroughs = Counter([v['borough'] for k,v in combined_violations.items() if v.get('borough')]).most_common()
 
+        camera_streak_data = self.find_max_camera_violations_streak(sorted([datetime.strptime(v['issue_date'],'%Y-%m-%dT%H:%M:%S.%f') for k,v in combined_violations.items() if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light', 'School Zone Speed Camera Violation']]))
+
+
+
         result   = {
-          'boroughs'  : [{'title':k.title(),'count':v} for k, v in boroughs],
-          'plate'     : plate,
-          'state'     : state,
-          'violations': [{'title':k.title(),'count':v} for k,v in tickets],
-          'years'     : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
+          'boroughs'   : [{'title':k.title(),'count':v} for k, v in boroughs],
+          'plate'      : plate,
+          'state'      : state,
+          'violations' : [{'title':k.title(),'count':v} for k,v in tickets],
+          'years'      : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
         }
+
+        # No need to add streak data if it doesn't exist
+        if camera_streak_data:
+            result['camera_streak_data'] = camera_streak_data
+
 
         self.logger.debug('violations sorted: %s', result)
 

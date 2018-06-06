@@ -211,6 +211,43 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             self.assertEqual(self.tweeter.detect_state(region + 'XX'), False)
 
 
+    def test_find_max_camera_streak(self):
+        list_of_camera_times = [
+          datetime(2015, 9, 18, 0, 0),
+          datetime(2015, 10, 16, 0, 0),
+          datetime(2015, 11, 2, 0, 0),
+          datetime(2015, 11, 5, 0, 0),
+          datetime(2015, 11, 12, 0, 0),
+          datetime(2016, 2, 2, 0, 0),
+          datetime(2016, 2, 25, 0, 0),
+          datetime(2016, 5, 31, 0, 0),
+          datetime(2016, 9, 8, 0, 0),
+          datetime(2016, 10, 17, 0, 0),
+          datetime(2016, 10, 24, 0, 0),
+          datetime(2016, 10, 26, 0, 0),
+          datetime(2016, 11, 21, 0, 0),
+          datetime(2016, 12, 18, 0, 0),
+          datetime(2016, 12, 22, 0, 0),
+          datetime(2017, 1, 5, 0, 0),
+          datetime(2017, 2, 13, 0, 0),
+          datetime(2017, 5, 10, 0, 0),
+          datetime(2017, 5, 24, 0, 0),
+          datetime(2017, 6, 27, 0, 0),
+          datetime(2017, 6, 27, 0, 0),
+          datetime(2017, 9, 14, 0, 0),
+          datetime(2017, 11, 6, 0, 0),
+          datetime(2018, 1, 28, 0, 0)
+        ]
+
+        result = {
+          'min_streak_date': '2016-09-08',
+          'max_streak': 13,
+          'max_streak_date': '2017-06-27'
+        }
+
+        self.assertEqual(self.tweeter.find_max_camera_violations_streak(list_of_camera_times), result)
+
+
     def test_find_potential_vehicles(self):
 
       string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
