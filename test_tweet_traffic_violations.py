@@ -212,7 +212,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
 
     def test_find_max_camera_streak(self):
-        list_of_camera_times = [
+        list_of_camera_times1 = [
           datetime(2015, 9, 18, 0, 0),
           datetime(2015, 10, 16, 0, 0),
           datetime(2015, 11, 2, 0, 0),
@@ -239,13 +239,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           datetime(2018, 1, 28, 0, 0)
         ]
 
-        result = {
+        result1 = {
           'min_streak_date': 'September 8, 2016',
           'max_streak': 13,
           'max_streak_date': 'June 27, 2017'
         }
 
-        self.assertEqual(self.tweeter.find_max_camera_violations_streak(list_of_camera_times), result)
+        self.assertEqual(self.tweeter.find_max_camera_violations_streak(list_of_camera_times1), result1)
 
 
     def test_find_potential_vehicles(self):
@@ -306,7 +306,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         adjusted_time = utc.localize(previous_time).astimezone(eastern)
 
 
-        plate_lookup = {
+        plate_lookup1 = {
           'plate': 'HME6483',
           'state': 'NY',
           'violations': [
@@ -336,10 +336,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             {'count': 7, 'title': 'Brooklyn'},
             {'count': 2, 'title': 'Queens'},
             {'count': 13, 'title': 'Staten Island'}
-          ]
+          ],
+          'camera_streak_data': {
+            'min_streak_date': 'September 18, 2015',
+            'max_streak': 4,
+            'max_streak_date': 'November 5, 2015'
+          }
         }
 
-        response_parts = [
+        response_parts1 = [
           '@bdhowald #NY_HME6483 has been queried 8 times.\n'
           '\n'
           'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
@@ -374,7 +379,84 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '13 | Staten Island\n'
         ]
 
-        self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup, '@bdhowald'), response_parts)
+        self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup1, '@bdhowald'), response_parts1)
+
+
+        plate_lookup2 = {
+          'plate': 'HME6483',
+          'state': 'NY',
+          'violations': [
+            {'title': 'No Standing - Day/Time Limits', 'count': 14},
+            {'title': 'No Parking - Street Cleaning', 'count': 3},
+            {'title': 'Failure To Display Meter Receipt', 'count': 1},
+            {'title': 'No Violation Description Available', 'count': 1},
+            {'title': 'Bus Lane Violation', 'count': 1},
+            {'title': 'Failure To Stop At Red Light', 'count': 1},
+            {'title': 'No Standing - Commercial Meter Zone', 'count': 1},
+            {'title': 'Expired Meter', 'count': 1},
+            {'title': 'Double Parking', 'count': 1},
+            {'title': 'No Angle Parking', 'count': 1}
+          ],
+          'years': [
+            {'title': '2016', 'count': 2},
+            {'title': '2017', 'count': 8},
+            {'title': '2018', 'count': 13}
+          ],
+          'previous_result': {
+            'num_tickets': 23,
+            'created_at': previous_time
+          },
+          'frequency': 8,
+          'boroughs': [
+            {'count': 1, 'title': 'Bronx'},
+            {'count': 7, 'title': 'Brooklyn'},
+            {'count': 2, 'title': 'Queens'},
+            {'count': 13, 'title': 'Staten Island'}
+          ],
+          'camera_streak_data': {
+            'min_streak_date': 'September 18, 2015',
+            'max_streak': 5,
+            'max_streak_date': 'November 5, 2015'
+          }
+        }
+
+        response_parts2 = [
+          '@bdhowald #NY_HME6483 has been queried 8 times.\n'
+          '\n'
+          'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
+          '#NY_HME6483 has received 2 new tickets.\n'
+          '\n'
+          'Total parking and camera violation tickets: 25\n'
+          '\n'
+          '14 | No Standing - Day/Time Limits\n'
+          '3   | No Parking - Street Cleaning\n',
+          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+          '\n'
+          '1   | Failure To Display Meter Receipt\n'
+          '1   | No Violation Description Available\n'
+          '1   | Bus Lane Violation\n'
+          '1   | Failure To Stop At Red Light\n'
+          '1   | No Standing - Commercial Meter Zone\n'
+          '1   | Expired Meter\n',
+          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+          '\n'
+          '1   | Double Parking\n'
+          '1   | No Angle Parking\n',
+          '@bdhowald Violations by year for #NY_HME6483:\n'
+          '\n'
+          '2   | 2016\n'
+          '8   | 2017\n'
+          '13 | 2018\n',
+          '@bdhowald Violations by borough for #NY_HME6483:\n'
+          '\n'
+          '1   | Bronx\n'
+          '7   | Brooklyn\n'
+          '2   | Queens\n'
+          '13 | Staten Island\n',
+          "@bdhowald Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its 5 camera violations from September 18, 2015 to November 5, 2015."
+        ]
+
+        self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup2, '@bdhowald'), response_parts2)
 
 
     def test_handle_response_part_formation(self):

@@ -280,11 +280,13 @@ class TrafficViolationsTweeter:
 
             streak_data = query_result['camera_streak_data']
 
-            # formulate streak string
-            streak_string = "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its {} camera violations from {} to {}.".format(streak_data['max_streak'], streak_data['min_streak_date'], streak_data['max_streak_date'])
+            if streak_data.get('max_streak') and streak_data['max_streak'] >= 5:
 
-            # add to container
-            response_chunks.append(username + ' ' + streak_string)
+                # formulate streak string
+                streak_string = "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its {} camera violations from {} to {}.".format(streak_data['max_streak'], streak_data['min_streak_date'], streak_data['max_streak_date'])
+
+                # add to container
+                response_chunks.append(username + ' ' + streak_string)
 
 
         # Send it back!
