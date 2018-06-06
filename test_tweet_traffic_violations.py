@@ -240,9 +240,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         ]
 
         result = {
-          'min_streak_date': '2016-09-08',
+          'min_streak_date': 'September 8, 2016',
           'max_streak': 13,
-          'max_streak_date': '2017-06-27'
+          'max_streak_date': 'June 27, 2017'
         }
 
         self.assertEqual(self.tweeter.find_max_camera_violations_streak(list_of_camera_times), result)

@@ -130,9 +130,9 @@ class TrafficViolationsTweeter:
                     max_streak_date = year_long_tickets[-1]
 
             return {
-              'min_streak_date': min_streak_date.strftime('%Y-%m-%d'),
+              'min_streak_date': min_streak_date.strftime('%B %-d, %Y'),
               'max_streak': max_streak,
-              'max_streak_date': max_streak_date.strftime('%Y-%m-%d')
+              'max_streak_date': max_streak_date.strftime('%B %-d, %Y')
             }
 
 
