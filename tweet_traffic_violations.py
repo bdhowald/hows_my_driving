@@ -91,8 +91,10 @@ class TrafficViolationsTweeter:
         # Instantiate a connection.
         conn = self.engine.connect()
 
+        hashtag_pattern   = re.compile('[^#\w]+', re.UNICODE)
+
         # Look for campaign hashtags in the message's text.
-        campaigns_present = conn.execute(""" select id, hashtag from campaigns where hashtag in (%s) """ % ','.join(['%s'] * len(string_parts)), string_parts)
+        campaigns_present = conn.execute(""" select id, hashtag from campaigns where hashtag in (%s) """ % ','.join(['%s'] * len(string_parts)), [hashtag_pattern.sub('', string) for string in string_parts])
         result            = [tuple(i) for i in campaigns_present.cursor]
 
         # Close the connection.
