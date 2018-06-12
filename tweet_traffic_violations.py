@@ -831,12 +831,13 @@ class TrafficViolationsTweeter:
 
         query = conn.execute(query_string.replace('\n', ''), (midnight_yesterday.strftime('%Y-%m-%d %H:%M:%S'), end_of_yesterday.strftime('%Y-%m-%d %H:%M:%S'))).fetchone()
 
-        num_lookups   = query[0]
-        num_tickets   = query[1]
-        empty_lookups = query[2]
+        num_lookups      = query[0]
+        num_tickets      = query[1]
+        empty_lookups    = query[2]
+        reckless_drivers = query[3]
 
         if num_lookups > 0:
-            summary_string = 'On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets.'.format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
+            summary_string = "On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets. {} {} eligible to be booted or impounded under @bradlander's proposed legislation.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups', reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were')
 
             self.is_production() and self.api.update_status(summary_string)
 
