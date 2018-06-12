@@ -200,6 +200,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.engine = connect_mock
 
         self.assertEqual(self.tweeter.detect_campaign_hashtags(['#TestCampaign'])[0][1], '#TestCampaign')
+        self.assertEqual(self.tweeter.detect_campaign_hashtags(['#TestCampaign,'])[0][1], '#TestCampaign')
 
 
     def test_detect_state(self):
@@ -687,7 +688,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'message_id': rand_int,
           'message_type': 'direct_message',
           'included_campaigns': [(87, '#BetterPresident')],
-          'plate': 'hme6483',
+          'plate': 'ABCDEFG',
           'state': 'ny',
           'username': 'bdhowald'
         }
@@ -738,7 +739,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         ]
 
         result = {
-          'plate': 'HME6483',
+          'plate': 'ABCDEFG',
           'state': 'NY',
           'violations': [
             {
@@ -767,7 +768,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         get_mock = MagicMock(name='get')
         get_mock.return_value = violations_mock
 
-        requests.get = get_mock
+        session_mock = MagicMock(name='session_object')
+        session_mock.get = get_mock
+
+        session_object_mock = MagicMock(name='session_object')
+        session_object_mock.return_value = session_mock
+
+        requests.Session = session_object_mock
 
         cursor_mock = MagicMock(name='cursor')
         cursor_mock.cursor = [{'num_tickets': 1, 'created_at': previous}]
