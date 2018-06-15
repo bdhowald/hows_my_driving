@@ -16,10 +16,12 @@ import getpass
 import json
 import os
 import requests
+import requests_futures.sessions
 import pytz
 import tweepy
 
 from datetime import datetime, timezone, time, timedelta
+
 
 
 
@@ -765,8 +767,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         violations_mock = MagicMock(name='violations')
         violations_mock.json.return_value = violations
 
+        result_mock = MagicMock(name='result')
+        result_mock.result.return_value = violations_mock
+
         get_mock = MagicMock(name='get')
-        get_mock.return_value = violations_mock
+        get_mock.return_value = result_mock
 
         session_mock = MagicMock(name='session_object')
         session_mock.get = get_mock
@@ -774,7 +779,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         session_object_mock = MagicMock(name='session_object')
         session_object_mock.return_value = session_mock
 
-        requests.Session = session_object_mock
+
+        requests_futures.sessions.FuturesSession = session_object_mock
 
         cursor_mock = MagicMock(name='cursor')
         cursor_mock.cursor = [{'num_tickets': 1, 'created_at': previous}]

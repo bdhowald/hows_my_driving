@@ -8,6 +8,7 @@ import pdb
 import pytz
 import re
 import requests
+import requests_futures.sessions
 import sys
 import tweepy
 
@@ -582,7 +583,7 @@ class TrafficViolationsTweeter:
         self.logger.debug('Listing args... plate: %s, state: %s, message_id: %s, created_at: %s', plate, state, str(message_id), str(created_at))
 
         # Set up retry ability
-        s_req = requests.Session()
+        s_req = requests_futures.sessions.FuturesSession(max_workers=6)
 
         retries = Retry(total=5,
                         backoff_factor=0.1,
@@ -598,7 +599,7 @@ class TrafficViolationsTweeter:
 
         if medallion_pattern.search(plate.upper()) != None:
             medallion_response = s_req.get('https://data.cityofnewyork.us/resource/7drc-shp9.json?license_number={}'.format(plate))
-            medallion_data     = medallion_response.json()
+            medallion_data     = medallion_response.result().json()
 
             sorted_list        = sorted(set([res['dmv_license_plate_number'] for res in medallion_data]))
             plate              = sorted_list[-1] if sorted_list else plate
@@ -621,7 +622,7 @@ class TrafficViolationsTweeter:
         # response from city open data portal
         opacv_endpoint = 'https://data.cityofnewyork.us/resource/uvbq-3m68.json'
         opacv_response = s_req.get(opacv_endpoint + '?$limit={}&$$app_token={}&plate={}&state={}'.format(limit, token, plate, state))
-        opacv_data     = opacv_response.json()
+        opacv_data     = opacv_response.result().json()
 
         # log response
         self.logger.debug('violations raw: %s', opacv_response)
@@ -675,7 +676,7 @@ class TrafficViolationsTweeter:
         for endpoint in fy_endpoints:
             query_string = '?$limit={}&$$app_token={}&plate_id={}&registration_state={}'.format(limit, token, plate, state)
             response     = s_req.get(endpoint + query_string)
-            data         = response.json()
+            data         = response.result().json()
 
             self.logger.debug('endpoint: %s', endpoint)
             self.logger.debug('fy_response: %s', data)
