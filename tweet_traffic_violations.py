@@ -328,7 +328,7 @@ class TrafficViolationsTweeter:
             if streak_data.get('max_streak') and streak_data['max_streak'] >= 5:
 
                 # formulate streak string
-                streak_string = "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its {} camera violations from {} to {}.\n".format(streak_data['max_streak'], streak_data['min_streak_date'], streak_data['max_streak_date'])
+                streak_string = "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its {} camera violations (>= 5/year) from {} to {}.\n".format(streak_data['max_streak'], streak_data['min_streak_date'], streak_data['max_streak_date'])
 
                 # add to container
                 response_chunks.append(username + ' ' + streak_string)
