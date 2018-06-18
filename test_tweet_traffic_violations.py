@@ -456,8 +456,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '7   | Brooklyn\n'
           '2   | Queens\n'
           '13 | Staten Island\n',
-          "@bdhowald Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its 5 camera violations from September 18, 2015 to November 5, 2015.\n",
-          "@bdhowald Authorization for NYC's speed safety cameras expires June 30, 2018. Senate Bill 6046A would authorize the city to double the number of life-saving cameras. Call @NYSenatorFelder at 718.253.2015/518.455.2754 and urge him to let the bill out of committee.\n"
+          "@bdhowald Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its 5 camera violations (>= 5/year) from September 18, 2015 to November 5, 2015.\n",
+          "@bdhowald Authorization for NYC's speed safety cameras expires June 30, 2018.\n\nSenate Bill 6046C would authorize the city to double the number of life-saving cameras.\n\nCall @NYSenatorFelder at 718.253.2015/518.455.2754 and urge him to let the bill out of committee.\n"
         ]
 
         self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup2, '@bdhowald'), response_parts2)

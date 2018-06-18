@@ -334,7 +334,7 @@ class TrafficViolationsTweeter:
                 response_chunks.append(username + ' ' + streak_string)
 
                 # add Simcha Felder string until bill is passed
-                simcha_felder_string = "Authorization for NYC's speed safety cameras expires June 30, 2018. Senate Bill 6046C would authorize the city to double the number of life-saving cameras. Call @NYSenatorFelder at 718.253.2015/518.455.2754 and urge him to let the bill out of committee.\n"
+                simcha_felder_string = "Authorization for NYC's speed safety cameras expires June 30, 2018.\n\nSenate Bill 6046C would authorize the city to double the number of life-saving cameras.\n\nCall @NYSenatorFelder at 718.253.2015/518.455.2754 and urge him to let the bill out of committee.\n"
 
                 # add to container
                 response_chunks.append(username + ' ' + simcha_felder_string)
