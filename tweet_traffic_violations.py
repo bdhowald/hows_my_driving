@@ -161,7 +161,11 @@ class TrafficViolationsTweeter:
             max_streak_date = None
 
             for date in list_of_violation_times:
+
+                self.logger.debug("date: %s", date)
+
                 year_later = date.replace(year = date.year + 1)
+                self.logger.debug("year_later: %s", year_later)
 
                 year_long_tickets = [comp_date for comp_date in list_of_violation_times if date <= comp_date < year_later]
                 this_streak       = len(year_long_tickets)
