@@ -164,7 +164,7 @@ class TrafficViolationsTweeter:
 
                 self.logger.debug("date: %s", date)
 
-                year_later = date.replace(year = date.year + 1)
+                year_later = date + (datetime(date.year + 1, 1, 1) - datetime(date.year, 1, 1))
                 self.logger.debug("year_later: %s", year_later)
 
                 year_long_tickets = [comp_date for comp_date in list_of_violation_times if date <= comp_date < year_later]
