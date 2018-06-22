@@ -5,7 +5,7 @@ import random
 import unittest
 
 # from mock import MagicMock
-from unittest.mock import patch, MagicMock
+from unittest.mock import call, MagicMock, patch
 
 # import class
 from tweet_traffic_violations import MyStreamListener, TrafficViolationsTweeter
@@ -817,14 +817,18 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         midnight_yesterday = (eastern.localize(datetime.combine(today, time.min)) - timedelta(days=1)).astimezone(utc)
         end_of_yesterday   = (eastern.localize(datetime.combine(today, time.min)) - timedelta(seconds=1)).astimezone(utc)
 
-        num_lookups      = random.randint(1, 10000)
-        num_tickets      = random.randint(1, 1000000)
-        empty_lookups    = random.randint(1, 100)
-        reckless_drivers = random.randint(1, 250)
+        num_lookups            = random.randint(1, 10000)
+        num_tickets            = random.randint(1, 1000000)
+        empty_lookups          = random.randint(1, 100)
+        reckless_drivers       = random.randint(1, 250)
+        total_reckless_drivers = random.randint(1, 1000)
+
+        message_id             = random.randint(10000000000000000000, 20000000000000000000)
 
 
         cursor_mock = MagicMock(name='cursor')
-        cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
+        # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
+        cursor_mock.fetchone.side_effect = [[num_lookups, num_tickets, empty_lookups, reckless_drivers], [total_reckless_drivers]]
 
         execute_mock = MagicMock(name='execute')
         execute_mock.execute.return_value = cursor_mock
@@ -836,6 +840,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         is_production_mock.return_value = True
 
         update_status_mock = MagicMock(name='update_status')
+        update_status_mock.return_value = message_id
 
         api_mock = MagicMock(name='api')
         api_mock.update_status = update_status_mock
@@ -844,12 +849,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock
 
-        result_str = "On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets. {} {} eligible to be booted or impounded under @bradlander's proposed legislation.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups', reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were')
+        lookup_str   = "On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
+        reckless_str = "{} {} eligible to be booted or impounded under @bradlander's proposed legislation ({} such lookups since June 6, 2018).".format(reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were', total_reckless_drivers)
 
 
         self.tweeter.print_daily_summary()
 
-        update_status_mock.assert_called_with(result_str)
+        calls = [call(lookup_str), call(reckless_str, in_reply_to_status_id = message_id)]
+
+        update_status_mock.assert_has_calls(calls)
 
 
     def test_process_response_message(self):

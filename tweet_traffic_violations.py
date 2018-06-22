@@ -840,7 +840,7 @@ class TrafficViolationsTweeter:
         midnight_yesterday = (eastern.localize(datetime.combine(today, time.min)) - timedelta(days=1)).astimezone(utc)
         end_of_yesterday   = (eastern.localize(datetime.combine(today, time.min)) - timedelta(seconds=1)).astimezone(utc)
 
-        query_string = """
+        daily_lookup_query_string = """
             select count(t1.id) as lookups,
                    ifnull(sum(num_tickets), 0) as total_tickets,
                    count(case when num_tickets = 0 then 1 end) as empty_lookups,
@@ -856,17 +856,42 @@ class TrafficViolationsTweeter:
                      and %s);
         """
 
-        query = conn.execute(query_string.replace('\n', ''), (midnight_yesterday.strftime('%Y-%m-%d %H:%M:%S'), end_of_yesterday.strftime('%Y-%m-%d %H:%M:%S'))).fetchone()
+        daily_lookup_query = conn.execute(daily_lookup_query_string.replace('\n', ''), (midnight_yesterday.strftime('%Y-%m-%d %H:%M:%S'), end_of_yesterday.strftime('%Y-%m-%d %H:%M:%S'))).fetchone()
 
-        num_lookups      = query[0]
-        num_tickets      = query[1]
-        empty_lookups    = query[2]
-        reckless_drivers = query[3]
+        num_lookups      = daily_lookup_query[0]
+        num_tickets      = daily_lookup_query[1]
+        empty_lookups    = daily_lookup_query[2]
+        reckless_drivers = daily_lookup_query[3]
+
+
+        boot_eligible_query_string = """
+            select count(distinct plate, state) as boot_eligible_count
+              from plate_lookups
+             where boot_eligible = 1;
+        """
+
+        boot_eligible_query = conn.execute(boot_eligible_query_string.replace('\n', '')).fetchone()
+
+        total_reckless_drivers = boot_eligible_query[0]
+
 
         if num_lookups > 0:
-            summary_string = "On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets. {} {} eligible to be booted or impounded under @bradlander's proposed legislation.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups', reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were')
+            lookups_summary_string = "On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
 
-            self.is_production() and self.api.update_status(summary_string)
+            reckless_drivers_summary_string = "{} {} eligible to be booted or impounded under @bradlander's proposed legislation ({} such lookups since June 6, 2018).".format(reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were', total_reckless_drivers)
+
+            if self.is_production():
+                try:
+                    message_id = self.api.update_status(lookups_summary_string)
+                    self.api.update_status(reckless_drivers_summary_string, in_reply_to_status_id = message_id)
+
+                except tweepy.error.TweepError as te:
+                    self.api.update_status("Error printing daily summary. Tagging @bdhowald.")
+
+            else:
+                print(lookups_summary_string)
+                print(reckless_drivers_summary_string)
+
 
         # Close connection.
         conn.close()
