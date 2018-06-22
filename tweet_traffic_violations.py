@@ -597,7 +597,8 @@ class TrafficViolationsTweeter:
 
         retries = Retry(total=5,
                         backoff_factor=0.1,
-                        status_forcelist=[ 500, 502, 503, 504 ])
+                        status_forcelist=[ 500, 502, 503, 504 ],
+                        raise_on_status=False)
 
         s_req.mount('https://', HTTPAdapter(max_retries=retries))
 
@@ -686,7 +687,21 @@ class TrafficViolationsTweeter:
         for endpoint in fy_endpoints:
             query_string = '?$limit={}&$$app_token={}&plate_id={}&registration_state={}'.format(limit, token, plate, state)
             response     = s_req.get(endpoint + query_string)
-            data         = response.result().json()
+            result       = response.result()
+
+            if result.status_code in range(200,300):
+                # Only attempt to read json on a successful response.
+                data     = result.json()
+            elif result.status_code in range(300,400):
+                return {'error': 'redirect', 'plate': plate, 'state': state}
+            elif result.status_code in range(400,500):
+                return {'error': 'user error', 'plate': plate, 'state': state}
+            elif result.status_code in range(500,600):
+                return {'error': 'server error', 'plate': plate, 'state': state}
+            else:
+                return {'error': 'unknown error', 'plate': plate, 'state': state}
+
+
 
             self.logger.debug('endpoint: %s', endpoint)
             self.logger.debug('fy_response: %s', data)
@@ -761,6 +776,7 @@ class TrafficViolationsTweeter:
           'violations' : [{'title':k.title(),'count':v} for k,v in tickets],
           'years'      : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
         }
+
 
         # No need to add streak data if it doesn't exist
         if camera_streak_data:
@@ -909,6 +925,7 @@ class TrafficViolationsTweeter:
         # Collect response parts here.
         response_parts    = []
         successful_lookup = False
+        error_on_lookup   = False
 
         # Wrap in try/catch block
         try:
@@ -937,14 +954,20 @@ class TrafficViolationsTweeter:
                     # Do the real work!
                     plate_lookup = self.perform_plate_lookup(query_info)
 
-                    # Record successful lookup.
-                    successful_lookup = True
+                    if plate_lookup.get('violations'):
 
-                    # If query returns, format output.
-                    if any(plate_lookup['violations']):
+                        # Record successful lookup.
+                        successful_lookup = True
 
                         response_parts.append(self.form_plate_lookup_response_parts(plate_lookup, username))
                         # [[campaign_stuff], tickets_0, tickets_1, etc.]
+
+                    elif plate_lookup.get('error'):
+
+                        # Record lookup error.
+                        error_on_lookup = True
+
+                        response_parts.append(["{} Sorry, I received an error when looking up {}:{}. Please try again.".format(username, plate_lookup.get('state').upper(), plate_lookup.get('plate').upper())])
 
                     else:
                         # Let user know we didn't find anything.
@@ -982,7 +1005,7 @@ class TrafficViolationsTweeter:
 
             # If we don't look up a single plate successfully,
             # figure out how we can help the user.
-            if not successful_lookup:
+            if not successful_lookup and not error_on_lookup:
 
                 self.logger.debug('The data seems to be in the wrong format.')
 

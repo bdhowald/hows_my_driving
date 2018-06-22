@@ -767,6 +767,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         violations_mock = MagicMock(name='violations')
         violations_mock.json.return_value = violations
+        violations_mock.status_code = 200
 
         result_mock = MagicMock(name='result')
         result_mock.result.return_value = violations_mock
@@ -796,6 +797,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.engine = connect_mock
 
         self.assertEqual(self.tweeter.perform_plate_lookup(args), result)
+
+
+        # Try again with a forced error.
+
+        error_result = {'error': 'server error', 'plate': 'ABCDEFG', 'state': 'NY'}
+
+        violations_mock.status_code = 503
+
+        self.assertEqual(self.tweeter.perform_plate_lookup(args), error_result)
 
 
     def test_print_daily_summary(self):
