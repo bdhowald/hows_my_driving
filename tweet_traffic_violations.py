@@ -995,6 +995,10 @@ class TrafficViolationsTweeter:
                         response_parts.append(["{} Sorry, I received an error when looking up {}:{}. Please try again.".format(username, plate_lookup.get('state').upper(), plate_lookup.get('plate').upper())])
 
                     else:
+
+                        # Record successful lookup.
+                        successful_lookup = True
+
                         # Let user know we didn't find anything.
                         # sorry_message = "{} Sorry, I couldn't find any tickets for that plate.".format(username)
                         response_parts.append(["{} Sorry, I couldn't find any tickets for {}:{}.".format(username, potential_vehicle.get('state').upper(), potential_vehicle.get('plate').upper())])
