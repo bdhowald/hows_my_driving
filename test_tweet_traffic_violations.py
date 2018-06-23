@@ -206,7 +206,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
 
     def test_detect_state(self):
-        str     = '99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QB|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT'
+        str     = '99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QC|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT'
         regions = str.split('|')
 
         for region in regions:
@@ -839,8 +839,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
 
+        message_mock = MagicMock(name='message')
+        message_mock.id = message_id
+
         update_status_mock = MagicMock(name='update_status')
-        update_status_mock.return_value = message_id
+        update_status_mock.return_value = message_mock
 
         api_mock = MagicMock(name='api')
         api_mock.update_status = update_status_mock

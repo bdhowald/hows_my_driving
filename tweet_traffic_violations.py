@@ -881,10 +881,11 @@ class TrafficViolationsTweeter:
 
             if self.is_production():
                 try:
-                    message_id = self.api.update_status(lookups_summary_string)
-                    self.api.update_status(reckless_drivers_summary_string, in_reply_to_status_id = message_id)
+                    message = self.api.update_status(lookups_summary_string)
+                    self.api.update_status(reckless_drivers_summary_string, in_reply_to_status_id = message.id)
 
                 except tweepy.error.TweepError as te:
+                    print(te)
                     self.api.update_status("Error printing daily summary. Tagging @bdhowald.")
 
             else:
