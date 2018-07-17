@@ -543,21 +543,22 @@ class TrafficViolationsTweeter:
         for campaign in included_campaigns:
             # get new total for tickets
             campaign_tickets_query_string = """
-              select count(id) as campaign_vehicles, ifnull(sum(num_tickets), 0) as campaign_tickets
-                    from plate_lookups t1
-                   where id in
-                       (select plate_lookup_id
-                          from campaigns_plate_lookups
-                        where campaign_id = %s)
-                     and t1.created_at =
-                       (select MAX(t2.created_at)
-                          from plate_lookups t2
-                          join campaigns_plate_lookups cpl
-                            on t2.id = cpl.plate_lookup_id
-                         where t2.plate = t1.plate
-                           and t2.state = t1.state
-                           and count_towards_frequency = 1
-                           and t2.id = cpl.plate_lookup_id);
+              select count(id) as campaign_vehicles,
+                     ifnull(sum(num_tickets), 0) as campaign_tickets
+                from plate_lookups t1
+               where (plate, state)
+                  in
+                (select plate, state
+                  from campaigns_plate_lookups cpl
+                  join plate_lookups t2
+                    on t2.id = cpl.plate_lookup_id
+                 where campaign_id = %s)
+                 and t1.created_at =
+                  (select MAX(t3.created_at)
+                     from plate_lookups t3
+                    where t3.plate = t1.plate
+                      and t3.state = t1.state
+                      and count_towards_frequency = 1);
             """
 
             campaign_tickets_result = conn.execute(campaign_tickets_query_string.replace('\n', ''), (campaign[0])).fetchone()
