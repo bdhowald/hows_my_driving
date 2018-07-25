@@ -342,6 +342,11 @@ class TrafficViolationsTweeter:
                 # add to container
                 response_chunks.append(username + ' ' + simcha_felder_string)
 
+        else:
+            simcha_felder_string = "Authorization for NYC's speed safety cameras expires today, July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
+
+            response_chunks.append(username + ' ' + simcha_felder_string)
+
 
         # Send it back!
         return response_chunks
