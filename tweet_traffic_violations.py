@@ -56,8 +56,8 @@ class TrafficViolationsTweeter:
     PRECINCTS_BY_BORO = {borough: [precinct for grouping in [precinct_list for bureau, precinct_list in regions.items()] for precinct in grouping] for borough,regions in PRECINCTS.items()}
 
     COUNTY_CODES = {
-      'brooklyn'     : ['BK', 'BROOK', 'K', 'KINGS', 'PK'],
       'bronx'        : ['BRONX', 'BX', 'PBX'],
+      'brooklyn'     : ['BK', 'BROOK', 'K', 'KINGS', 'PK'],
       'manhattan'    : ['MAH', 'MANHA', 'MN', 'NEUY', 'NY', 'PNY'],
       'queens'       : ['Q', 'QN', 'QNS', 'QUEEN'],
       'staten island': ['R', 'RICH', 'ST'],
