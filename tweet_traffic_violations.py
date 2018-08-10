@@ -41,7 +41,7 @@ class TrafficViolationsTweeter:
         'bronx'          : [40,41,42,43,44,45,46,47,48,49,50,52]
       },
       'brooklyn': {
-        'brooklyn south' : [60,61,62,63,66,67,68,69,70,71.72,76,78],
+        'brooklyn south' : [60,61,62,63,66,67,68,69,70,71,72,76,78],
         'brooklyn north' : [73,75,77,79,81,83,84,88,90,94]
       },
       'queens': {
