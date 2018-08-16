@@ -80,8 +80,8 @@ class TrafficViolationsTweeter:
         self.logger = logging.getLogger('hows_my_driving')
 
         # Set up Twitter auth
-        self.auth = tweepy.OAuthHandler('UzW1c1Gy4FmktSkfXF1dgfupr', '17Uf3vrk44m5fjTUEBPx8sPltX45OfZZtApWhWqt139O0GBgkV')
-        self.auth.set_access_token('976593574732222465-YKv9y3mT9Vhu7Ufm7xkfk6Z2T3By3K9', 'B9dNrNT5io8GrB18Roy4eUSqDoR9YvJoErHKfT8aw3sGl')
+        self.auth = tweepy.OAuthHandler(os.environ['TWITTER_API_KEY'], os.environ['TWITTER_API_SECRET'])
+        self.auth.set_access_token(os.environ['TWITTER_ACCESS_TOKEN'], os.environ['TWITTER_ACCESS_TOKEN_SECRET'])
 
         # keep reference to twitter api
         self.api = tweepy.API(self.auth, retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
