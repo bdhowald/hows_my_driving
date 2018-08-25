@@ -60,7 +60,7 @@ class TestMyStreamListener(unittest.TestCase):
 
         self.listener.on_data(direct_message_data)
 
-        self.listener.tweeter.initiate_reply.assert_called_with(123)
+        self.listener.tweeter.initiate_reply.assert_called_with(123, 'direct_message')
         parse_mock.assert_called_with(self.listener.api, json.loads(direct_message_data))
 
 
@@ -75,7 +75,7 @@ class TestMyStreamListener(unittest.TestCase):
 
         self.listener.on_data(in_reply_to_status_id_data)
 
-        self.listener.tweeter.initiate_reply.assert_called_with(123)
+        self.listener.tweeter.initiate_reply.assert_called_with(123, 'status')
         parse_mock.assert_called_with(self.listener.api, json.loads(in_reply_to_status_id_data))
 
 
@@ -355,18 +355,18 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '\n'
           'Total parking and camera violation tickets: 25\n'
           '\n'
-          '14 | No Standing - Day/Time Limits\n'
-          '3   | No Parking - Street Cleaning\n',
+          '14 | No Standing - Day/Time Limits\n',
           "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
+          '3   | No Parking - Street Cleaning\n'
           '1   | Failure To Display Meter Receipt\n'
           '1   | No Violation Description Available\n'
           '1   | Bus Lane Violation\n'
-          '1   | Failure To Stop At Red Light\n'
-          '1   | No Standing - Commercial Meter Zone\n'
-          '1   | Expired Meter\n',
+          '1   | Failure To Stop At Red Light\n',
           "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
+          '1   | No Standing - Commercial Meter Zone\n'
+          '1   | Expired Meter\n'
           '1   | Double Parking\n'
           '1   | No Angle Parking\n',
           '@bdhowald Violations by year for #NY_HME6483:\n'
@@ -379,8 +379,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '1   | Bronx\n'
           '7   | Brooklyn\n'
           '2   | Queens\n'
-          '13 | Staten Island\n',
-          "@bdhowald Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
+          '13 | Staten Island\n'
         ]
 
         self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup1, '@bdhowald'), response_parts1)
@@ -432,18 +431,18 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '\n'
           'Total parking and camera violation tickets: 25\n'
           '\n'
-          '14 | No Standing - Day/Time Limits\n'
-          '3   | No Parking - Street Cleaning\n',
+          '14 | No Standing - Day/Time Limits\n',
           "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
+          '3   | No Parking - Street Cleaning\n'
           '1   | Failure To Display Meter Receipt\n'
           '1   | No Violation Description Available\n'
           '1   | Bus Lane Violation\n'
-          '1   | Failure To Stop At Red Light\n'
-          '1   | No Standing - Commercial Meter Zone\n'
-          '1   | Expired Meter\n',
+          '1   | Failure To Stop At Red Light\n',
           "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
+          '1   | No Standing - Commercial Meter Zone\n'
+          '1   | Expired Meter\n'
           '1   | Double Parking\n'
           '1   | No Angle Parking\n',
           '@bdhowald Violations by year for #NY_HME6483:\n'
@@ -458,7 +457,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '2   | Queens\n'
           '13 | Staten Island\n',
           "@bdhowald Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its 5 camera violations (>= 5/year) from September 18, 2015 to November 5, 2015.\n",
-          "@bdhowald Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
         ]
 
         self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup2, '@bdhowald'), response_parts2)
@@ -629,17 +627,17 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
 
 
-        self.tweeter.initiate_reply(direct_message_mock)
+        self.tweeter.initiate_reply(direct_message_mock, 'direct_message')
 
         process_response_message_mock.assert_called_with(direct_message_args_for_response)
 
 
-        self.tweeter.initiate_reply(entities_mock)
+        self.tweeter.initiate_reply(entities_mock, 'status')
 
         process_response_message_mock.assert_called_with(entities_args_for_response)
 
 
-        self.tweeter.initiate_reply(extended_tweet_mock)
+        self.tweeter.initiate_reply(extended_tweet_mock, 'status')
 
         process_response_message_mock.assert_called_with(extended_tweet_args_for_response)
 
@@ -880,7 +878,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         ######################################
 
         username1   = 'bdhowald'
-        message_id  = random.randint(10000000000000000000, 20000000000000000000)
+        message_id  = random.randint(1000000000000000000, 2000000000000000000)
         response_args1 = {
           'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
           'id': message_id,
@@ -914,7 +912,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             ],
         }
 
-        combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\n@bdhowald Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
+        combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n"
 
         plate_lookup_mock = MagicMock(name='plate_lookup')
         plate_lookup_mock.return_value = plate_lookup1
@@ -976,7 +974,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                          {'count': 1, 'title': 'Double Parking'}]
         }
 
-        response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", "@BarackObama Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"]]
+        response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n"]]
 
         plate_lookup_mock.return_value = plate_lookup2
 

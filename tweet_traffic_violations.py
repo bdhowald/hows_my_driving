@@ -10,6 +10,7 @@ import re
 import requests
 import requests_futures.sessions
 import sys
+import threading
 import tweepy
 
 from collections import Counter
@@ -71,10 +72,10 @@ class TrafficViolationsTweeter:
 
 
     def __init__(self):
-        password_str = 'SafeStreetsNow2018!' if getpass.getuser() == 'safestreets' else ''
+        password_str = os.environ['MYSQL_PASSWORD'] if 'MYSQL_PASSWORD' in os.environ else ''
 
         # Create a engine for connecting to MySQL
-        self.engine = create_engine('mysql+pymysql://root:' + password_str + '@localhost/traffic_violations?charset=utf8')
+        self.engine = create_engine('mysql+pymysql://{}:'.format(os.environ['MYSQL_USER']) + password_str + '@localhost/{}?charset=utf8'.format(os.environ['MYSQL_DATABASE']))
 
         # Create a logger
         self.logger = logging.getLogger('hows_my_driving')
@@ -84,7 +85,7 @@ class TrafficViolationsTweeter:
         self.auth.set_access_token(os.environ['TWITTER_ACCESS_TOKEN'], os.environ['TWITTER_ACCESS_TOKEN_SECRET'])
 
         # keep reference to twitter api
-        self.api = tweepy.API(self.auth, retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
+        self.api = tweepy.API(self.auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True, retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
 
         self.google_api_key = os.environ['GOOGLE_API_KEY'] if os.environ.get('GOOGLE_API_KEY') else ''
 
@@ -101,30 +102,55 @@ class TrafficViolationsTweeter:
                             datefmt='%Y-%m-%d %H:%M:%S')
 
 
-        twitterStream = tweepy.Stream(self.auth, MyStreamListener(self))
-        # twitterStream.filter(track=['howsmydrivingny'])
 
-        userstream = twitterStream.userstream()
+        # twitterStream = tweepy.Stream(self.auth, MyStreamListener(self))
+        # userstream = twitterStream.userstream()
+
+        # deprecatedStream = tweepy.Stream(self.auth, MyStreamListener(self))
+        # deprecatedStream.filter(track=['howsmydrivingny'])
+
+        self.find_messages_to_respond_to()
+
+
 
 
     def detect_borough(self, location_str):
+        # Instantiate a connection.
+        conn = self.engine.connect()
+
         location_str = re.sub('[ENSW]B *', '', location_str)
+        lookup_string = ' '.join([location_str, 'New York NY'])
 
-        url     = 'https://maps.googleapis.com/maps/api/geocode/json'
-        api_key = self.google_api_key
-        params  = {'address': ' '.join([location_str, 'New York City']), 'key': api_key}
+        # try to find it in the geocodes table first.
+        boro_from_geocode = conn.execute(""" select borough from geocodes where lookup_string = %s """, lookup_string).fetchone()
 
-        req     = requests.get(url, params=params)
-        results = req.json()['results']
+        if boro_from_geocode:
 
-        if results and results[0]:
-            if results[0].get('address_components'):
-                address_components = results[0].get('address_components')
-                boros = [comp['long_name'] for comp in results[0].get('address_components') if comp.get('types') and 'sublocality_level_1' in comp['types']]
-                if boros:
-                    return boros
+          return [boro_from_geocode[0]]
 
-        return []
+        else:
+
+            url           = 'https://maps.googleapis.com/maps/api/geocode/json'
+            api_key       = self.google_api_key
+            params        = {'address': lookup_string, 'key': api_key}
+
+            req     = requests.get(url, params=params)
+            results = req.json()['results']
+
+            if results and results[0]:
+                if results[0].get('address_components'):
+
+                    address_components = results[0].get('address_components')
+                    boros = [comp['long_name'] for comp in results[0].get('address_components') if comp.get('types') and 'sublocality_level_1' in comp['types']]
+
+                    if boros:
+                        # insert geocode
+                        conn.execute(""" insert into geocodes (lookup_string, borough, geocoding_service) values (%s, %s, 'google') """, (lookup_string, boros[0]))
+
+                        # return the boro
+                        return boros
+
+            return []
 
 
     def detect_campaign_hashtags(self, string_parts):
@@ -182,6 +208,98 @@ class TrafficViolationsTweeter:
             }
 
         return dict()
+
+
+    def find_messages_to_respond_to(self):
+
+        threading.Timer(9000.0, self.find_messages_to_respond_to).start()
+
+        # Until I get access to account activity API,
+        # just search for statuses to which we haven't responded.
+
+        # Instantiate a connection.
+        print('engine connecting')
+        conn = self.engine.connect()
+
+        for message_type in ['status', 'direct_message']:
+
+            # Find last status to which we have responded.
+            max_responded_to_id = conn.execute(""" select max(message_id) from ( select max(message_id) as message_id from plate_lookups where lookup_source = %s and responded_to = 1 union select max(message_id) as message_id from failed_plate_lookups fpl where lookup_source = %s and responded_to = 1 ) a """, (message_type, message_type)).fetchone()[0]
+
+            try:
+
+                messages = None
+
+                if message_type == 'status':
+
+                    # Query for us.
+                    messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', since_id=max_responded_to_id, tweet_mode='extended')
+
+                elif message_type == 'direct_message':
+
+                    # Query for us.
+                    messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id)
+
+                while messages:
+
+                    # Grab message ids.
+                    message_ids = [message.id for message in messages]
+
+                    # Figure out which don't need response.
+                    already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
+
+                    failed_plate_lookup_ids             = conn.execute(""" select message_id from failed_plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
+
+                    message_ids_that_dont_need_response = [i[0] for i in already_responded_message_ids] + [i[0] for i in failed_plate_lookup_ids]
+
+                    # Subtract the second from the first.
+                    message_ids_that_need_response      = set(message_ids) - set(message_ids_that_dont_need_response)
+
+                    self.logger.debug("messages that need response: %s", messages)
+
+
+                    for message in messages:
+
+                        if message.id in message_ids_that_need_response:
+
+                            self.logger.debug("Responding to mesasge: %s - %s", message.id, message)
+
+                            self.initiate_reply(message, message_type)
+
+                        else:
+
+                            self.logger.debug("recent message that appears to need response, but did not: %s - %s", message.id, message)
+
+
+                    # search for next set
+                    message_ids.sort()
+
+                    min_id = message_ids[0]
+
+                    if message_type == 'status':
+
+                        messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', tweet_mode='extended', since_id=max_responded_to_id, max_id=min_id - 1)
+
+                    elif message_type == 'direct_message':
+
+                        messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id, max_id=min_id - 1)
+
+
+            except Exception as e:
+
+                print('engine disconnecting')
+                conn.close()
+
+                self.logger.error('"Error in querying tweets')
+                self.logger.error(e)
+                self.logger.error(str(e))
+                self.logger.error(e.args)
+                logging.exception("stack trace")
+
+
+        # Close the connection.
+        print('engine disconnecting')
+        conn.close()
 
 
     def find_potential_vehicles(self, list_of_strings, use_legacy_logic=False):
@@ -336,21 +454,21 @@ class TrafficViolationsTweeter:
                 # add to container
                 response_chunks.append(username + ' ' + streak_string)
 
-                # add Simcha Felder string until bill is passed
-                simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
+        #         # add Simcha Felder string until bill is passed
+        #         simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
 
-                # add to container
-                response_chunks.append(username + ' ' + simcha_felder_string)
+        #         # add to container
+        #         response_chunks.append(username + ' ' + simcha_felder_string)
 
-            else:
-                simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
+        #     else:
+        #         simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
 
-                response_chunks.append(username + ' ' + simcha_felder_string)
+        #         response_chunks.append(username + ' ' + simcha_felder_string)
 
-        else:
-            simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
+        # else:
+        #     simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
 
-            response_chunks.append(username + ' ' + simcha_felder_string)
+        #     response_chunks.append(username + ' ' + simcha_felder_string)
 
 
         # Send it back!
@@ -451,7 +569,7 @@ class TrafficViolationsTweeter:
         return plate_data
 
 
-    def initiate_reply(self, received):
+    def initiate_reply(self, received, type):
         self.logger.info('\n')
         self.logger.info('Calling initiate_reply')
 
@@ -463,21 +581,71 @@ class TrafficViolationsTweeter:
 
         args_for_response = {}
 
-        if hasattr(received, 'extended_tweet'):
-            self.logger.debug('\n\nWe have an extended tweet\n\n')
 
-            extended_tweet = received.extended_tweet
+        if type == 'status':
 
-            # don't perform if there is no text
-            if 'full_text' in extended_tweet:
-                entities = extended_tweet['entities']
+            if hasattr(received, 'extended_tweet'):
+                self.logger.debug('\n\nWe have an extended tweet\n\n')
+
+                extended_tweet = received.extended_tweet
+
+                # don't perform if there is no text
+                if 'full_text' in extended_tweet:
+                    entities = extended_tweet['entities']
+
+                    if 'user_mentions' in entities:
+                        array_of_usernames = [v['screen_name'] for v in entities['user_mentions']]
+
+                        if 'HowsMyDrivingNY' in array_of_usernames:
+                            full_text       = extended_tweet['full_text']
+                            modified_string = ' '.join(full_text.split())
+
+                            args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+                            args_for_response['id']                  = received.id
+                            args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                            args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
+                            args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                            args_for_response['username']            = received.user.screen_name
+                            args_for_response['type']                = type
+
+                            if received.user.screen_name != 'HowsMyDrivingNY':
+                                self.process_response_message(args_for_response)
+
+            elif hasattr(received, 'full_text') and (not hasattr(received, 'retweeted_status')):
+                self.logger.debug('\n\nWe have full text\n\n')
+
+                entities = received.entities
 
                 if 'user_mentions' in entities:
                     array_of_usernames = [v['screen_name'] for v in entities['user_mentions']]
 
                     if 'HowsMyDrivingNY' in array_of_usernames:
-                        full_text       = extended_tweet['full_text']
+                        full_text       = received.full_text
                         modified_string = ' '.join(full_text.split())
+
+                        args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+                        args_for_response['id']                  = received.id
+                        args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                        args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
+                        args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                        args_for_response['username']            = received.user.screen_name
+                        args_for_response['type']                = type
+
+                        if received.user.screen_name != 'HowsMyDrivingNY':
+                            self.process_response_message(args_for_response)
+
+
+            elif hasattr(received, 'entities'):
+                self.logger.debug('\n\nWe have entities\n\n')
+
+                entities = received.entities
+
+                if 'user_mentions' in entities:
+                    array_of_usernames = [v['screen_name'] for v in entities['user_mentions']]
+
+                    if 'HowsMyDrivingNY' in array_of_usernames:
+                        text            = received.text
+                        modified_string = ' '.join(text.split())
 
                         args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
                         args_for_response['id']                  = received.id
@@ -491,50 +659,48 @@ class TrafficViolationsTweeter:
                             self.process_response_message(args_for_response)
 
 
-        elif hasattr(received, 'entities'):
-            self.logger.debug('\n\nWe have entities\n\n')
-
-            entities = received.entities
-
-            if 'user_mentions' in entities:
-                array_of_usernames = [v['screen_name'] for v in entities['user_mentions']]
-
-                if 'HowsMyDrivingNY' in array_of_usernames:
-                    text            = received.text
-                    modified_string = ' '.join(text.split())
-
-                    args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                    args_for_response['id']                  = received.id
-                    args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                    args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
-                    args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                    args_for_response['username']            = received.user.screen_name
-                    args_for_response['type']                = 'status'
-
-                    if received.user.screen_name != 'HowsMyDrivingNY':
-                        self.process_response_message(args_for_response)
-
-
-        elif hasattr(received, 'direct_message'):
+        elif type == 'direct_message':
             self.logger.debug('\n\nWe have a direct message\n\n')
 
-            direct_message  = received.direct_message
-            recipient       = direct_message['recipient']
-            sender          = direct_message['sender']
+            if hasattr(received, 'direct_message'):
 
-            if recipient['screen_name'] == 'HowsMyDrivingNY':
-                text            = direct_message['text']
-                modified_string = ' '.join(text.split())
+                direct_message  = received.direct_message
+                recipient       = direct_message['recipient']
+                sender          = direct_message['sender']
 
-                args_for_response['created_at']          = direct_message['created_at']
-                args_for_response['id']                  = direct_message['id']
-                args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                args_for_response['username']            = sender['screen_name']
-                args_for_response['type']                = 'direct_message'
+                if recipient['screen_name'] == 'HowsMyDrivingNY':
+                    text            = direct_message['text']
+                    modified_string = ' '.join(text.split())
 
-                if sender['screen_name'] != 'HowsMyDrivingNY':
-                    self.process_response_message(args_for_response)
+                    args_for_response['created_at']          = direct_message['created_at']
+                    args_for_response['id']                  = direct_message['id']
+                    args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                    args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                    args_for_response['username']            = sender['screen_name']
+                    args_for_response['type']                = 'direct_message'
+
+                    if sender['screen_name'] != 'HowsMyDrivingNY':
+                        self.process_response_message(args_for_response)
+
+            else:
+
+                direct_message  = received
+                recipient       = direct_message.recipient
+                sender          = direct_message.sender
+
+                if recipient.screen_name == 'HowsMyDrivingNY':
+                    text            = direct_message.text
+                    modified_string = ' '.join(text.split())
+
+                    args_for_response['created_at']          = utc.localize(direct_message.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+                    args_for_response['id']                  = direct_message.id
+                    args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                    args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                    args_for_response['username']            = sender.screen_name
+                    args_for_response['type']                = 'direct_message'
+
+                    if sender.screen_name != 'HowsMyDrivingNY':
+                        self.process_response_message(args_for_response)
 
 
     def is_production(self):
@@ -652,6 +818,7 @@ class TrafficViolationsTweeter:
         # only data we're looking for
         opacv_desired_keys = ['amount_due', 'borough', 'county', 'issue_date', 'payment_amount', 'precinct', 'violation']
 
+
         # add violation if it's missing
         for record in opacv_data:
             if record.get('violation'):
@@ -735,8 +902,9 @@ class TrafficViolationsTweeter:
                     except ValueError as ve:
                         record['has_date']   = False
 
+
                 if record.get('violation_precinct'):
-                    boros = [boro for boro, precincts in self.PRECINCTS_BY_BORO.items() if int(record['violation_precinct']) in self.PRECINCTS]
+                    boros = [boro for boro, precincts in self.PRECINCTS_BY_BORO.items() if int(record['violation_precinct']) in precincts]
                     if boros:
                         record['borough'] = boros[0]
                     else:
@@ -819,7 +987,7 @@ class TrafficViolationsTweeter:
         # If this came from message, add it to the plate_lookups table.
         if message_type and message_id and created_at:
             # Insert plate lookupresult
-            insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, observed, message_id, lookup_source, created_at, twitter_handle, count_towards_frequency, num_tickets, boot_eligible) values (%s, %s, NULL, %s, %s, %s, %s, %s, %s, %s) """, (plate, state, message_id, message_type, created_at, username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
+            insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, observed, message_id, lookup_source, created_at, twitter_handle, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (plate, state, message_id, message_type, created_at, username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
 
             # Iterate through included campaigns to tie lookup to each
             for campaign in args['included_campaigns']:
@@ -1016,6 +1184,18 @@ class TrafficViolationsTweeter:
 
                 else:
 
+                    # Record the failed lookup.
+
+                    # Instantiate a connection.
+                    conn = self.engine.connect()
+
+                    # Insert failed lookup
+                    conn.execute(""" insert into failed_plate_lookups (twitter_handle, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
+
+                    # Close the connection.
+                    conn.close()
+
+
                     # Legacy data where state is not a valid abbreviation.
                     if potential_vehicle.get('state'):
                         self.logger.debug("We have a state, but it's invalid.")
@@ -1046,6 +1226,18 @@ class TrafficViolationsTweeter:
             # If we don't look up a single plate successfully,
             # figure out how we can help the user.
             if not successful_lookup and not error_on_lookup:
+
+                # Record the failed lookup
+
+                # Instantiate a connection.
+                conn = self.engine.connect()
+
+                # Insert failed lookup
+                conn.execute(""" insert into failed_plate_lookups (twitter_handle, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
+
+                # Close the connection.
+                conn.close()
+
 
                 self.logger.debug('The data seems to be in the wrong format.')
 
@@ -1197,7 +1389,7 @@ class MyStreamListener (tweepy.StreamListener):
 
             message = tweepy.Status.parse(self.api, data_dict)
 
-            self.tweeter.initiate_reply(message)
+            self.tweeter.initiate_reply(message, 'direct_message')
             # if self.on_direct_message(status) is False:
             #     return False
         elif 'friends' in data_dict:
@@ -1234,7 +1426,7 @@ class MyStreamListener (tweepy.StreamListener):
 
             status = tweepy.Status.parse(self.api, data_dict)
 
-            self.tweeter.initiate_reply(status)
+            self.tweeter.initiate_reply(status, 'status')
             # if self.on_status(status) is False:
             #     return False
         else:
@@ -1260,4 +1452,4 @@ if __name__ == '__main__':
     else:
         tweeter = TrafficViolationsTweeter()
         tweeter.run()
-        app.run()
+        # app.run()
