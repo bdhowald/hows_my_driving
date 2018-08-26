@@ -5,3 +5,10 @@ include/
 lib/
 
 .Python
+
+pip-selfcheck.json
+
+*.pyc
+.pytest_cache/
+
+.DS_Store

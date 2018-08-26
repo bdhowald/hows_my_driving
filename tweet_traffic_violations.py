@@ -287,7 +287,7 @@ class TrafficViolationsTweeter:
 
             except Exception as e:
 
-                print('engine disconnecting')
+                self.logger.debug('engine disconnecting')
                 conn.close()
 
                 self.logger.error('"Error in querying tweets')
@@ -298,7 +298,7 @@ class TrafficViolationsTweeter:
 
 
         # Close the connection.
-        print('engine disconnecting')
+        self.logger.debug('engine disconnecting')
         conn.close()
 
 
@@ -635,7 +635,7 @@ class TrafficViolationsTweeter:
                             self.process_response_message(args_for_response)
 
 
-            elif hasattr(received, 'entities'):
+            elif hasattr(received, 'entities') and (not hasattr(received, 'retweeted_status')):
                 self.logger.debug('\n\nWe have entities\n\n')
 
                 entities = received.entities
@@ -917,7 +917,7 @@ class TrafficViolationsTweeter:
                                 street_name         = record.get('street_name')
                                 intersecting_street = record.get('intersecting_street') or ''
 
-                                google_boros = self.detect_borough(street_name + ' ' + intersecting_street)
+                                google_boros = self.detect_borough(re.sub('\(?[ENSW]/?B\)? *', '', street_name + ' ' + intersecting_street))
                                 if google_boros:
                                     record['borough'] = google_boros[0].lower()
 
