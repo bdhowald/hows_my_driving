@@ -302,29 +302,30 @@ class TrafficViolationsTweeter:
         conn.close()
 
 
-    def find_potential_vehicles(self, list_of_strings, use_legacy_logic=False):
+    def find_potential_vehicles(self, list_of_strings):
+
+        # Use new logic of '<state>:<plate>'
+        plate_tuples = [match.split(':') for match in re.findall(r'(\b[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+\s*:\s*[a-zA-Z9]{2}\b)', ' '.join(list_of_strings)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
+
+        return self.infer_plate_and_state_data(plate_tuples)
+
+
+    def find_potential_vehicles_using_legacy_logic(self, list_of_strings):
         # Find potential plates
 
         # Use old logic of 'state:<state> plate:<plate>'
-        if use_legacy_logic:
-            potential_vehicles = []
-            legacy_plate_data  = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower() for part in list_of_strings if ('state:' in part.lower() or 'plate:' in part.lower())]])
+        potential_vehicles = []
+        legacy_plate_data  = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower() for part in list_of_strings if ('state:' in part.lower() or 'plate:' in part.lower())]])
 
-            if legacy_plate_data:
-                if self.detect_state(legacy_plate_data.get('state')) and legacy_plate_data.get('plate'):
-                    legacy_plate_data['valid_plate'] = True
-                else:
-                    legacy_plate_data['valid_plate'] = False
+        if legacy_plate_data:
+            if self.detect_state(legacy_plate_data.get('state')) and legacy_plate_data.get('plate'):
+                legacy_plate_data['valid_plate'] = True
+            else:
+                legacy_plate_data['valid_plate'] = False
 
-                potential_vehicles.append(legacy_plate_data)
+            potential_vehicles.append(legacy_plate_data)
 
-            return potential_vehicles
-
-        # Use new logic of '<state>:<plate>'
-        else:
-            plate_tuples = [match.split(':') for match in re.findall(r'(\b[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+\s*:\s*[a-zA-Z9]{2}\b)', ' '.join(list_of_strings)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
-
-            return self.infer_plate_and_state_data(plate_tuples)
+        return potential_vehicles
 
 
     def form_campaign_lookup_response_parts(self, query_result, username):
@@ -1103,7 +1104,7 @@ class TrafficViolationsTweeter:
         legacy_string_parts = response_args['legacy_string_parts']
         self.logger.debug('legacy_string_parts: %s', legacy_string_parts)
 
-        potential_vehicles += self.find_potential_vehicles(legacy_string_parts, True)
+        potential_vehicles += self.find_potential_vehicles_using_legacy_logic(legacy_string_parts)
         self.logger.debug('potential_vehicles: %s', potential_vehicles)
 
 

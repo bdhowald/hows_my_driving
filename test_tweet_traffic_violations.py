@@ -252,20 +252,25 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
 
     def test_find_potential_vehicles(self):
+      string_parts       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
 
-      string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
-      string_parts2       = ['@HowsMyDrivingNY', 'I', 'love', 'you', 'very', 'much!']
-
-      potential_vehicles1 = [
+      potential_vehicles = [
         {'original_string':'ny:123abcd', 'state': 'ny', 'plate': '123abcd', 'valid_plate': True},
         {'original_string':'ca:6vmd948', 'state': 'ca', 'plate': '6vmd948', 'valid_plate': True},
         {'original_string':'xx:7kvj935', 'valid_plate': False}
       ]
-      potential_vehicles2 = [{'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True}]
 
-      self.assertEqual(self.tweeter.find_potential_vehicles(string_parts1), potential_vehicles1)
-      self.assertEqual(self.tweeter.find_potential_vehicles(string_parts1, True), potential_vehicles2)
-      self.assertEqual(self.tweeter.find_potential_vehicles(string_parts2, True), [])
+      self.assertEqual(self.tweeter.find_potential_vehicles(string_parts), potential_vehicles)
+
+
+
+    def test_find_potential_vehicles_using_legacy_logic(self):
+        string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
+        string_parts2       = ['@HowsMyDrivingNY', 'I', 'love', 'you', 'very', 'much!']
+        potential_vehicles  = [{'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True}]
+
+        self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts1), potential_vehicles)
+        self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts2), [])
 
 
     def test_infer_plate_and_state_data(self):
