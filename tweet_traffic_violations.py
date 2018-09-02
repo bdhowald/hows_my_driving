@@ -212,7 +212,7 @@ class TrafficViolationsTweeter:
 
     def find_messages_to_respond_to(self):
 
-        threading.Timer(90.0, self.find_messages_to_respond_to).start()
+        threading.Timer(40.0, self.find_messages_to_respond_to).start()
 
         # Until I get access to account activity API,
         # just search for statuses to which we haven't responded.
