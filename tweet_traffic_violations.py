@@ -223,8 +223,6 @@ class TrafficViolationsTweeter:
 
         for message_type in ['status', 'direct_message']:
 
-            print('type: {}'.format(message_type))
-
             # Find last status to which we have responded.
             max_responded_to_id = conn.execute(""" select max(message_id) from ( select max(message_id) as message_id from plate_lookups where lookup_source = %s and responded_to = 1 union select max(message_id) as message_id from failed_plate_lookups fpl where lookup_source = %s and responded_to = 1 ) a """, (message_type, message_type)).fetchone()[0]
 
@@ -245,7 +243,7 @@ class TrafficViolationsTweeter:
                 while messages:
 
                     # Grab message ids.
-                    message_ids = [message.id for message in messages]
+                    message_ids = [int(message.id) for message in messages]
 
                     # Figure out which don't need response.
                     already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
