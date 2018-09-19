@@ -212,7 +212,7 @@ class TrafficViolationsTweeter:
 
     def find_messages_to_respond_to(self):
 
-        threading.Timer(40.0, self.find_messages_to_respond_to).start()
+        threading.Timer(9000.0, self.find_messages_to_respond_to).start()
 
         # Until I get access to account activity API,
         # just search for statuses to which we haven't responded.
@@ -222,6 +222,8 @@ class TrafficViolationsTweeter:
         conn = self.engine.connect()
 
         for message_type in ['status', 'direct_message']:
+
+            print('type: {}'.format(message_type))
 
             # Find last status to which we have responded.
             max_responded_to_id = conn.execute(""" select max(message_id) from ( select max(message_id) as message_id from plate_lookups where lookup_source = %s and responded_to = 1 union select max(message_id) as message_id from failed_plate_lookups fpl where lookup_source = %s and responded_to = 1 ) a """, (message_type, message_type)).fetchone()[0]
@@ -269,7 +271,6 @@ class TrafficViolationsTweeter:
                         else:
 
                             self.logger.debug("recent message that appears to need response, but did not: %s - %s", message.id, message)
-
 
                     # search for next set
                     message_ids.sort()
@@ -582,7 +583,6 @@ class TrafficViolationsTweeter:
 
         args_for_response = {}
 
-
         if type == 'status':
 
             if hasattr(received, 'extended_tweet'):
@@ -606,6 +606,7 @@ class TrafficViolationsTweeter:
                             args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
                             args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                             args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                            args_for_response['user_id']             = received.user.id
                             args_for_response['username']            = received.user.screen_name
                             args_for_response['type']                = type
 
@@ -629,6 +630,7 @@ class TrafficViolationsTweeter:
                         args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
                         args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                         args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                        args_for_response['user_id']             = received.user.id
                         args_for_response['username']            = received.user.screen_name
                         args_for_response['type']                = type
 
@@ -653,6 +655,7 @@ class TrafficViolationsTweeter:
                         args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
                         args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
                         args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                        args_for_response['user_id']             = received.user.id
                         args_for_response['username']            = received.user.screen_name
                         args_for_response['type']                = 'status'
 
@@ -677,6 +680,7 @@ class TrafficViolationsTweeter:
                     args_for_response['id']                  = direct_message['id']
                     args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
                     args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                    args_for_response['user_id']             = sender['id']
                     args_for_response['username']            = sender['screen_name']
                     args_for_response['type']                = 'direct_message'
 
@@ -686,17 +690,22 @@ class TrafficViolationsTweeter:
             else:
 
                 direct_message  = received
-                recipient       = direct_message.recipient
-                sender          = direct_message.sender
+
+                recipient_id    = int(received.message_create['target']['recipient_id'])
+                sender_id       = int(received.message_create['sender_id'])
+
+                recipient       = self.api.get_user(recipient_id)
+                sender          = self.api.get_user(sender_id)
 
                 if recipient.screen_name == 'HowsMyDrivingNY':
-                    text            = direct_message.text
+                    text            = direct_message.message_create['message_data']['text']
                     modified_string = ' '.join(text.split())
 
-                    args_for_response['created_at']          = utc.localize(direct_message.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                    args_for_response['id']                  = direct_message.id
+                    args_for_response['created_at']          = utc.localize(datetime.utcfromtimestamp((int(direct_message.created_timestamp) / 1000))).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+                    args_for_response['id']                  = int(direct_message.id)
                     args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
                     args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                    args_for_response['user_id']             = sender.id
                     args_for_response['username']            = sender.screen_name
                     args_for_response['type']                = 'direct_message'
 
@@ -1299,7 +1308,22 @@ class TrafficViolationsTweeter:
 
             self.logger.debug('combined_message: %s', combined_message)
 
-            self.is_production() and self.api.send_direct_message(screen_name = username, text = combined_message)
+            event = {
+              "event": {
+                "type": "message_create",
+                "message_create": {
+                  "target": {
+                    "recipient_id": response_args['user_id']
+                  },
+                  "message_data": {
+                    "text": combined_message
+                  }
+                }
+              }
+            }
+
+            # self.is_production() and self.api.send_direct_message(screen_name = username, text = combined_message)
+            self.is_production() and self.api.send_direct_message_new(event)
 
         else:
             # If we have at least one successful lookup, favorite the status

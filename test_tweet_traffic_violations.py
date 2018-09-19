@@ -510,7 +510,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'screen_name': 'HowsMyDrivingNY'
           },
           'sender': {
-            'screen_name': 'bdhowald'
+            'screen_name': 'bdhowald',
+            'id': 30139847
           },
           'text': '@HowsMyDrivingNY ny:123abcd ca:cad4534 ny:456efgh'
         }
@@ -530,6 +531,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'ca:cad4534',
             'ny:456efgh'
           ],
+          'user_id': 30139847,
           'username': 'bdhowald',
           'type': 'direct_message'
         }
@@ -550,10 +552,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         entities_mock.id             = rand_int
         entities_mock.text           = '@HowsMyDrivingNY ny:123abcd:abc ca:cad4534:zyx ny:456efgh bex:az:1234567'
 
-        screen_name_mock             = MagicMock('screen_name')
-        screen_name_mock.screen_name = 'bdhowald'
+        user_mock             = MagicMock('screen_name')
+        user_mock.screen_name = 'bdhowald'
+        user_mock.id          = 30139847
 
-        entities_mock.user           = screen_name_mock
+        entities_mock.user           = user_mock
 
         entities_args_for_response   = {
           'created_at': now_str,
@@ -576,6 +579,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'ny:456efgh',
             'bex:az:1234567'
           ],
+          'user_id': 30139847,
           'username': 'bdhowald',
           'type': 'status'
         }
@@ -598,10 +602,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         }
         extended_tweet_mock.id             = rand_int
 
-        # screen_name_mock             = MagicMock('screen_name')
-        # screen_name_mock.screen_name = 'bdhowald'
+        # user_mock             = MagicMock('screen_name')
+        # user_mock.screen_name = 'bdhowald'
 
-        extended_tweet_mock.user           = screen_name_mock
+        extended_tweet_mock.user           = user_mock
 
         extended_tweet_args_for_response   = {
           'created_at': now_str,
@@ -620,6 +624,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'ny:ny',
             'ca:1234567'
           ],
+          'user_id': 30139847,
           'username': 'bdhowald',
           'type': 'status'
         }
@@ -892,7 +897,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'string_parts': ['@howsmydrivingny',
                            'ny:hme6483'],
           'type': 'direct_message',
-          'username': username1
+          'username': username1,
+          'user_id': 30139847
         }
         plate_lookup1 = {
           'frequency': 1,
@@ -928,7 +934,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         send_direct_message_mock = MagicMock('send_direct_message_mock')
 
         api_mock = MagicMock(name='api')
-        api_mock.send_direct_message = send_direct_message_mock
+        api_mock.send_direct_message_new  = send_direct_message_mock
 
         self.tweeter.perform_plate_lookup = plate_lookup_mock
         self.tweeter.is_production = is_production_mock
@@ -936,7 +942,20 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.tweeter.process_response_message(response_args1)
 
-        send_direct_message_mock.assert_called_with(screen_name=('@' + username1), text=combined_message)
+        # send_direct_message_mock.assert_called_with(screen_name=('@' + username1), text=combined_message)
+        send_direct_message_mock.assert_called_with({
+          'event': {
+            'type': 'message_create',
+            'message_create': {
+              'target': {
+                'recipient_id': 30139847
+              },
+              'message_data': {
+                'text': combined_message
+              }
+            }
+          }
+        })
 
 
 
