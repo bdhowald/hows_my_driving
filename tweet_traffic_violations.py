@@ -277,8 +277,6 @@ class TrafficViolationsTweeter:
 
                 elif message_type == 'direct_message':
 
-                    pdb.set_trace()
-
                     # Query for us.
                     messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id)
 
