@@ -260,7 +260,7 @@ class TrafficViolationsTweeter:
 
                     for message in messages:
 
-                        if message.id in message_ids_that_need_response:
+                        if int(message.id) in message_ids_that_need_response:
 
                             self.logger.debug("Responding to mesasge: %s - %s", message.id, message)
 
