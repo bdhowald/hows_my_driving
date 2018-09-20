@@ -235,15 +235,21 @@ class TrafficViolationsTweeter:
                     # Query for us.
                     messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', since_id=max_responded_to_id, tweet_mode='extended')
 
+                    # Grab message ids.
+                    message_ids = [int(message.id) for message in messages]
+
                 elif message_type == 'direct_message':
 
                     # Query for us.
                     messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id)
 
+                    # Grab message ids.
+                    message_ids = [int(message.id) for message in messages if int(message.message_create['sender_id']) != 976593574732222465]
+
                 while messages:
 
-                    # Grab message ids.
-                    message_ids = [int(message.id) for message in messages]
+                    # # Grab message ids.
+                    # message_ids = [int(message.id) for message in messages]
 
                     # Figure out which don't need response.
                     already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
