@@ -238,18 +238,52 @@ class TrafficViolationsTweeter:
                     # Grab message ids.
                     message_ids = [int(message.id) for message in messages]
 
+                    while messages:
+
+                        # Figure out which don't need response.
+                        already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
+
+                        failed_plate_lookup_ids             = conn.execute(""" select message_id from failed_plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
+
+                        message_ids_that_dont_need_response = [i[0] for i in already_responded_message_ids] + [i[0] for i in failed_plate_lookup_ids]
+
+                        # Subtract the second from the first.
+                        message_ids_that_need_response      = set(message_ids) - set(message_ids_that_dont_need_response)
+
+                        self.logger.debug("messages that need response: %s", messages)
+
+
+                        for message in messages:
+
+                            if int(message.id) in message_ids_that_need_response:
+
+                                self.logger.debug("Responding to mesasge: %s - %s", message.id, message)
+
+                                self.initiate_reply(message, message_type)
+
+                            else:
+
+                                self.logger.debug("recent message that appears to need response, but did not: %s - %s", message.id, message)
+
+                        # search for next set
+                        message_ids.sort()
+
+                        min_id = message_ids[0]
+
+                        if message_type == 'status':
+
+                            messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', tweet_mode='extended', since_id=max_responded_to_id, max_id=min_id - 1)
+
+
                 elif message_type == 'direct_message':
+
+                    pdb.set_trace()
 
                     # Query for us.
                     messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id)
 
                     # Grab message ids.
                     message_ids = [int(message.id) for message in messages if int(message.message_create['sender_id']) != 976593574732222465]
-
-                while messages:
-
-                    # # Grab message ids.
-                    # message_ids = [int(message.id) for message in messages]
 
                     # Figure out which don't need response.
                     already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
@@ -261,33 +295,16 @@ class TrafficViolationsTweeter:
                     # Subtract the second from the first.
                     message_ids_that_need_response      = set(message_ids) - set(message_ids_that_dont_need_response)
 
-                    self.logger.debug("messages that need response: %s", messages)
+                    self.logger.debug("messages that need response: %s", message_ids_that_need_response)
 
 
-                    for message in messages:
+                    if message_ids_that_need_response:
 
-                        if int(message.id) in message_ids_that_need_response:
+                        for message in [message for message in messages if int(message.id) in message_ids_that_need_response]:
 
                             self.logger.debug("Responding to mesasge: %s - %s", message.id, message)
 
                             self.initiate_reply(message, message_type)
-
-                        else:
-
-                            self.logger.debug("recent message that appears to need response, but did not: %s - %s", message.id, message)
-
-                    # search for next set
-                    message_ids.sort()
-
-                    min_id = message_ids[0]
-
-                    if message_type == 'status':
-
-                        messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', tweet_mode='extended', since_id=max_responded_to_id, max_id=min_id - 1)
-
-                    elif message_type == 'direct_message':
-
-                        messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id, max_id=min_id - 1)
 
 
             except Exception as e:
