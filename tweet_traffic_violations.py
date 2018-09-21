@@ -246,7 +246,7 @@ class TrafficViolationsTweeter:
                     while messages:
 
                         message_pages += 1
-                        self.logger.debug('message_page: {}'.format(mesasge_pages))
+                        self.logger.debug('message_page: {}'.format(message_pages))
 
                         # Figure out which don't need response.
                         already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
@@ -307,7 +307,7 @@ class TrafficViolationsTweeter:
 
                         for message in [message for message in messages if int(message.id) in message_ids_that_need_response]:
 
-                            self.logger.debug("Responding to mesasge: %s - %s", message.id, message)
+                            self.logger.debug("Responding to message: %s - %s", message.id, message)
 
                             self.initiate_reply(message, message_type)
 
