@@ -109,6 +109,7 @@ class TrafficViolationsTweeter:
         # deprecatedStream = tweepy.Stream(self.auth, MyStreamListener(self))
         # deprecatedStream.filter(track=['howsmydrivingny'])
 
+        self.iteration = 1
         self.find_messages_to_respond_to()
 
 
@@ -212,13 +213,15 @@ class TrafficViolationsTweeter:
 
     def find_messages_to_respond_to(self):
 
-        threading.Timer(900.0, self.find_messages_to_respond_to).start()
+        threading.Timer(40.0, self.find_messages_to_respond_to).start()
 
         # Until I get access to account activity API,
         # just search for statuses to which we haven't responded.
 
         # Instantiate a connection.
-        print('engine connecting')
+        self.logger.debug('engine connecting on iteration {}'.format(self.iteration))
+        self.iteration += 1
+
         conn = self.engine.connect()
 
         for message_type in ['status', 'direct_message']:
@@ -232,6 +235,8 @@ class TrafficViolationsTweeter:
 
                 if message_type == 'status':
 
+                    message_pages = 0
+
                     # Query for us.
                     messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', since_id=max_responded_to_id, tweet_mode='extended')
 
@@ -239,6 +244,9 @@ class TrafficViolationsTweeter:
                     message_ids = [int(message.id) for message in messages]
 
                     while messages:
+
+                        message_pages += 1
+                        self.logger.debug('message_page: {}'.format(mesasge_pages))
 
                         # Figure out which don't need response.
                         already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
@@ -274,6 +282,8 @@ class TrafficViolationsTweeter:
 
 
                 elif message_type == 'direct_message':
+
+                    self.logger.debug("Looking up direct messages...")
 
                     # Query for us.
                     messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id)
