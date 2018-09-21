@@ -212,7 +212,7 @@ class TrafficViolationsTweeter:
 
     def find_messages_to_respond_to(self):
 
-        threading.Timer(40.0, self.find_messages_to_respond_to).start()
+        threading.Timer(900.0, self.find_messages_to_respond_to).start()
 
         # Until I get access to account activity API,
         # just search for statuses to which we haven't responded.
@@ -270,9 +270,7 @@ class TrafficViolationsTweeter:
 
                         min_id = message_ids[0]
 
-                        if message_type == 'status':
-
-                            messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', tweet_mode='extended', since_id=max_responded_to_id, max_id=min_id - 1)
+                        messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', tweet_mode='extended', since_id=max_responded_to_id, max_id=min_id - 1)
 
 
                 elif message_type == 'direct_message':
@@ -294,7 +292,6 @@ class TrafficViolationsTweeter:
                     message_ids_that_need_response      = set(message_ids) - set(message_ids_that_dont_need_response)
 
                     self.logger.debug("messages that need response: %s", message_ids_that_need_response)
-
 
                     if message_ids_that_need_response:
 
