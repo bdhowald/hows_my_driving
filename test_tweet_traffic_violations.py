@@ -18,6 +18,7 @@ import os
 import requests
 import requests_futures.sessions
 import pytz
+import sys
 import tweepy
 
 from datetime import datetime, timezone, time, timedelta
@@ -251,6 +252,77 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.assertEqual(self.tweeter.find_max_camera_violations_streak(list_of_camera_times1), result1)
 
 
+    def test_find_direct_messages_to_respond_to(self):
+      random_id = random.randint(10000000000000000000, 20000000000000000000)
+
+      connect_mock        = MagicMock(name='connect_mock')
+      execute_mock        = MagicMock(name='execute_mock')
+
+      execute_mock.fetchone.return_value = [random_id]
+      connect_mock.execute.return_value = execute_mock
+
+      engine_mock         = MagicMock(name='engine_mock')
+      engine_mock.connect.return_value = connect_mock
+
+      api_mock            = MagicMock(name='api_mock')
+      direct_message_mock = MagicMock(name='direct_message')
+
+      api_mock.direct_messages = direct_message_mock
+
+      self.tweeter.api    = api_mock
+      self.tweeter.engine = engine_mock
+
+      self.tweeter.find_direct_messages_to_respond_to(connect_mock)
+
+      direct_message_mock.assert_called_with(count=50, full_text=True, since_id=random_id)
+
+
+    def test_find_messages_to_respond_to(self):
+      connect_mock        = MagicMock(name='connect_mock')
+      engine_mock         = MagicMock(name='engine_mock')
+
+      engine_mock.connect.return_value = connect_mock
+
+      self.tweeter.engine = engine_mock
+
+      status_mock         = MagicMock(name='find_statuses_to_respond_to')
+      direct_message_mock = MagicMock(name='find_direct_messages_to_respond_to')
+
+      self.tweeter.find_statuses_to_respond_to        = status_mock
+      self.tweeter.find_direct_messages_to_respond_to = direct_message_mock
+
+      self.tweeter.find_messages_to_respond_to()
+
+      status_mock.assert_called_with(connect_mock)
+      direct_message_mock.assert_called_with(connect_mock)
+
+
+    def test_find_direct_messages_to_respond_to(self):
+      random_id = random.randint(10000000000000000000, 20000000000000000000)
+
+      connect_mock        = MagicMock(name='connect_mock')
+      execute_mock        = MagicMock(name='execute_mock')
+
+      execute_mock.fetchone.return_value = [random_id]
+      connect_mock.execute.return_value = execute_mock
+
+      engine_mock         = MagicMock(name='engine_mock')
+      engine_mock.connect.return_value = connect_mock
+
+      api_mock            = MagicMock(name='api_mock')
+      status_mock         = MagicMock(name='status')
+      status_mock.return_value = []
+
+      api_mock.search     = status_mock
+
+      self.tweeter.api    = api_mock
+      self.tweeter.engine = engine_mock
+
+      self.tweeter.find_statuses_to_respond_to(connect_mock)
+
+      status_mock.assert_called_with(q='@HowsMyDrivingNY', count=100, result_type='recent', since_id=random_id, tweet_mode='extended')
+
+
     def test_find_potential_vehicles(self):
       string_parts       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
 
@@ -263,7 +335,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       self.assertEqual(self.tweeter.find_potential_vehicles(string_parts), potential_vehicles)
 
 
-
     def test_find_potential_vehicles_using_legacy_logic(self):
         string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
         string_parts2       = ['@HowsMyDrivingNY', 'I', 'love', 'you', 'very', 'much!']
@@ -271,29 +342,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts1), potential_vehicles)
         self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts2), [])
-
-
-    def test_infer_plate_and_state_data(self):
-        plate_tuples = [['ny', '123abcd'], ['ca', ''], ['xx', 'pxk3819'], ['99', '1234']]
-
-        result = [
-          {'original_string':'ny:123abcd', 'state': 'ny', 'plate': '123abcd', 'valid_plate': True},
-          {'original_string': 'ca:', 'valid_plate': False},
-          {'original_string': 'xx:pxk3819', 'valid_plate': False},
-          {'original_string':'99:1234', 'state': '99', 'plate': '1234', 'valid_plate': True}
-        ]
-
-        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),result)
-
-
-        plate_tuples = []
-
-        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),[])
-
-
-        plate_tuples = [['ny', 'ny']]
-
-        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),[{'original_string':'ny:ny', 'state': 'ny', 'plate': 'ny', 'valid_plate': True}])
 
 
     def test_form_campaign_lookup_response_parts(self):
@@ -650,6 +698,29 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.initiate_reply(extended_tweet_mock, 'status')
 
         process_response_message_mock.assert_called_with(extended_tweet_args_for_response)
+
+
+    def test_infer_plate_and_state_data(self):
+        plate_tuples = [['ny', '123abcd'], ['ca', ''], ['xx', 'pxk3819'], ['99', '1234']]
+
+        result = [
+          {'original_string':'ny:123abcd', 'state': 'ny', 'plate': '123abcd', 'valid_plate': True},
+          {'original_string': 'ca:', 'valid_plate': False},
+          {'original_string': 'xx:pxk3819', 'valid_plate': False},
+          {'original_string':'99:1234', 'state': '99', 'plate': '1234', 'valid_plate': True}
+        ]
+
+        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),result)
+
+
+        plate_tuples = []
+
+        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),[])
+
+
+        plate_tuples = [['ny', 'ny']]
+
+        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),[{'original_string':'ny:ny', 'state': 'ny', 'plate': 'ny', 'valid_plate': True}])
 
 
     def test_is_production(self):

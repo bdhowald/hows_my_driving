@@ -89,6 +89,10 @@ class TrafficViolationsTweeter:
 
         self.google_api_key = os.environ['GOOGLE_API_KEY'] if os.environ.get('GOOGLE_API_KEY') else ''
 
+        # Log how many times we've called the apis
+        self.direct_messages_iteration = 1
+        self.statuses_iteration = 1
+
 
     def run(self):
         print('Setting up logging')
@@ -109,7 +113,6 @@ class TrafficViolationsTweeter:
         # deprecatedStream = tweepy.Stream(self.auth, MyStreamListener(self))
         # deprecatedStream.filter(track=['howsmydrivingny'])
 
-        self.iteration = 1
         self.find_messages_to_respond_to()
 
 
@@ -211,122 +214,128 @@ class TrafficViolationsTweeter:
         return dict()
 
 
+    def find_direct_messages_to_respond_to(self, connection):
+        self.direct_messages_iteration += 1
+        self.logger.debug('Looking up direct messages on iteration {}'.format(self.direct_messages_iteration))
+
+        # start timer
+        threading.Timer(75.0, self.find_direct_messages_to_respond_to, connection).start()
+
+        # Find last status to which we have responded.
+        max_responded_to_id = connection.execute(""" select max(message_id) from ( select max(message_id) as message_id from plate_lookups where lookup_source = 'direct_message' and responded_to = 1 union select max(message_id) as message_id from failed_plate_lookups fpl where lookup_source = 'direct_message' and responded_to = 1 ) a """).fetchone()[0]
+
+        # Query for us.
+        messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id)
+
+        # Grab message ids.
+        message_ids = [int(message.id) for message in messages if int(message.message_create['sender_id']) != 976593574732222465]
+
+        # Figure out which don't need response.
+        already_responded_message_ids       = connection.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
+
+        failed_plate_lookup_ids             = connection.execute(""" select message_id from failed_plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
+
+        message_ids_that_dont_need_response = [i[0] for i in already_responded_message_ids] + [i[0] for i in failed_plate_lookup_ids]
+
+        # Subtract the second from the first.
+        message_ids_that_need_response      = set(message_ids) - set(message_ids_that_dont_need_response)
+
+        self.logger.debug("messages that need response: %s", message_ids_that_need_response)
+
+        if message_ids_that_need_response:
+
+            for message in [message for message in messages if int(message.id) in message_ids_that_need_response]:
+
+                self.logger.debug("Responding to message: %s - %s", message.id, message)
+
+                self.initiate_reply(message, 'direct_message')
+
+
+
     def find_messages_to_respond_to(self):
 
-        threading.Timer(75.0, self.find_messages_to_respond_to).start()
+      # Until I get access to account activity API,
+      # just search for statuses to which we haven't responded.
 
-        # Until I get access to account activity API,
-        # just search for statuses to which we haven't responded.
+      # Instantiate a connection.
+      conn = self.engine.connect()
 
-        # Instantiate a connection.
-        self.logger.debug('engine connecting on iteration {}'.format(self.iteration))
-        self.iteration += 1
+      try:
 
-        conn = self.engine.connect()
+          self.find_statuses_to_respond_to(conn)
+          self.find_direct_messages_to_respond_to(conn)
 
-        for message_type in ['status', 'direct_message']:
+      except Exception as e:
 
-            # Find last status to which we have responded.
-            max_responded_to_id = conn.execute(""" select max(message_id) from ( select max(message_id) as message_id from plate_lookups where lookup_source = %s and responded_to = 1 union select max(message_id) as message_id from failed_plate_lookups fpl where lookup_source = %s and responded_to = 1 ) a """, (message_type, message_type)).fetchone()[0]
+          self.logger.debug('engine disconnecting')
+          conn.close()
 
-            try:
-
-                messages = None
-
-                if message_type == 'status':
-
-                    message_pages = 0
-
-                    # Query for us.
-                    messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', since_id=max_responded_to_id, tweet_mode='extended')
-
-                    # Grab message ids.
-                    message_ids = [int(message.id) for message in messages]
-
-                    while messages:
-
-                        message_pages += 1
-                        self.logger.debug('message_page: {}'.format(message_pages))
-
-                        # Figure out which don't need response.
-                        already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
-
-                        failed_plate_lookup_ids             = conn.execute(""" select message_id from failed_plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
-
-                        message_ids_that_dont_need_response = [i[0] for i in already_responded_message_ids] + [i[0] for i in failed_plate_lookup_ids]
-
-                        # Subtract the second from the first.
-                        message_ids_that_need_response      = set(message_ids) - set(message_ids_that_dont_need_response)
-
-                        self.logger.debug("messages that need response: %s", messages)
+          self.logger.error('"Error in querying tweets')
+          self.logger.error(e)
+          self.logger.error(str(e))
+          self.logger.error(e.args)
+          logging.exception("stack trace")
 
 
-                        for message in messages:
-
-                            if int(message.id) in message_ids_that_need_response:
-
-                                self.logger.debug("Responding to mesasge: %s - %s", message.id, message)
-
-                                self.initiate_reply(message, message_type)
-
-                            else:
-
-                                self.logger.debug("recent message that appears to need response, but did not: %s - %s", message.id, message)
-
-                        # search for next set
-                        message_ids.sort()
-
-                        min_id = message_ids[0]
-
-                        messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', tweet_mode='extended', since_id=max_responded_to_id, max_id=min_id - 1)
+      # Close the connection.
+      self.logger.debug('engine disconnecting')
+      conn.close()
 
 
-                elif message_type == 'direct_message':
+    def find_statuses_to_respond_to(self, connection):
+        self.statuses_iteration += 1
+        self.logger.debug('Looking up statuses on iteration {}'.format(self.statuses_iteration))
 
-                    self.logger.debug("Looking up direct messages...")
+        # start timer
+        threading.Timer(45.0, self.find_statuses_to_respond_to, connection).start()
 
-                    # Query for us.
-                    messages = self.api.direct_messages(count=50, full_text=True, since_id=max_responded_to_id)
+        # Find last status to which we have responded.
+        max_responded_to_id = connection.execute(""" select max(message_id) from ( select max(message_id) as message_id from plate_lookups where lookup_source = 'status' and responded_to = 1 union select max(message_id) as message_id from failed_plate_lookups fpl where lookup_source = 'status' and responded_to = 1 ) a """).fetchone()[0]
 
-                    # Grab message ids.
-                    message_ids = [int(message.id) for message in messages if int(message.message_create['sender_id']) != 976593574732222465]
+        message_pages = 0
 
-                    # Figure out which don't need response.
-                    already_responded_message_ids       = conn.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
+        # Query for us.
+        messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', since_id=max_responded_to_id, tweet_mode='extended')
 
-                    failed_plate_lookup_ids             = conn.execute(""" select message_id from failed_plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
+        # Grab message ids.
+        message_ids = [int(message.id) for message in messages]
 
-                    message_ids_that_dont_need_response = [i[0] for i in already_responded_message_ids] + [i[0] for i in failed_plate_lookup_ids]
+        while messages:
 
-                    # Subtract the second from the first.
-                    message_ids_that_need_response      = set(message_ids) - set(message_ids_that_dont_need_response)
+            message_pages += 1
+            self.logger.debug('message_page: {}'.format(message_pages))
 
-                    self.logger.debug("messages that need response: %s", message_ids_that_need_response)
+            # Figure out which don't need response.
+            already_responded_message_ids       = connection.execute(""" select message_id from plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
 
-                    if message_ids_that_need_response:
+            failed_plate_lookup_ids             = connection.execute(""" select message_id from failed_plate_lookups where message_id in (%s) and responded_to = 1 """ % ','.join(['%s'] * len(message_ids)), message_ids)
 
-                        for message in [message for message in messages if int(message.id) in message_ids_that_need_response]:
+            message_ids_that_dont_need_response = [i[0] for i in already_responded_message_ids] + [i[0] for i in failed_plate_lookup_ids]
 
-                            self.logger.debug("Responding to message: %s - %s", message.id, message)
+            # Subtract the second from the first.
+            message_ids_that_need_response      = set(message_ids) - set(message_ids_that_dont_need_response)
 
-                            self.initiate_reply(message, message_type)
-
-
-            except Exception as e:
-
-                self.logger.debug('engine disconnecting')
-                conn.close()
-
-                self.logger.error('"Error in querying tweets')
-                self.logger.error(e)
-                self.logger.error(str(e))
-                self.logger.error(e.args)
-                logging.exception("stack trace")
+            self.logger.debug("messages that need response: %s", messages)
 
 
-        # Close the connection.
-        self.logger.debug('engine disconnecting')
-        conn.close()
+            for message in messages:
+
+                if int(message.id) in message_ids_that_need_response:
+
+                    self.logger.debug("Responding to mesasge: %s - %s", message.id, message)
+
+                    self.initiate_reply(message, 'status')
+
+                else:
+
+                    self.logger.debug("recent message that appears to need response, but did not: %s - %s", message.id, message)
+
+            # search for next set
+            message_ids.sort()
+
+            min_id = message_ids[0]
+
+            messages = self.api.search(q='@HowsMyDrivingNY', count=100, result_type='recent', tweet_mode='extended', since_id=max_responded_to_id, max_id=min_id - 1)
 
 
     def find_potential_vehicles(self, list_of_strings):
