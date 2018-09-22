@@ -219,7 +219,7 @@ class TrafficViolationsTweeter:
         self.logger.debug('Looking up direct messages on iteration {}'.format(self.direct_messages_iteration))
 
         # start timer
-        threading.Timer(75.0, self.find_direct_messages_to_respond_to, connection).start()
+        threading.Timer(75.0, self.find_direct_messages_to_respond_to, (connection)).start()
 
         # Find last status to which we have responded.
         max_responded_to_id = connection.execute(""" select max(message_id) from ( select max(message_id) as message_id from plate_lookups where lookup_source = 'direct_message' and responded_to = 1 union select max(message_id) as message_id from failed_plate_lookups fpl where lookup_source = 'direct_message' and responded_to = 1 ) a """).fetchone()[0]
@@ -287,7 +287,7 @@ class TrafficViolationsTweeter:
         self.logger.debug('Looking up statuses on iteration {}'.format(self.statuses_iteration))
 
         # start timer
-        threading.Timer(45.0, self.find_statuses_to_respond_to, connection).start()
+        threading.Timer(45.0, self.find_statuses_to_respond_to, (connection)).start()
 
         # Find last status to which we have responded.
         max_responded_to_id = connection.execute(""" select max(message_id) from ( select max(message_id) as message_id from plate_lookups where lookup_source = 'status' and responded_to = 1 union select max(message_id) as message_id from failed_plate_lookups fpl where lookup_source = 'status' and responded_to = 1 ) a """).fetchone()[0]
