@@ -272,19 +272,12 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       self.tweeter.api    = api_mock
       self.tweeter.engine = engine_mock
 
-      self.tweeter.find_direct_messages_to_respond_to(connect_mock)
+      self.tweeter.find_direct_messages_to_respond_to()
 
       direct_message_mock.assert_called_with(count=50, full_text=True, since_id=random_id)
 
 
     def test_find_messages_to_respond_to(self):
-      connect_mock        = MagicMock(name='connect_mock')
-      engine_mock         = MagicMock(name='engine_mock')
-
-      engine_mock.connect.return_value = connect_mock
-
-      self.tweeter.engine = engine_mock
-
       status_mock         = MagicMock(name='find_statuses_to_respond_to')
       direct_message_mock = MagicMock(name='find_direct_messages_to_respond_to')
 
@@ -293,11 +286,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
       self.tweeter.find_messages_to_respond_to()
 
-      status_mock.assert_called_with(connect_mock)
-      direct_message_mock.assert_called_with(connect_mock)
+      status_mock.assert_called_with()
+      direct_message_mock.assert_called_with()
 
 
-    def test_find_direct_messages_to_respond_to(self):
+    def test_find_statuses_to_respond_to(self):
       random_id = random.randint(10000000000000000000, 20000000000000000000)
 
       connect_mock        = MagicMock(name='connect_mock')
@@ -318,7 +311,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       self.tweeter.api    = api_mock
       self.tweeter.engine = engine_mock
 
-      self.tweeter.find_statuses_to_respond_to(connect_mock)
+      self.tweeter.find_statuses_to_respond_to()
 
       status_mock.assert_called_with(q='@HowsMyDrivingNY', count=100, result_type='recent', since_id=random_id, tweet_mode='extended')
 
