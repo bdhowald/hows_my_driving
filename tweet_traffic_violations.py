@@ -1106,6 +1106,11 @@ class TrafficViolationsTweeter:
                         record['borough'] = 'No Borough Available'
 
 
+        for k,record in combined_violations.items():
+            if record.get('violation') is None:
+                record['violation'] = "No Violation Description Available"
+
+
         # Marshal all ticket data into form.
         tickets  = Counter([v['violation'] for k,v in combined_violations.items() if v.get('violation')]).most_common()
         years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for k,v in combined_violations.items()]).most_common()
