@@ -214,12 +214,12 @@ class TrafficViolationsTweeter:
         return dict()
 
 
-    def find_direct_messages_to_respond_to(self):
+    def find_and_respond_to_direct_messages(self):
         self.direct_messages_iteration += 1
         self.logger.debug('Looking up direct messages on iteration {}'.format(self.direct_messages_iteration))
 
         # start timer
-        threading.Timer(75.0, self.find_direct_messages_to_respond_to).start()
+        threading.Timer(120.0, self.find_and_respond_to_direct_messages).start()
 
         # Instantiate a connection.
         conn = self.engine.connect()
@@ -255,6 +255,7 @@ class TrafficViolationsTweeter:
 
                     self.initiate_reply(message, 'direct_message')
 
+
         except Exception as e:
 
             self.logger.debug('engine disconnecting')
@@ -272,21 +273,12 @@ class TrafficViolationsTweeter:
         conn.close()
 
 
-
-    def find_messages_to_respond_to(self):
-      # Until I get access to account activity API,
-      # just search for statuses to which we haven't responded.
-      self.find_statuses_to_respond_to()
-      self.find_direct_messages_to_respond_to()
-
-
-
-    def find_statuses_to_respond_to(self):
+    def find_and_respond_to_statuses(self):
         self.statuses_iteration += 1
         self.logger.debug('Looking up statuses on iteration {}'.format(self.statuses_iteration))
 
         # start timer
-        threading.Timer(45.0, self.find_statuses_to_respond_to).start()
+        threading.Timer(120.0, self.find_and_respond_to_statuses).start()
 
         # Instantiate a connection.
         conn = self.engine.connect()
@@ -357,6 +349,52 @@ class TrafficViolationsTweeter:
         # Close the connection.
         self.logger.debug('engine disconnecting')
         conn.close()
+
+
+    def find_and_respond_to_twitter_events(self):
+        self.statuses_iteration += 1
+        self.logger.debug('Looking up statuses on iteration {}'.format(self.statuses_iteration))
+
+        # start timer
+        threading.Timer(3.0, self.find_and_respond_to_twitter_events).start()
+
+        # Instantiate a connection.
+        conn = self.engine.connect()
+
+        try:
+
+            events_query = conn.execute(""" select * from twitter_events where responded_to = 0 """)
+            events       = [dict(zip(tuple (events_query.keys()), i)) for i in events_query.cursor]
+
+            for event in events:
+
+                success = self.initiate_reply(event, event['event_type'])
+
+                if success:
+                    conn.execute(""" update twitter_events set responded_to = 1 where id = %s and responded_to = 0 """, (event['id']))
+
+
+        except Exception as e:
+            self.logger.debug('engine disconnecting')
+            conn.close()
+
+            self.logger.error(e)
+            self.logger.error(str(e))
+            self.logger.error(e.args)
+            logging.exception("stack trace")
+
+
+        self.logger.debug('engine disconnecting')
+        conn.close()
+
+
+    def find_messages_to_respond_to(self):
+        self.find_and_respond_to_twitter_events()
+
+        # Until I get access to account activity API,
+        # just search for statuses to which we haven't responded.
+        self.find_and_respond_to_statuses()
+        self.find_and_respond_to_direct_messages()
 
 
     def find_potential_vehicles(self, list_of_strings):
@@ -641,6 +679,8 @@ class TrafficViolationsTweeter:
 
         if type == 'status':
 
+            # Using old streaming service for a tweet longer than 140 characters
+
             if hasattr(received, 'extended_tweet'):
                 self.logger.debug('\n\nWe have an extended tweet\n\n')
 
@@ -667,10 +707,14 @@ class TrafficViolationsTweeter:
                             args_for_response['type']                = type
 
                             if received.user.screen_name != 'HowsMyDrivingNY':
-                                self.process_response_message(args_for_response)
+                                return self.process_response_message(args_for_response)
+
+
+
+            # Using tweet api search endpoint
 
             elif hasattr(received, 'full_text') and (not hasattr(received, 'retweeted_status')):
-                self.logger.debug('\n\nWe have full text\n\n')
+                self.logger.debug('\n\nWe have a tweet from the search api endpoint\n\n')
 
                 entities = received.entities
 
@@ -691,11 +735,15 @@ class TrafficViolationsTweeter:
                         args_for_response['type']                = type
 
                         if received.user.screen_name != 'HowsMyDrivingNY':
-                            self.process_response_message(args_for_response)
+                            return self.process_response_message(args_for_response)
 
+
+
+            # Using old streaming service for a tweet of 140 characters or fewer
 
             elif hasattr(received, 'entities') and (not hasattr(received, 'retweeted_status')):
-                self.logger.debug('\n\nWe have entities\n\n')
+
+                self.logger.debug('\n\nWe are dealing with a tweet of 140 characters or fewer\n\n')
 
                 entities = received.entities
 
@@ -716,11 +764,37 @@ class TrafficViolationsTweeter:
                         args_for_response['type']                = 'status'
 
                         if received.user.screen_name != 'HowsMyDrivingNY':
-                            self.process_response_message(args_for_response)
+                            return self.process_response_message(args_for_response)
+
+
+
+            # Using new account api service by way of SQL table for events
+
+            elif 'event_type' in received:
+
+                self.logger.debug('\n\nWe are dealing with account activity api object\n\n')
+
+                text            = received['event_text']
+                modified_string = ' '.join(text.split())
+
+                args_for_response['created_at']          = utc.localize(datetime.utcfromtimestamp((int(received['created_at']) / 1000))).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+                args_for_response['id']                  = received['event_id']
+                args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                args_for_response['mentioned_users']     = re.split(' ', received['user_mentions']) if received['user_mentions'] is not None else []
+                args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                args_for_response['user_id']             = received['user_id']
+                args_for_response['username']            = received['user_handle']
+                args_for_response['type']                = 'status'
+
+                return self.process_response_message(args_for_response)
 
 
         elif type == 'direct_message':
+
             self.logger.debug('\n\nWe have a direct message\n\n')
+
+
+            # Using old streaming service for a direct message
 
             if hasattr(received, 'direct_message'):
 
@@ -741,9 +815,13 @@ class TrafficViolationsTweeter:
                     args_for_response['type']                = 'direct_message'
 
                     if sender['screen_name'] != 'HowsMyDrivingNY':
-                        self.process_response_message(args_for_response)
+                        return self.process_response_message(args_for_response)
 
-            else:
+
+
+            # Using new direct message api endpoint
+
+            elif hasattr(received, 'message_create'):
 
                 direct_message  = received
 
@@ -766,7 +844,29 @@ class TrafficViolationsTweeter:
                     args_for_response['type']                = 'direct_message'
 
                     if sender.screen_name != 'HowsMyDrivingNY':
-                        self.process_response_message(args_for_response)
+                        return self.process_response_message(args_for_response)
+
+
+
+            # Using account activity api endpoint
+
+            elif 'event_type' in received:
+
+                self.logger.debug('\n\nWe are dealing with account activity api object\n\n')
+
+                text            = received['event_text']
+                modified_string = ' '.join(text.split())
+
+                args_for_response['created_at']          = utc.localize(datetime.utcfromtimestamp((int(received['created_at']) / 1000))).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+                args_for_response['id']                  = received['id']
+                args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
+                args_for_response['mentioned_users']     = re.split(' ', received['user_mentions']) if received['user_mentions'] is not None else []
+                args_for_response['string_parts']        = re.split(' ', modified_string.lower())
+                args_for_response['user_id']             = received['user_id']
+                args_for_response['username']            = received['user_handle']
+                args_for_response['type']                = 'direct_message'
+
+                return self.process_response_message(args_for_response)
 
 
     def is_production(self):
@@ -1397,6 +1497,10 @@ class TrafficViolationsTweeter:
             self.logger.debug('responding as status update')
 
             self.recursively_process_status_updates(response_parts, message_id)
+
+
+        # Indicate successful response processing.
+        return True
 
 
     def recursively_process_direct_messages(self, response_parts):

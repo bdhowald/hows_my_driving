@@ -252,7 +252,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.assertEqual(self.tweeter.find_max_camera_violations_streak(list_of_camera_times1), result1)
 
 
-    def test_find_direct_messages_to_respond_to(self):
+    def test_find_and_respond_to_direct_messages(self):
       random_id = random.randint(10000000000000000000, 20000000000000000000)
 
       connect_mock        = MagicMock(name='connect_mock')
@@ -272,17 +272,17 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       self.tweeter.api    = api_mock
       self.tweeter.engine = engine_mock
 
-      self.tweeter.find_direct_messages_to_respond_to()
+      self.tweeter.find_and_respond_to_direct_messages()
 
       direct_message_mock.assert_called_with(count=50, full_text=True, since_id=random_id)
 
 
     def test_find_messages_to_respond_to(self):
-      status_mock         = MagicMock(name='find_statuses_to_respond_to')
-      direct_message_mock = MagicMock(name='find_direct_messages_to_respond_to')
+      status_mock         = MagicMock(name='find_and_respond_to_statuses')
+      direct_message_mock = MagicMock(name='find_and_respond_to_direct_messages')
 
-      self.tweeter.find_statuses_to_respond_to        = status_mock
-      self.tweeter.find_direct_messages_to_respond_to = direct_message_mock
+      self.tweeter.find_and_respond_to_statuses        = status_mock
+      self.tweeter.find_and_respond_to_direct_messages = direct_message_mock
 
       self.tweeter.find_messages_to_respond_to()
 
@@ -290,7 +290,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       direct_message_mock.assert_called_with()
 
 
-    def test_find_statuses_to_respond_to(self):
+    def test_find_and_respond_to_statuses(self):
       random_id = random.randint(10000000000000000000, 20000000000000000000)
 
       connect_mock        = MagicMock(name='connect_mock')
@@ -311,9 +311,59 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       self.tweeter.api    = api_mock
       self.tweeter.engine = engine_mock
 
-      self.tweeter.find_statuses_to_respond_to()
+      self.tweeter.find_and_respond_to_statuses()
 
       status_mock.assert_called_with(q='@HowsMyDrivingNY', count=100, result_type='recent', since_id=random_id, tweet_mode='extended')
+
+
+    def test_find_and_respond_to_twitter_events(self):
+      db_id                  = 1
+      random_id              = random.randint(10000000000000000000, 20000000000000000000)
+      event_type             = 'status'
+      user_handle            = 'bdhowald'
+      user_id                = random.randint(1000000000, 2000000000)
+      event_text             = '@HowsMyDrivingNY abc1234:ny'
+      timestamp              = random.randint(1500000000000, 1700000000000)
+      in_reply_to_message_id = random.randint(10000000000000000000, 20000000000000000000)
+      location               = 'Queens, NY'
+      responded_to           = 0
+      user_mentions          = '@HowsMyDrivingNY'
+
+      event_obj = {
+        'id': db_id,
+        'event_type': event_type,
+        'event_id': random_id,
+        'user_handle': user_handle,
+        'user_id': user_id,
+        'event_text': event_text,
+        'created_at': timestamp,
+        'in_reply_to_message_id': in_reply_to_message_id,
+        'location': location,
+        'responded_to': responded_to,
+        'user_mentions': user_mentions
+      }
+
+      cursor_tuple = [tuple(d.values()) for d in [event_obj]]
+
+      events_mock = MagicMock(name='events')
+      # events_mock.keys = {'a', 'b'}
+      events_mock.keys.return_value = tuple(event_obj.keys())
+      events_mock.cursor = (cursor_tuple[0],)
+
+      execute_mock = MagicMock(name='execute')
+      execute_mock.execute.return_value = events_mock
+      # tweeter.
+      connect_mock = MagicMock(name='connect')
+      connect_mock.connect.return_value = execute_mock
+
+      self.tweeter.engine = connect_mock
+
+      initiate_reply_mock = MagicMock(name='initiate_reply')
+      self.tweeter.initiate_reply = initiate_reply_mock
+
+      self.tweeter.find_and_respond_to_twitter_events()
+
+      self.tweeter.initiate_reply.assert_called_with(event_obj, event_obj['event_type'])
 
 
     def test_find_potential_vehicles(self):
@@ -675,7 +725,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         process_response_message_mock = MagicMock(name='process_response_message')
 
         self.tweeter.process_response_message = process_response_message_mock
-
 
 
         self.tweeter.initiate_reply(direct_message_mock, 'direct_message')
