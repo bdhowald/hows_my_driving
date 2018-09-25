@@ -280,14 +280,17 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     def test_find_messages_to_respond_to(self):
       status_mock         = MagicMock(name='find_and_respond_to_statuses')
       direct_message_mock = MagicMock(name='find_and_respond_to_direct_messages')
+      twitter_events_mock = MagicMock(name='find_and_respond_to_twitter_events')
 
       self.tweeter.find_and_respond_to_statuses        = status_mock
       self.tweeter.find_and_respond_to_direct_messages = direct_message_mock
+      self.tweeter.find_and_respond_to_twitter_events  = twitter_events_mock
 
       self.tweeter.find_messages_to_respond_to()
 
-      status_mock.assert_called_with()
-      direct_message_mock.assert_called_with()
+      twitter_events_mock.assert_called_with()
+      # status_mock.assert_called_with()
+      # direct_message_mock.assert_called_with()
 
 
     def test_find_and_respond_to_statuses(self):

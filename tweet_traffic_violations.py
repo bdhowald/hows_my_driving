@@ -353,7 +353,7 @@ class TrafficViolationsTweeter:
 
     def find_and_respond_to_twitter_events(self):
         self.statuses_iteration += 1
-        self.logger.debug('Looking up statuses on iteration {}'.format(self.statuses_iteration))
+        self.logger.debug('Looking up twitter events on iteration {}'.format(self.statuses_iteration))
 
         # start timer
         threading.Timer(3.0, self.find_and_respond_to_twitter_events).start()
@@ -391,10 +391,12 @@ class TrafficViolationsTweeter:
     def find_messages_to_respond_to(self):
         self.find_and_respond_to_twitter_events()
 
-        # Until I get access to account activity API,
-        # just search for statuses to which we haven't responded.
-        self.find_and_respond_to_statuses()
-        self.find_and_respond_to_direct_messages()
+        # time.sleep(30)
+
+        # # Until I get access to account activity API,
+        # # just search for statuses to which we haven't responded.
+        # self.find_and_respond_to_statuses()
+        # self.find_and_respond_to_direct_messages()
 
 
     def find_potential_vehicles(self, list_of_strings):
