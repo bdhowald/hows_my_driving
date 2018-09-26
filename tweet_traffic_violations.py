@@ -772,7 +772,7 @@ class TrafficViolationsTweeter:
 
             # Using new account api service by way of SQL table for events
 
-            elif received.get('event_type'):
+            elif type(received) == dict and 'event_type' in received:
 
                 self.logger.debug('\n\nWe are dealing with account activity api object\n\n')
 
