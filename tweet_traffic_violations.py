@@ -667,7 +667,7 @@ class TrafficViolationsTweeter:
         return plate_data
 
 
-    def initiate_reply(self, received, type):
+    def initiate_reply(self, received, message_type):
         self.logger.info('\n')
         self.logger.info('Calling initiate_reply')
 
@@ -679,7 +679,7 @@ class TrafficViolationsTweeter:
 
         args_for_response = {}
 
-        if type == 'status':
+        if message_type == 'status':
 
             # Using old streaming service for a tweet longer than 140 characters
 
@@ -706,7 +706,7 @@ class TrafficViolationsTweeter:
                             args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                             args_for_response['user_id']             = received.user.id
                             args_for_response['username']            = received.user.screen_name
-                            args_for_response['type']                = type
+                            args_for_response['type']                = message_type
 
                             if received.user.screen_name != 'HowsMyDrivingNY':
                                 return self.process_response_message(args_for_response)
@@ -734,7 +734,7 @@ class TrafficViolationsTweeter:
                         args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                         args_for_response['user_id']             = received.user.id
                         args_for_response['username']            = received.user.screen_name
-                        args_for_response['type']                = type
+                        args_for_response['type']                = message_type
 
                         if received.user.screen_name != 'HowsMyDrivingNY':
                             return self.process_response_message(args_for_response)
@@ -763,7 +763,7 @@ class TrafficViolationsTweeter:
                         args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                         args_for_response['user_id']             = received.user.id
                         args_for_response['username']            = received.user.screen_name
-                        args_for_response['type']                = 'status'
+                        args_for_response['type']                = message_type
 
                         if received.user.screen_name != 'HowsMyDrivingNY':
                             return self.process_response_message(args_for_response)
@@ -772,7 +772,7 @@ class TrafficViolationsTweeter:
 
             # Using new account api service by way of SQL table for events
 
-            elif 'event_type' in received:
+            elif received.get('event_type'):
 
                 self.logger.debug('\n\nWe are dealing with account activity api object\n\n')
 
@@ -786,12 +786,12 @@ class TrafficViolationsTweeter:
                 args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                 args_for_response['user_id']             = received['user_id']
                 args_for_response['username']            = received['user_handle']
-                args_for_response['type']                = 'status'
+                args_for_response['type']                = message_type
 
                 return self.process_response_message(args_for_response)
 
 
-        elif type == 'direct_message':
+        elif message_type == 'direct_message':
 
             self.logger.debug('\n\nWe have a direct message\n\n')
 
@@ -814,7 +814,7 @@ class TrafficViolationsTweeter:
                     args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                     args_for_response['user_id']             = sender['id']
                     args_for_response['username']            = sender['screen_name']
-                    args_for_response['type']                = 'direct_message'
+                    args_for_response['type']                = message_type
 
                     if sender['screen_name'] != 'HowsMyDrivingNY':
                         return self.process_response_message(args_for_response)
@@ -843,7 +843,7 @@ class TrafficViolationsTweeter:
                     args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                     args_for_response['user_id']             = sender.id
                     args_for_response['username']            = sender.screen_name
-                    args_for_response['type']                = 'direct_message'
+                    args_for_response['type']                = message_type
 
                     if sender.screen_name != 'HowsMyDrivingNY':
                         return self.process_response_message(args_for_response)
@@ -866,7 +866,7 @@ class TrafficViolationsTweeter:
                 args_for_response['string_parts']        = re.split(' ', modified_string.lower())
                 args_for_response['user_id']             = received['user_id']
                 args_for_response['username']            = received['user_handle']
-                args_for_response['type']                = 'direct_message'
+                args_for_response['type']                = message_type
 
                 return self.process_response_message(args_for_response)
 
