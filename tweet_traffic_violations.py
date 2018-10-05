@@ -559,7 +559,7 @@ class TrafficViolationsTweeter:
                 left_justify_amount = spaces_needed - count_length
 
                 # formulate next string part
-                next_part = '{}| {}\n'.format(currency_string.ljust(left_justify_amount), fine_type)
+                next_part = '{}| {}\n'.format(currency_string.ljust(left_justify_amount), fine_type.replace('_', ' ').title())
 
                 # determine current string length
                 potential_response_length = len(username + ' ' + cur_string + next_part)
