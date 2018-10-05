@@ -364,11 +364,15 @@ class TrafficViolationsTweeter:
 
         try:
 
-            events_query = conn.execute(""" select * from twitter_events where responded_to = 0 """)
+            events_query = conn.execute(""" select * from twitter_events where responded_to = 0 and response_begun = 0 """)
             events       = [dict(zip(tuple (events_query.keys()), i)) for i in events_query.cursor]
 
             for event in events:
 
+                # Note that we began the response.
+                conn.execute(""" update twitter_events set response_begun = 1 where id = %s """, (event['id']))
+
+                # Reply to the event.
                 success = self.initiate_reply(event, event['event_type'])
 
                 if success:
