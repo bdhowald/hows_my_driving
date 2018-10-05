@@ -830,8 +830,8 @@ class TrafficViolationsTweeter:
 
                 direct_message  = received
 
-                recipient_id    = int(received.message_create['target']['recipient_id'])
-                sender_id       = int(received.message_create['sender_id'])
+                recipient_id    = int(direct_message.message_create['target']['recipient_id'])
+                sender_id       = int(direct_message.message_create['sender_id'])
 
                 recipient       = self.api.get_user(recipient_id)
                 sender          = self.api.get_user(sender_id)
@@ -863,7 +863,7 @@ class TrafficViolationsTweeter:
                 modified_string = ' '.join(text.split())
 
                 args_for_response['created_at']          = utc.localize(datetime.utcfromtimestamp((int(received['created_at']) / 1000))).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                args_for_response['id']                  = received['id']
+                args_for_response['id']                  = received['event_id']
                 args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
                 args_for_response['mentioned_users']     = re.split(' ', received['user_mentions']) if received['user_mentions'] is not None else []
                 args_for_response['string_parts']        = re.split(' ', modified_string.lower())
