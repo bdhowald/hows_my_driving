@@ -1138,6 +1138,7 @@ class TrafficViolationsTweeter:
         result   = {
           'boroughs'   : [{'title':k.title(),'count':v} for k, v in boroughs],
           'plate'      : plate,
+          'plate_type' : plate_types,
           'state'      : state,
           'violations' : [{'title':k.title(),'count':v} for k,v in tickets],
           'years'      : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
