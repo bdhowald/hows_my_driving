@@ -1062,16 +1062,22 @@ class TrafficViolationsTweeter:
             record['remaining_amount']   = None
             record['paid_amount']        = None
 
-            for key in ['amount_due', 'fine_amount', 'interest_amount', 'payment_amount', 'penalty_amount' 'reduction_amount']:
+            for key in ['amount_due', 'fine_amount', 'interest_amount', 'payment_amount', 'penalty_amount', 'reduction_amount']:
                 if key in record:
                     try:
                         amount = float(record[key])
 
-                        if key in ['fine_amount', 'interest_amount', 'penalty_amount', 'reduction_amount']:
+                        if key in ['fine_amount', 'interest_amount', 'penalty_amount']:
                             if record['fined_amount'] is None:
                                 record['fined_amount'] = 0
 
                             record['fined_amount'] += amount
+
+                        elif key == 'reduction_amount':
+                            if record['fined_amount'] is None:
+                                record['fined_amount'] = 0
+
+                            record['fined_amount'] -= amount
 
                         elif key == 'amount_due':
                             if record['remaining_amount'] is None:
