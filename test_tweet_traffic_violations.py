@@ -413,6 +413,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         plate_lookup1 = {
           'plate': 'HME6483',
+          'plate_types': 'pas',
           'state': 'NY',
           'violations': [
             {'title': 'No Standing - Day/Time Limits', 'count': 14},
@@ -450,7 +451,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         }
 
         response_parts1 = [
-          '@bdhowald #NY_HME6483 has been queried 8 times.\n'
+          '@bdhowald #NY_HME6483 (types: pas) has been queried 8 times.\n'
           '\n'
           'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
           '#NY_HME6483 has received 2 new tickets.\n'
@@ -489,6 +490,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         plate_lookup2 = {
           'plate': 'HME6483',
+          'plate_types': None,
           'state': 'NY',
           'violations': [
             {'title': 'No Standing - Day/Time Limits', 'count': 14},
@@ -1023,6 +1025,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         plate_lookup1 = {
           'frequency': 1,
            'plate': 'HME6483',
+           'plate_types': None,
            'previous_result': {'created_at': previous_time,
                                'num_tickets': 15},
            'state': 'NY',
@@ -1099,6 +1102,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         plate_lookup2 = {
           'frequency': 1,
           'plate': 'GLF7467',
+          'plate_types': None,
           'previous_result': {'created_at': previous_time,
                               'num_tickets': 49},
           'state': 'PA',

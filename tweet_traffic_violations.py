@@ -465,7 +465,7 @@ class TrafficViolationsTweeter:
 
 
         # Append to initially blank string to build tweet.
-        violations_string += "#{}_{} has been queried {} {}.\n\n".format(query_result['state'], query_result['plate'], query_result['frequency'], 'time' if int(query_result['frequency']) == 1 else 'times')
+        violations_string += "#{}_{}{} has been queried {} {}.\n\n".format(query_result['state'], query_result['plate'], (' (types: ' + query_result['plate_types'] + ')') if query_result['plate_types'] else '', query_result['frequency'], 'time' if int(query_result['frequency']) == 1 else 'times')
 
         # If this vehicle has been queried before...
         if query_result.get('previous_result'):
@@ -1365,7 +1365,7 @@ class TrafficViolationsTweeter:
                         # Record lookup error.
                         error_on_lookup = True
 
-                        response_parts.append(["{} Sorry, I received an error when looking up {}:{}. Please try again.".format(username, plate_lookup.get('state').upper(), plate_lookup.get('plate').upper())])
+                        response_parts.append(["{} Sorry, I received an error when looking up {}:{}{}. Please try again.".format(username, plate_lookup.get('state').upper(), plate_lookup.get('plate').upper(), (':' + potential_vehicle.get('types').upper() if 'types' in potential_vehicle else ''))])
 
                     else:
 
@@ -1374,7 +1374,7 @@ class TrafficViolationsTweeter:
 
                         # Let user know we didn't find anything.
                         # sorry_message = "{} Sorry, I couldn't find any tickets for that plate.".format(username)
-                        response_parts.append(["{} Sorry, I couldn't find any tickets for {}:{}.".format(username, potential_vehicle.get('state').upper(), potential_vehicle.get('plate').upper())])
+                        response_parts.append(["{} Sorry, I couldn't find any tickets for {}:{}{}.".format(username, potential_vehicle.get('state').upper(), potential_vehicle.get('plate').upper(), (':' + potential_vehicle.get('types').upper() if 'types' in potential_vehicle else ''))])
 
                 else:
 
