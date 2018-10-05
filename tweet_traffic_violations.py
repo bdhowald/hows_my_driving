@@ -550,7 +550,7 @@ class TrafficViolationsTweeter:
             max_count_length = len('${:,.2f}'.format(max( v for v in fines.values())))
             spaces_needed    = (max_count_length * 2) + 1
 
-            for fine_type, amount in fines.items():
+            for fine_type, amount in sorted(fines.items()):
 
                 currency_string = '${:,.2f}'.format(amount)
                 count_length    = len(str(currency_string))
