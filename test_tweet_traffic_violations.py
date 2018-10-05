@@ -874,7 +874,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         result = {
           'plate': 'ABCDEFG',
-          'plate_type': 'com,pas',
+          'plate_types': 'com,pas',
           'state': 'NY',
           'violations': [
             {

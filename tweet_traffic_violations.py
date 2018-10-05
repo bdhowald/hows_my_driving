@@ -1136,12 +1136,12 @@ class TrafficViolationsTweeter:
         camera_streak_data = self.find_max_camera_violations_streak(sorted([datetime.strptime(v['issue_date'],'%Y-%m-%dT%H:%M:%S.%f') for k,v in combined_violations.items() if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light', 'School Zone Speed Camera Violation']]))
 
         result   = {
-          'boroughs'   : [{'title':k.title(),'count':v} for k, v in boroughs],
-          'plate'      : plate,
-          'plate_type' : plate_types,
-          'state'      : state,
-          'violations' : [{'title':k.title(),'count':v} for k,v in tickets],
-          'years'      : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
+          'boroughs'    : [{'title':k.title(),'count':v} for k, v in boroughs],
+          'plate'       : plate,
+          'plate_types' : plate_types,
+          'state'       : state,
+          'violations'  : [{'title':k.title(),'count':v} for k,v in tickets],
+          'years'       : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
         }
 
         # No need to add streak data if it doesn't exist
