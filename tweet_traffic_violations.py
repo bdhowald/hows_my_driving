@@ -541,6 +541,43 @@ class TrafficViolationsTweeter:
             response_chunks += self.handle_response_part_formation(query_result['boroughs'], boroughs_keys)
 
 
+        if query_result.get('fines'):
+
+            fines = query_result['fines']
+
+            cur_string = "Known fines for #{}_{}:\n\n".format(query_result['state'], query_result['plate'])
+
+            max_count_length = len('${:,.2f}'.format(max( v for v in fines.values())))
+            spaces_needed    = (max_count_length * 2) + 1
+
+            for fine_type, amount in fines.items():
+
+                currency_string = '${:,.2f}'.format(amount)
+                count_length    = len(str(currency_string))
+
+                # e.g., if spaces_needed is 5, and count_length is 2, we need to pad to 3.
+                left_justify_amount = spaces_needed - count_length
+
+                # formulate next string part
+                next_part = '{}| {}\n'.format(currency_string.ljust(left_justify_amount), fine_type)
+
+                # determine current string length
+                potential_response_length = len(username + ' ' + cur_string + next_part)
+
+                # If username, space, violation string so far and new part are less or
+                # equal than 280 characters, append to existing tweet string.
+                if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
+                    cur_string += next_part
+                else:
+                    response_chunks.append(username + ' ' + cur_string)
+
+                    cur_string = "Known fines for #{}_{}, cont'd:\n\n"
+                    cur_string += next_part
+
+            # add to container
+            response_chunks.append(username + ' ' + cur_string)
+
+
         if query_result.get('camera_streak_data'):
 
             streak_data = query_result['camera_streak_data']
@@ -993,7 +1030,7 @@ class TrafficViolationsTweeter:
         self.logger.debug('Open Parking and Camera Violations data: %s', opacv_data)
 
         # only data we're looking for
-        opacv_desired_keys = ['amount_due', 'borough', 'county', 'issue_date', 'payment_amount', 'precinct', 'violation']
+        opacv_desired_keys = ['borough', 'county', 'fined_amount', 'issue_date', 'paid_amount', 'precinct', 'remaining_amount', 'violation']
 
 
         # add violation if it's missing
@@ -1021,7 +1058,45 @@ class TrafficViolationsTweeter:
                             record['borough'] = boros[0]
 
 
+            record['fined_amount']       = None
+            record['remaining_amount']   = None
+            record['paid_amount']        = None
+
+            for key in ['amount_due', 'fine_amount', 'interest_amount', 'payment_amount', 'penalty_amount' 'reduction_amount']:
+                if key in record:
+                    try:
+                        amount = float(record[key])
+
+                        if key in ['fine_amount', 'interest_amount', 'penalty_amount', 'reduction_amount']:
+                            if record['fined_amount'] is None:
+                                record['fined_amount'] = 0
+
+                            record['fined_amount'] += amount
+
+                        elif key == 'amount_due':
+                            if record['remaining_amount'] is None:
+                                record['remaining_amount'] = 0
+
+                            record['remaining_amount'] += amount
+
+                        elif key == 'payment_amount':
+                            if record['paid_amount'] is None:
+                                record['paid_amount'] = 0
+
+                            record['paid_amount'] += amount
+
+                    except ValueError as ve:
+
+                        self.logger.error('Error parsing value into float')
+                        self.logger.error(e)
+                        self.logger.error(str(e))
+                        self.logger.error(e.args)
+                        logging.exception("stack trace")
+
+                        pass
+
             combined_violations[record['summons_number']] = { key: record.get(key) for key in opacv_desired_keys }
+
 
 
         # collect summons numbers to use for excluding duplicates later
@@ -1063,6 +1138,7 @@ class TrafficViolationsTweeter:
 
             self.logger.debug('endpoint: %s', endpoint)
             self.logger.debug('fy_response: %s', data)
+
 
             for record in data:
                 if record.get('violation_description') is None:
@@ -1120,7 +1196,7 @@ class TrafficViolationsTweeter:
 
 
 
-        for k,record in combined_violations.items():
+        for record in combined_violations.values():
             if record.get('violation') is None:
                 record['violation'] = "No Violation Description Available"
 
@@ -1128,15 +1204,22 @@ class TrafficViolationsTweeter:
                 record['borough'] = 'No Borough Available'
 
 
-        # Marshal all ticket data into form.
-        tickets  = Counter([v['violation'] for k,v in combined_violations.items() if v.get('violation')]).most_common()
-        years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for k,v in combined_violations.items()]).most_common()
-        boroughs = Counter([v['borough'] for k,v in combined_violations.items() if v.get('borough')]).most_common()
 
-        camera_streak_data = self.find_max_camera_violations_streak(sorted([datetime.strptime(v['issue_date'],'%Y-%m-%dT%H:%M:%S.%f') for k,v in combined_violations.items() if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light', 'School Zone Speed Camera Violation']]))
+        # Marshal all ticket data into form.
+        fines    = {
+          'fined_amount' : sum(v['fined_amount'] for v in combined_violations.values() if v.get('fined_amount')),
+          'remaining_amount' : sum(v['remaining_amount'] for v in combined_violations.values() if v.get('remaining_amount')),
+          'paid_amount' : sum(v['paid_amount'] for v in combined_violations.values() if v.get('paid_amount'))
+        }
+        tickets  = Counter([v['violation'] for v in combined_violations.values() if v.get('violation')]).most_common()
+        years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for v in combined_violations.values()]).most_common()
+        boroughs = Counter([v['borough'] for v in combined_violations.values() if v.get('borough')]).most_common()
+
+        camera_streak_data = self.find_max_camera_violations_streak(sorted([datetime.strptime(v['issue_date'],'%Y-%m-%dT%H:%M:%S.%f') for v in combined_violations.values() if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light', 'School Zone Speed Camera Violation']]))
 
         result   = {
           'boroughs'    : [{'title':k.title(),'count':v} for k, v in boroughs],
+          'fines'       : fines,
           'plate'       : plate,
           'plate_types' : plate_types,
           'state'       : state,

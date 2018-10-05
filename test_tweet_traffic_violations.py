@@ -894,7 +894,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'frequency': 2,
           'boroughs': [
             {'count': 2, 'title': 'Manhattan'}
-          ]
+          ],
+          'fines': {'fined_amount': 130.0, 'paid_amount': 0, 'remaining_amount': 0},
         }
 
         violations_mock = MagicMock(name='violations')
