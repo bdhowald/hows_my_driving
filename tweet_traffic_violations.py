@@ -551,10 +551,10 @@ class TrafficViolationsTweeter:
 
             cur_string = "Known fines for #{}_{}:\n\n".format(query_result['state'], query_result['plate'])
 
-            max_count_length = len('${:,.2f}'.format(max( v for v in fines.values())))
+            max_count_length = len('${:,.2f}'.format(max( t[1] for t in fines)))
             spaces_needed    = (max_count_length * 2) + 1
 
-            for fine_type, amount in sorted(fines.items()):
+            for fine_type, amount in fines:
 
                 currency_string = '${:,.2f}'.format(amount)
                 count_length    = len(str(currency_string))
@@ -1034,7 +1034,7 @@ class TrafficViolationsTweeter:
         self.logger.debug('Open Parking and Camera Violations data: %s', opacv_data)
 
         # only data we're looking for
-        opacv_desired_keys = ['borough', 'county', 'fined_amount', 'issue_date', 'paid_amount', 'precinct', 'remaining_amount', 'violation']
+        opacv_desired_keys = ['borough', 'county', 'fined', 'issue_date', 'paid', 'precinct', 'outstanding', 'violation']
 
 
         # add violation if it's missing
@@ -1062,9 +1062,9 @@ class TrafficViolationsTweeter:
                             record['borough'] = boros[0]
 
 
-            record['fined_amount']       = None
-            record['remaining_amount']   = None
-            record['paid_amount']        = None
+            record['fined']       = None
+            record['paid']        = None
+            record['outstanding']   = None
 
             for key in ['amount_due', 'fine_amount', 'interest_amount', 'payment_amount', 'penalty_amount', 'reduction_amount']:
                 if key in record:
@@ -1072,28 +1072,28 @@ class TrafficViolationsTweeter:
                         amount = float(record[key])
 
                         if key in ['fine_amount', 'interest_amount', 'penalty_amount']:
-                            if record['fined_amount'] is None:
-                                record['fined_amount'] = 0
+                            if record['fined'] is None:
+                                record['fined'] = 0
 
-                            record['fined_amount'] += amount
+                            record['fined'] += amount
 
                         elif key == 'reduction_amount':
-                            if record['fined_amount'] is None:
-                                record['fined_amount'] = 0
+                            if record['fined'] is None:
+                                record['fined'] = 0
 
-                            record['fined_amount'] -= amount
+                            record['fined'] -= amount
 
                         elif key == 'amount_due':
-                            if record['remaining_amount'] is None:
-                                record['remaining_amount'] = 0
+                            if record['outstanding'] is None:
+                                record['outstanding'] = 0
 
-                            record['remaining_amount'] += amount
+                            record['outstanding'] += amount
 
                         elif key == 'payment_amount':
-                            if record['paid_amount'] is None:
-                                record['paid_amount'] = 0
+                            if record['paid'] is None:
+                                record['paid'] = 0
 
-                            record['paid_amount'] += amount
+                            record['paid'] += amount
 
                     except ValueError as ve:
 
@@ -1216,11 +1216,11 @@ class TrafficViolationsTweeter:
 
 
         # Marshal all ticket data into form.
-        fines    = {
-          'fined_amount' : sum(v['fined_amount'] for v in combined_violations.values() if v.get('fined_amount')),
-          'remaining_amount' : sum(v['remaining_amount'] for v in combined_violations.values() if v.get('remaining_amount')),
-          'paid_amount' : sum(v['paid_amount'] for v in combined_violations.values() if v.get('paid_amount'))
-        }
+        fines    = [
+          ('fined',       sum(v['fined'] for v in combined_violations.values() if v.get('fined'))),
+          ('paid',        sum(v['paid'] for v in combined_violations.values() if v.get('paid'))),
+          ('outstanding', sum(v['outstanding'] for v in combined_violations.values() if v.get('outstanding')))
+        ]
         tickets  = Counter([v['violation'] for v in combined_violations.values() if v.get('violation')]).most_common()
         years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for v in combined_violations.values()]).most_common()
         boroughs = Counter([v['borough'] for v in combined_violations.values() if v.get('borough')]).most_common()
