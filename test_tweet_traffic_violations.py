@@ -384,10 +384,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     def test_find_potential_vehicles_using_legacy_logic(self):
         string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
         string_parts2       = ['@HowsMyDrivingNY', 'I', 'love', 'you', 'very', 'much!']
-        potential_vehicles  = [{'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True}]
+        string_parts3       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'state:fl', 'plate:d4kdm4', 'types:pas,com']
+        potential_vehicles1 = [{'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True}]
+        potential_vehicles3 = [{'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True, 'types': 'pas,com'}]
 
-        self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts1), potential_vehicles)
+        self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts1), potential_vehicles1)
         self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts2), [])
+        self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts3), potential_vehicles3)
 
 
     def test_form_campaign_lookup_response_parts(self):
@@ -817,6 +820,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'message_type': 'direct_message',
           'included_campaigns': [(87, '#BetterPresident')],
           'plate': 'ABCDEFG',
+          'plate_types': 'com,pas',
           'state': 'ny',
           'username': 'bdhowald'
         }

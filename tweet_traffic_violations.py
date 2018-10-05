@@ -90,8 +90,9 @@ class TrafficViolationsTweeter:
         self.google_api_key = os.environ['GOOGLE_API_KEY'] if os.environ.get('GOOGLE_API_KEY') else ''
 
         # Log how many times we've called the apis
-        self.direct_messages_iteration = 1
-        self.statuses_iteration = 1
+        self.direct_messages_iteration = 0
+        self.events_iteration          = 0
+        self.statuses_iteration        = 0
 
 
     def run(self):
@@ -352,8 +353,8 @@ class TrafficViolationsTweeter:
 
 
     def find_and_respond_to_twitter_events(self):
-        self.statuses_iteration += 1
-        self.logger.debug('Looking up twitter events on iteration {}'.format(self.statuses_iteration))
+        self.events_iteration += 1
+        self.logger.debug('Looking up twitter events on iteration {}'.format(self.events_iteration))
 
         # start timer
         threading.Timer(3.0, self.find_and_respond_to_twitter_events).start()
@@ -412,7 +413,7 @@ class TrafficViolationsTweeter:
 
         # Use old logic of 'state:<state> plate:<plate>'
         potential_vehicles = []
-        legacy_plate_data  = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower() for part in list_of_strings if ('state:' in part.lower() or 'plate:' in part.lower())]])
+        legacy_plate_data  = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower() for part in list_of_strings if ('state:' in part.lower() or 'plate:' in part.lower() or 'types:' in part.lower())]])
 
         if legacy_plate_data:
             if self.detect_state(legacy_plate_data.get('state')) and legacy_plate_data.get('plate'):
@@ -654,13 +655,15 @@ class TrafficViolationsTweeter:
                 is_part1_state = self.detect_state(part1)
 
                 if is_part0_state and len(part1) > 0:
-                    this_plate['state'] = part0
-                    this_plate['plate'] = part1
+                    this_plate['state']       = part0
+                    this_plate['plate']       = part1
                     this_plate['valid_plate'] = True
+                    # this_plate['types']       = None
                 elif is_part1_state and len(part0) > 0:
-                    this_plate['state'] = part1
-                    this_plate['plate'] = part0
+                    this_plate['state']       = part1
+                    this_plate['plate']       = part0
                     this_plate['valid_plate'] = True
+                    # this_plate['types']       = None
 
             plate_data.append(this_plate)
 
@@ -932,6 +935,7 @@ class TrafficViolationsTweeter:
         message_type = args['message_type']
         plate        = plate_pattern.sub('', args['plate'].strip().upper())
         state        = args['state'].strip().upper()
+        plate_types  = args['plate_types']
         username     = re.sub('@', '', args['username'])
 
         self.logger.debug('Listing args... plate: %s, state: %s, message_id: %s, created_at: %s', plate, state, str(message_id), str(created_at))
@@ -976,7 +980,12 @@ class TrafficViolationsTweeter:
         #
         # response from city open data portal
         opacv_endpoint = 'https://data.cityofnewyork.us/resource/uvbq-3m68.json'
-        opacv_response = s_req.get(opacv_endpoint + '?$limit={}&$$app_token={}&plate={}&state={}'.format(limit, token, plate, state))
+        opacv_query    = opacv_endpoint + '?$limit={}&$$app_token={}&plate={}&state={}'.format(limit, token, plate, state)
+
+        if plate_types is not None:
+            opacv_query += "&$where=license_type%20in(" + ','.join(['%27' + type + '%27' for type in plate_types.split(',')]) + ")"
+
+        opacv_response = s_req.get(opacv_query)
         opacv_data     = opacv_response.result().json()
 
         # log response
@@ -1031,6 +1040,10 @@ class TrafficViolationsTweeter:
         # iterate through the endpoints
         for endpoint in fy_endpoints:
             query_string = '?$limit={}&$$app_token={}&plate_id={}&registration_state={}'.format(limit, token, plate, state)
+
+            if plate_types is not None:
+                query_string += "&$where=plate_type%20in(" + ','.join(['%27' + type + '%27' for type in plate_types.split(',')]) + ")"
+
             response     = s_req.get(endpoint + query_string)
             result       = response.result()
 
@@ -1106,9 +1119,13 @@ class TrafficViolationsTweeter:
                         record['borough'] = 'No Borough Available'
 
 
+
         for k,record in combined_violations.items():
             if record.get('violation') is None:
                 record['violation'] = "No Violation Description Available"
+
+            if record.get('borough') is None:
+                record['borough'] = 'No Borough Available'
 
 
         # Marshal all ticket data into form.
@@ -1118,8 +1135,6 @@ class TrafficViolationsTweeter:
 
         camera_streak_data = self.find_max_camera_violations_streak(sorted([datetime.strptime(v['issue_date'],'%Y-%m-%dT%H:%M:%S.%f') for k,v in combined_violations.items() if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light', 'School Zone Speed Camera Violation']]))
 
-
-
         result   = {
           'boroughs'   : [{'title':k.title(),'count':v} for k, v in boroughs],
           'plate'      : plate,
@@ -1128,7 +1143,6 @@ class TrafficViolationsTweeter:
           'years'      : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
         }
 
-
         # No need to add streak data if it doesn't exist
         if camera_streak_data:
             result['camera_streak_data'] = camera_streak_data
@@ -1136,8 +1150,14 @@ class TrafficViolationsTweeter:
 
         self.logger.debug('violations sorted: %s', result)
 
+        previous_lookup = None
+
         # See if we've seen this vehicle before.
-        previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, True))
+        if plate_types is not None:
+            previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types %s and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, plate_types, True))
+        else:
+            previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, True))
+
         # Turn data into list of dicts with attribute keys
         previous_data   = [dict(zip(tuple (previous_lookup.keys()), i)) for i in previous_lookup.cursor]
 
@@ -1160,7 +1180,7 @@ class TrafficViolationsTweeter:
         # If this came from message, add it to the plate_lookups table.
         if message_type and message_id and created_at:
             # Insert plate lookupresult
-            insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, observed, message_id, lookup_source, created_at, twitter_handle, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (plate, state, message_id, message_type, created_at, username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
+            insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, plate_types, observed, message_id, lookup_source, created_at, twitter_handle, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (plate, state, plate_types, message_id, message_type, created_at, username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
 
             # Iterate through included campaigns to tie lookup to each
             for campaign in args['included_campaigns']:
@@ -1327,6 +1347,7 @@ class TrafficViolationsTweeter:
 
                     query_info['plate']                  = potential_vehicle.get('plate')
                     query_info['state']                  = potential_vehicle.get('state')
+                    query_info['plate_types']            = potential_vehicle.get('types').upper() if 'types' in potential_vehicle else None
 
                     # Do the real work!
                     plate_lookup = self.perform_plate_lookup(query_info)
@@ -1461,6 +1482,7 @@ class TrafficViolationsTweeter:
             self.logger.error(str(e))
             self.logger.error(e.args)
             logging.exception("stack trace")
+
 
         # Respond to user
         if message_type == 'direct_message':
