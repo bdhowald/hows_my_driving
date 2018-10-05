@@ -1243,7 +1243,7 @@ class TrafficViolationsTweeter:
         previous_lookup = None
 
         # See if we've seen this vehicle before.
-        if plate_types is not None:
+        if plate_types:
             previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, plate_types, True))
         else:
             previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, True))
@@ -1259,7 +1259,10 @@ class TrafficViolationsTweeter:
 
 
         # Find the number of times we have seen this vehicle before.
-        current_frequency = conn.execute(""" select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and count_towards_frequency = %s """, (plate, state, True)).fetchone()[0]
+        if plate_types:
+            current_frequency = conn.execute(""" select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s """, (plate, state, plate_types, True)).fetchone()[0]
+        else:
+            current_frequency = conn.execute(""" select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s """, (plate, state, True)).fetchone()[0]
 
         # Default to counting everything.
         count_towards_frequency = 1
