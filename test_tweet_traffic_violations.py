@@ -996,6 +996,57 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         update_status_mock.assert_has_calls(calls)
 
 
+    def test_print_featured_plate(self):
+        rco_id                      = 123
+        plate                       = 'ABC1234'
+        state                       = 'NY'
+        total_camera_violations     = random.randint(1, 100)
+        red_light_camera_violations = total_camera_violations - random.randint(1, total_camera_violations)
+        speed_camera_violations     = total_camera_violations - red_light_camera_violations
+
+        nth_place                   = random.randint(1,3205)
+
+
+        cursor_mock = MagicMock(name='cursor')
+        # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
+        cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations], [nth_place]]
+
+        execute_mock = MagicMock(name='execute')
+        execute_mock.execute.return_value = cursor_mock
+        # tweeter.
+        connect_mock = MagicMock(name='connect')
+        connect_mock.connect.return_value = execute_mock
+
+        is_production_mock = MagicMock(name='is_production')
+        is_production_mock.return_value = True
+
+        message_mock = MagicMock(name='message')
+        # message_mock.id = message_id
+
+        update_status_mock = MagicMock(name='update_status')
+        update_status_mock.return_value = message_mock
+
+        api_mock = MagicMock(name='api')
+        api_mock.update_status = update_status_mock
+
+        self.tweeter.engine = connect_mock
+        self.tweeter.is_production = is_production_mock
+        self.tweeter.api = api_mock
+
+
+        vehicle_hashtag = "#{}_{}".format(state, plate)
+        suffix          = 'st' if nth_place % 10 == 1 else ('nd' if nth_place % 10 == 2 else ('rd' if nth_place % 10 == 3 else 'th'))
+        worst_substring = "{}{}-worst".format(nth_place, suffix) if nth_place > 1 else "worst"
+
+        featured_string ="{} has received {} camera violations, {} red light camera violations and {} speed_camera_violations. This makes {} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, red_light_camera_violations, speed_camera_violations, vehicle_hashtag, worst_substring)
+
+        self.tweeter.print_featured_plate()
+
+        calls = [call(featured_string)]
+
+        update_status_mock.assert_has_calls(calls)
+
+
     def test_process_response_message(self):
         now           = datetime.now()
         previous_time = now - timedelta(minutes=10)

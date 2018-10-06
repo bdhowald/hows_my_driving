@@ -1370,6 +1370,71 @@ class TrafficViolationsTweeter:
         conn.close()
 
 
+    def print_featured_plate(self):
+        # Open connection.
+        conn = self.engine.connect()
+
+        random_repeat_offender_query = """
+            select *
+              from repeat_camera_offenders
+             where total_camera_violations >= 25
+               and (plate_id, state) not in (
+                     select plate
+                          , state
+                       from plate_lookups
+                      where is_featured = 1
+               )
+          order by rand()
+             limit 1
+
+        """
+
+        random_repeat_offender_query = conn.execute(random_repeat_offender_query.replace('\n', '')).fetchone()
+
+        rco_id                      = random_repeat_offender_query[0]
+        plate                       = random_repeat_offender_query[1]
+        state                       = random_repeat_offender_query[2]
+        total_camera_violations     = random_repeat_offender_query[3]
+        red_light_camera_violations = random_repeat_offender_query[4]
+        speed_camera_violations     = random_repeat_offender_query[5]
+
+
+        nth_worst_violator_query = """
+            select id + (
+                           select count(*)
+                             from repeat_camera_offenders t2
+                            where total_camera_violations = t1.total_camera_violations
+                        ) - 1
+              from repeat_camera_offenders t1
+             where plate_id = %s
+               and state = %s
+        """
+
+        nth_place = conn.execute(nth_worst_violator_query.replace('\n', ''), plate, state).fetchone()[0]
+
+
+        if nth_place:
+            vehicle_hashtag = "#{}_{}".format(state, plate)
+            suffix          = 'st' if nth_place % 10 == 1 else ('nd' if nth_place % 10 == 2 else ('rd' if nth_place % 10 == 3 else 'th'))
+            worst_substring = "{}{}-worst".format(nth_place, suffix) if nth_place > 1 else "worst"
+            featured_string = "{} has received {} camera violations, {} red light camera violations and {} speed_camera_violations. This makes {} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, red_light_camera_violations, speed_camera_violations, vehicle_hashtag, worst_substring)
+
+            if self.is_production():
+                try:
+                    message = self.api.update_status(featured_string)
+
+                except tweepy.error.TweepError as te:
+                    print(te)
+                    self.api.update_status("Error printing featured plate. Tagging @bdhowald.")
+
+            else:
+                print(featured_string)
+
+
+        # Close connection.
+        conn.close()
+
+
     def process_response_message(self, response_args):
 
         self.logger.info('\n')
@@ -1761,10 +1826,12 @@ class MyStreamListener (tweepy.StreamListener):
 
 
 if __name__ == '__main__':
+    tweeter = TrafficViolationsTweeter()
+
     if sys.argv[-1] == 'print_daily_summary':
-        tweeter = TrafficViolationsTweeter()
         tweeter.print_daily_summary()
+    elif sys.argv[-1] == 'print_featured_plate':
+        tweeter.print_featured_plate()
     else:
-        tweeter = TrafficViolationsTweeter()
         tweeter.run()
         # app.run()
