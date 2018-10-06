@@ -1396,29 +1396,33 @@ class TrafficViolationsTweeter:
 
 
         nth_worst_violator_query = """
-            select id + (
+            select id, (
                            select count(*)
                              from repeat_camera_offenders t2
                             where total_camera_violations = t1.total_camera_violations
-                        ) - 1
+                       )
               from repeat_camera_offenders t1
              where plate_id = %s
                and state = %s
         """
 
-        nth_place = conn.execute(nth_worst_violator_query.replace('\n', ''), plate, state).fetchone()[0]
+        worst_violator_results = conn.execute(nth_worst_violator_query.replace('\n', ''), plate, state).fetchone()
+
+        nth_place = worst_violator_results[0] + worst_violator_results[1] - 1
+        tied_with = worst_violator_results[1]
 
 
         if nth_place:
             vehicle_hashtag  = "#{}_{}".format(state, plate)
-            suffix           = 'st' if nth_place % 10 == 1 else ('nd' if nth_place % 10 == 2 else ('rd' if nth_place % 10 == 3 else 'th'))
+            suffix           = 'st' if (nth_place % 10 == 1 and nth_place % 100 != 11) else ('nd' if (nth_place % 10 == 2 and nth_place % 100 != 12) else ('rd' if (nth_place % 10 == 3 and nth_place % 100 != 13) else 'th'))
             worst_substring  = "{}{}-worst".format(nth_place, suffix) if nth_place > 1 else "worst"
+            tied_substring   = ' tied for' if tied_with != 1 else ''
 
             max_count_length = len(str(max( red_light_camera_violations, speed_camera_violations )))
             spaces_needed    = (max_count_length * 2) + 1
 
 
-            featured_string = "Featured #RepeatCameraOffender:\n\n{} has received {} camera violations:\n\n{} | Red Light Camera Violations\n{} | Speed Safety Camera Violations\n\nThis makes {} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations))), str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations))), vehicle_hashtag, worst_substring)
+            featured_string = "Featured #RepeatCameraOffender:\n\n{} has received {} camera violations:\n\n{} | Red Light Camera Violations\n{} | Speed Safety Camera Violations\n\nThis makes {}{} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations))), str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations))), vehicle_hashtag, tied_substring, worst_substring)
 
             if self.is_production():
                 try:

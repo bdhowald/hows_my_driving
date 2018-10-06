@@ -1005,12 +1005,14 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         speed_camera_violations     = total_camera_violations - red_light_camera_violations
         times_featured              = 0
 
-        nth_place                   = random.randint(1,3205)
+        index                       = random.randint(1,3000)
+        tied_with                   = random.randint(0,3)
+        nth_place                   = index + tied_with - 1
 
 
         cursor_mock = MagicMock(name='cursor')
         # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
-        cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations, times_featured], [nth_place]]
+        cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations, times_featured], [index, tied_with]]
 
         execute_mock = MagicMock(name='execute')
         execute_mock.execute.return_value = cursor_mock
@@ -1035,15 +1037,16 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.api = api_mock
 
 
-        vehicle_hashtag = "#{}_{}".format(state, plate)
-        suffix          = 'st' if nth_place % 10 == 1 else ('nd' if nth_place % 10 == 2 else ('rd' if nth_place % 10 == 3 else 'th'))
-        worst_substring = "{}{}-worst".format(nth_place, suffix) if nth_place > 1 else "worst"
+        vehicle_hashtag  = "#{}_{}".format(state, plate)
+        suffix           = 'st' if (nth_place % 10 == 1 and nth_place % 100 != 11) else ('nd' if (nth_place % 10 == 2 and nth_place % 100 != 12) else ('rd' if (nth_place % 10 == 3 and nth_place % 100 != 13) else 'th'))
+        worst_substring  = "{}{}-worst".format(nth_place, suffix) if nth_place > 1 else "worst"
+        tied_substring   = ' tied for' if tied_with != 1 else ''
 
         max_count_length = len(str(max( red_light_camera_violations, speed_camera_violations )))
         spaces_needed    = (max_count_length * 2) + 1
 
 
-        featured_string ="Featured #RepeatCameraOffender:\n\n{} has received {} camera violations:\n\n{} | Red Light Camera Violations\n{} | Speed Safety Camera Violations\n\nThis makes {} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations))), str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations))), vehicle_hashtag, worst_substring)
+        featured_string ="Featured #RepeatCameraOffender:\n\n{} has received {} camera violations:\n\n{} | Red Light Camera Violations\n{} | Speed Safety Camera Violations\n\nThis makes {}{} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations))), str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations))), vehicle_hashtag, tied_substring, worst_substring)
 
         self.tweeter.print_featured_plate()
 
