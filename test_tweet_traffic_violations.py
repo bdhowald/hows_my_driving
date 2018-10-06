@@ -1003,13 +1003,14 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         total_camera_violations     = random.randint(1, 100)
         red_light_camera_violations = total_camera_violations - random.randint(1, total_camera_violations)
         speed_camera_violations     = total_camera_violations - red_light_camera_violations
+        times_featured              = 0
 
         nth_place                   = random.randint(1,3205)
 
 
         cursor_mock = MagicMock(name='cursor')
         # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
-        cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations], [nth_place]]
+        cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations, times_featured], [nth_place]]
 
         execute_mock = MagicMock(name='execute')
         execute_mock.execute.return_value = cursor_mock
@@ -1038,7 +1039,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         suffix          = 'st' if nth_place % 10 == 1 else ('nd' if nth_place % 10 == 2 else ('rd' if nth_place % 10 == 3 else 'th'))
         worst_substring = "{}{}-worst".format(nth_place, suffix) if nth_place > 1 else "worst"
 
-        featured_string ="{} has received {} camera violations, {} red light camera violations and {} speed_camera_violations. This makes {} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, red_light_camera_violations, speed_camera_violations, vehicle_hashtag, worst_substring)
+        featured_string ="Featured #RepeatCameraViolator:\n\n{} has received {} camera violations, {} red light camera violations and {} speed_camera_violations. This makes {} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, red_light_camera_violations, speed_camera_violations, vehicle_hashtag, worst_substring)
 
         self.tweeter.print_featured_plate()
 

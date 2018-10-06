@@ -1378,12 +1378,7 @@ class TrafficViolationsTweeter:
             select *
               from repeat_camera_offenders
              where total_camera_violations >= 25
-               and (plate_id, state) not in (
-                     select plate
-                          , state
-                       from plate_lookups
-                      where is_featured = 1
-               )
+               and times_featured = 0
           order by rand()
              limit 1
 
@@ -1397,6 +1392,7 @@ class TrafficViolationsTweeter:
         total_camera_violations     = random_repeat_offender_query[3]
         red_light_camera_violations = random_repeat_offender_query[4]
         speed_camera_violations     = random_repeat_offender_query[5]
+        times_featured              = random_repeat_offender_query[6]
 
 
         nth_worst_violator_query = """
@@ -1417,17 +1413,22 @@ class TrafficViolationsTweeter:
             vehicle_hashtag = "#{}_{}".format(state, plate)
             suffix          = 'st' if nth_place % 10 == 1 else ('nd' if nth_place % 10 == 2 else ('rd' if nth_place % 10 == 3 else 'th'))
             worst_substring = "{}{}-worst".format(nth_place, suffix) if nth_place > 1 else "worst"
-            featured_string = "{} has received {} camera violations, {} red light camera violations and {} speed_camera_violations. This makes {} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, red_light_camera_violations, speed_camera_violations, vehicle_hashtag, worst_substring)
+
+            featured_string = "Featured #RepeatCameraViolator:\n\n{} has received {} camera violations, {} red light camera violations and {} speed_camera_violations. This makes {} the {} camera violator in New York City.".format(vehicle_hashtag, total_camera_violations, red_light_camera_violations, speed_camera_violations, vehicle_hashtag, worst_substring)
 
             if self.is_production():
                 try:
                     message = self.api.update_status(featured_string)
+
+                    # update record so that we don't feature it again
+                    conn.execute(""" update repeat_camera_offenders set times_featured = %s where id = %s """, times_featured + 1, rco_id)
 
                 except tweepy.error.TweepError as te:
                     print(te)
                     self.api.update_status("Error printing featured plate. Tagging @bdhowald.")
 
             else:
+                print("\nupdate repeat_camera_offenders set times_featured = {} where id = {}\n".format(times_featured + 1, rco_id))
                 print(featured_string)
 
 
