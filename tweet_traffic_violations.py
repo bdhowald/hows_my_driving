@@ -1121,7 +1121,7 @@ class TrafficViolationsTweeter:
         #
 
         # collect the data in a list
-        fy_endpoints = ['https://data.cityofnewyork.us/resource/j7ig-zgkq.json', 'https://data.cityofnewyork.us/resource/aagd-wyjz.json', 'https://data.cityofnewyork.us/resource/avxe-2nrn.json', 'https://data.cityofnewyork.us/resource/ati4-9cgt.json', 'https://data.cityofnewyork.us/resource/qpyv-8eyi.json']
+        fy_endpoints = ['https://data.cityofnewyork.us/resource/j7ig-zgkq.json', 'https://data.cityofnewyork.us/resource/aagd-wyjz.json', 'https://data.cityofnewyork.us/resource/avxe-2nrn.json', 'https://data.cityofnewyork.us/resource/ati4-9cgt.json', 'https://data.cityofnewyork.us/resource/9wgk-ev5c.json', 'https://data.cityofnewyork.us/resource/qpyv-8eyi.json']
 
         # only data we're looking for
         fy_desired_keys = ['borough', 'issue_date', 'violation', 'violation_precinct', 'violation_county']
