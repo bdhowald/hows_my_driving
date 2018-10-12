@@ -587,7 +587,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         'vehicles' : num_vehicles
       }
 
-      self.assertEqual(self.tweeter.form_summary_string(summary, username), ["@bdhowald The {} vehicles you queried have collectively received {} tickets for at least {}, of which {} has been paid.\n\n".format(num_vehicles, num_tickets, '${:,.2f}'.format(fined), '${:,.2f}'.format(paid))])
+      self.assertEqual(self.tweeter.form_summary_string(summary, username), ["@bdhowald The {} vehicles you queried have collectively received {} tickets with at least {} in fines, of which {} has been paid.\n\n".format(num_vehicles, num_tickets, '${:,.2f}'.format(fined), '${:,.2f}'.format(paid))])
 
 
     def test_handle_response_part_formation(self):
