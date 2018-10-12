@@ -629,7 +629,7 @@ class TrafficViolationsTweeter:
 
 
     def form_summary_string(self, summary, username):
-        return ["{} The {} vehicles you queried have collectively received {} {} for at least {}, of which {} has been paid.".format(username, summary['vehicles'], summary['tickets'], 'ticket' if summary['tickets'] == 1 else 'tickets', '${:,.2f}'.format(summary['fines']['fined']), '${:,.2f}'.format(summary['fines']['paid']))]
+        return ["{} The {} vehicles you queried have collectively received {} {} for at least {}, of which {} has been paid.\n\n".format(username, summary['vehicles'], summary['tickets'], 'ticket' if summary['tickets'] == 1 else 'tickets', '${:,.2f}'.format(summary['fines']['fined']), '${:,.2f}'.format(summary['fines']['paid']))]
 
 
     def handle_response_part_formation(self, collection, keys):
