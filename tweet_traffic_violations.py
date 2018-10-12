@@ -119,43 +119,51 @@ class TrafficViolationsTweeter:
 
 
 
-    def detect_borough(self, location_str):
+    def detect_borough(self, location_parts):
         # Instantiate a connection.
         conn = self.engine.connect()
 
-        location_str = re.sub('[ENSW]B *', '', location_str)
-        lookup_string = ' '.join([location_str, 'New York NY'])
+        sanitized_parts = [re.sub('\(?[ENSW]/?B\)? *', '', part) for part in location_parts]
 
-        # try to find it in the geocodes table first.
-        boro_from_geocode = conn.execute(""" select borough from geocodes where lookup_string = %s """, lookup_string).fetchone()
+        location_strs   = [' '.join(location_parts) + ' New York NY', ''.join(location_parts) + ' New York NY']
 
-        if boro_from_geocode:
+        # location_str = re.sub('[ENSW]B *', '', location_str)
+        # lookup_string = ' '.join([location_str, 'New York NY'])
 
-          return [boro_from_geocode[0]]
+        for geo_string in location_strs:
 
-        else:
+            print('\n\n{}\n\n'.format(geo_string))
 
-            url           = 'https://maps.googleapis.com/maps/api/geocode/json'
-            api_key       = self.google_api_key
-            params        = {'address': lookup_string, 'key': api_key}
+            # try to find it in the geocodes table first.
+            boro_from_geocode = conn.execute(""" select borough from geocodes where lookup_string = %s """, geo_string).fetchone()
 
-            req     = requests.get(url, params=params)
-            results = req.json()['results']
+            if boro_from_geocode:
 
-            if results and results[0]:
-                if results[0].get('address_components'):
+                return [boro_from_geocode[0]]
 
-                    address_components = results[0].get('address_components')
-                    boros = [comp['long_name'] for comp in results[0].get('address_components') if comp.get('types') and 'sublocality_level_1' in comp['types']]
+            else:
 
-                    if boros:
-                        # insert geocode
-                        conn.execute(""" insert into geocodes (lookup_string, borough, geocoding_service) values (%s, %s, 'google') """, (lookup_string, boros[0]))
+                url           = 'https://maps.googleapis.com/maps/api/geocode/json'
+                api_key       = self.google_api_key
+                params        = {'address': geo_string, 'key': api_key}
 
-                        # return the boro
-                        return boros
+                req     = requests.get(url, params=params)
+                results = req.json()['results']
 
-            return []
+                if results and results[0]:
+                    if results[0].get('address_components'):
+
+                        address_components = results[0].get('address_components')
+                        boros = [comp['long_name'] for comp in results[0].get('address_components') if comp.get('types') and 'sublocality_level_1' in comp['types']]
+
+                        if boros:
+                            # insert geocode
+                            conn.execute(""" insert into geocodes (lookup_string, borough, geocoding_service) values (%s, %s, 'google') """, (geo_string, boros[0]))
+
+                            # return the boro
+                            return boros
+
+        return []
 
 
     def detect_campaign_hashtags(self, string_parts):
@@ -617,6 +625,11 @@ class TrafficViolationsTweeter:
 
         # Send it back!
         return response_chunks
+
+
+
+    def form_summary_string(self, summary, username):
+        return ["{} The {} vehicles you queried have collectively received {} {} for at least {}, of which {} has been paid.".format(username, summary['vehicles'], summary['tickets'], 'ticket' if summary['tickets'] == 1 else 'tickets', '${:,.2f}'.format(summary['fines']['fined']), '${:,.2f}'.format(summary['fines']['paid']))]
 
 
     def handle_response_part_formation(self, collection, keys):
@@ -1188,7 +1201,7 @@ class TrafficViolationsTweeter:
                                 street_name         = record.get('street_name')
                                 intersecting_street = record.get('intersecting_street') or ''
 
-                                google_boros = self.detect_borough(re.sub('\(?[ENSW]/?B\)? *', '', street_name + ' ' + intersecting_street))
+                                google_boros = self.detect_borough([street_name, intersecting_street])
                                 if google_boros:
                                     record['borough'] = google_boros[0].lower()
 
@@ -1499,6 +1512,7 @@ class TrafficViolationsTweeter:
         successful_lookup = False
         error_on_lookup   = False
 
+
         # Wrap in try/catch block
         try:
             # Split plate and state strings into key/value pairs.
@@ -1516,6 +1530,16 @@ class TrafficViolationsTweeter:
             # then we need to look up each valid plate
             # then we need to respond in a single thread in order with the responses
 
+            summary = {
+              'fines'   : {
+                'fined'       : 0,
+                'outstanding' : 0,
+                'paid'        : 0
+              },
+              'tickets' : 0,
+              'vehicles': 0
+            }
+
             for potential_vehicle in potential_vehicles:
 
                 if potential_vehicle.get('valid_plate'):
@@ -1527,7 +1551,17 @@ class TrafficViolationsTweeter:
                     # Do the real work!
                     plate_lookup = self.perform_plate_lookup(query_info)
 
+
+                    # Increment summary vehicle info
+                    summary['vehicles'] += 1
+
+
                     if plate_lookup.get('violations'):
+
+                        # Increment summary ticket info
+                        summary['tickets'] += sum(s['count'] for s in plate_lookup['violations'])
+                        for k,v in {key[0]: key[1] for key in plate_lookup['fines']}.items():
+                            summary['fines'][k] += v
 
                         # Record successful lookup.
                         successful_lookup = True
@@ -1584,12 +1618,18 @@ class TrafficViolationsTweeter:
                         response_parts.append(["{} Sorry, the state appears to be blank.".format(username, query_info['state'])])
 
 
+            # If we have multiple vehicles, prepend a summary.
+            if summary['vehicles'] > 1:
+                response_parts.insert(0, self.form_summary_string(summary, username))
+
+
             # Look up campaign hashtags after doing the plate lookups and then prepend to response.
             if included_campaigns:
                 campaign_lookup = self.perform_campaign_lookup(included_campaigns)
                 response_parts.insert(0, self.form_campaign_lookup_response_parts(campaign_lookup, username))
 
                 successful_lookup = True
+
 
 
             # If we don't look up a single plate successfully,

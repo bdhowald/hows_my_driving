@@ -566,6 +566,30 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup2, '@bdhowald'), response_parts2)
 
 
+    def test_form_summary_string(self):
+
+      username     = '@bdhowald'
+
+      fined        = random.randint(10, 20000)
+      paid         = random.randint(0, fined)
+
+      num_tickets  = random.randint(10, 20000)
+
+      num_vehicles = random.randint(2,5)
+
+      summary = {
+        'fines': {
+          'fined'      : fined,
+          'outstanding': fined - paid,
+          'paid'       : paid
+        },
+        'tickets'  : num_tickets,
+        'vehicles' : num_vehicles
+      }
+
+      self.assertEqual(self.tweeter.form_summary_string(summary, username), ["@bdhowald The {} vehicles you queried have collectively received {} tickets for at least {}, of which {} has been paid.".format(num_vehicles, num_tickets, '${:,.2f}'.format(fined), '${:,.2f}'.format(paid))])
+
+
     def test_handle_response_part_formation(self):
 
         plate      = 'HME6483'
@@ -1084,30 +1108,31 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'user_id': 30139847
         }
         plate_lookup1 = {
+          'fines': [('fined', 200.0), ('outstanding', 125.0), ('paid', 75.0)],
           'frequency': 1,
-           'plate': 'HME6483',
-           'plate_types': None,
-           'previous_result': {'created_at': previous_time,
+          'plate': 'HME6483',
+          'plate_types': None,
+          'previous_result': {'created_at': previous_time,
                                'num_tickets': 15},
-           'state': 'NY',
-           'violations': [{'count': 4, 'title': 'No Standing - Day/Time Limits'},
-                          {'count': 3, 'title': 'No Parking - Street Cleaning'},
-                          {'count': 1, 'title': 'Failure To Display Meter Receipt'},
-                          {'count': 1, 'title': 'No Violation Description Available'},
-                          {'count': 1, 'title': 'Bus Lane Violation'},
-                          {'count': 1, 'title': 'Failure To Stop At Red Light'},
-                          {'count': 1, 'title': 'No Standing - Commercial Meter Zone'},
-                          {'count': 1, 'title': 'Expired Meter'},
-                          {'count': 1, 'title': 'Double Parking'},
-                          {'count': 1, 'title': 'No Angle Parking'}
-            ],
-            'years': [
-              {'title': '2017', 'count': 10},
-              {'title': '2018', 'count': 15}
-            ],
+          'state': 'NY',
+          'violations': [{'count': 4, 'title': 'No Standing - Day/Time Limits'},
+                         {'count': 3, 'title': 'No Parking - Street Cleaning'},
+                         {'count': 1, 'title': 'Failure To Display Meter Receipt'},
+                         {'count': 1, 'title': 'No Violation Description Available'},
+                         {'count': 1, 'title': 'Bus Lane Violation'},
+                         {'count': 1, 'title': 'Failure To Stop At Red Light'},
+                         {'count': 1, 'title': 'No Standing - Commercial Meter Zone'},
+                         {'count': 1, 'title': 'Expired Meter'},
+                         {'count': 1, 'title': 'Double Parking'},
+                         {'count': 1, 'title': 'No Angle Parking'}
+          ],
+          'years': [
+            {'title': '2017', 'count': 10},
+            {'title': '2018', 'count': 15}
+          ]
         }
 
-        combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n"
+        combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\n@bdhowald Known fines for #NY_HME6483:\n\n$200.00 | Fined\n$125.00 | Outstanding\n$75.00   | Paid\n"
 
         plate_lookup_mock = MagicMock(name='plate_lookup')
         plate_lookup_mock.return_value = plate_lookup1
@@ -1161,6 +1186,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'username': username2
         }
         plate_lookup2 = {
+          'fines': [('fined', 1000.0), ('outstanding', 225.0), ('paid', 775.0)],
           'frequency': 1,
           'plate': 'GLF7467',
           'plate_types': None,
@@ -1183,7 +1209,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                          {'count': 1, 'title': 'Double Parking'}]
         }
 
-        response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n"]]
+        response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", '@BarackObama Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
 
         plate_lookup_mock.return_value = plate_lookup2
 
