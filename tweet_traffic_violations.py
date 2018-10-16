@@ -557,7 +557,7 @@ class TrafficViolationsTweeter:
             response_chunks += self.handle_response_part_formation(query_result['boroughs'], boroughs_keys)
 
 
-        if query_result.get('fines'):
+        if query_result.get('fines') and any([k[1] != 0 for k in query_result.get('fines')]):
 
             fines = query_result['fines']
 

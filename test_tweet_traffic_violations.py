@@ -532,6 +532,12 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             {'count': 2, 'title': 'Queens'},
             {'count': 13, 'title': 'Staten Island'}
           ],
+          'fines': [
+            ('fined', 0,),
+            ('reduced', 0,),
+            ('paid', 0,),
+            ('outstanding', 0,),
+          ],
           'camera_streak_data': {
             'min_streak_date': 'September 18, 2015',
             'max_streak': 5,
