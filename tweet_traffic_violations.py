@@ -629,7 +629,7 @@ class TrafficViolationsTweeter:
 
 
     def form_summary_string(self, summary, username):
-        return ["{} The {} vehicles you queried have collectively received {} {} with at least {} in fines, of which {} has been paid.\n\n".format(username, summary['vehicles'], summary['tickets'], 'ticket' if summary['tickets'] == 1 else 'tickets', '${:,.2f}'.format(summary['fines']['fined']), '${:,.2f}'.format(summary['fines']['paid']))]
+        return ["{} The {} vehicles you queried have collectively received {} {} with at least {} in fines, of which {} has been paid.\n\n".format(username, summary['vehicles'], summary['tickets'], 'ticket' if summary['tickets'] == 1 else 'tickets', '${:,.2f}'.format(summary['fines']['fined'] - summary['fines']['reduced']), '${:,.2f}'.format(summary['fines']['paid']))]
 
 
     def handle_response_part_formation(self, collection, keys):
@@ -1051,7 +1051,7 @@ class TrafficViolationsTweeter:
         self.logger.debug('Open Parking and Camera Violations data: %s', opacv_data)
 
         # only data we're looking for
-        opacv_desired_keys = ['borough', 'county', 'fined', 'issue_date', 'paid', 'precinct', 'outstanding', 'violation']
+        opacv_desired_keys = ['borough', 'county', 'fined', 'issue_date', 'paid', 'precinct', 'outstanding', 'reduced', 'violation']
 
 
         # add violation if it's missing
@@ -1079,8 +1079,9 @@ class TrafficViolationsTweeter:
                             record['borough'] = boros[0]
 
 
-            record['fined']       = None
-            record['paid']        = None
+            record['fined']         = None
+            record['paid']          = None
+            record['reduced']       = None
             record['outstanding']   = None
 
             for key in ['amount_due', 'fine_amount', 'interest_amount', 'payment_amount', 'penalty_amount', 'reduction_amount']:
@@ -1095,10 +1096,10 @@ class TrafficViolationsTweeter:
                             record['fined'] += amount
 
                         elif key == 'reduction_amount':
-                            if record['fined'] is None:
-                                record['fined'] = 0
+                            if record['reduced'] is None:
+                                record['reduced'] = 0
 
-                            record['fined'] -= amount
+                            record['reduced'] += amount
 
                         elif key == 'amount_due':
                             if record['outstanding'] is None:
@@ -1235,6 +1236,7 @@ class TrafficViolationsTweeter:
         # Marshal all ticket data into form.
         fines    = [
           ('fined',       sum(v['fined'] for v in combined_violations.values() if v.get('fined'))),
+          ('reduced',     sum(v['reduced'] for v in combined_violations.values() if v.get('reduced'))),
           ('paid',        sum(v['paid'] for v in combined_violations.values() if v.get('paid'))),
           ('outstanding', sum(v['outstanding'] for v in combined_violations.values() if v.get('outstanding')))
         ]
@@ -1534,6 +1536,7 @@ class TrafficViolationsTweeter:
               'fines'   : {
                 'fined'       : 0,
                 'outstanding' : 0,
+                'reduced'     : 0,
                 'paid'        : 0
               },
               'tickets' : 0,

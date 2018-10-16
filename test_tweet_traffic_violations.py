@@ -443,6 +443,12 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             {'count': 2, 'title': 'Queens'},
             {'count': 13, 'title': 'Staten Island'}
           ],
+          'fines': [
+            ('fined', 180,),
+            ('reduced', 50,),
+            ('paid', 100,),
+            ('outstanding', 30,),
+          ],
           'camera_streak_data': {
             'min_streak_date': 'September 18, 2015',
             'max_streak': 4,
@@ -482,7 +488,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           '1   | Bronx\n'
           '7   | Brooklyn\n'
           '2   | Queens\n'
-          '13 | Staten Island\n'
+          '13 | Staten Island\n',
+          '@bdhowald Known fines for #NY_HME6483:\n'
+          '\n'
+          '$180.00 | Fined\n'
+          '$50.00   | Reduced\n'
+          '$100.00 | Paid\n'
+          '$30.00   | Outstanding\n'
         ]
 
         self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup1, '@bdhowald'), response_parts1)
@@ -571,7 +583,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       username     = '@bdhowald'
 
       fined        = random.randint(10, 20000)
-      paid         = random.randint(0, fined)
+      reduced      = random.randint(0, fined)
+      paid         = random.randint(0, fined - reduced)
 
       num_tickets  = random.randint(10, 20000)
 
@@ -580,14 +593,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       summary = {
         'fines': {
           'fined'      : fined,
-          'outstanding': fined - paid,
-          'paid'       : paid
+          'outstanding': fined - reduced - paid,
+          'paid'       : paid,
+          'reduced'    : reduced
         },
         'tickets'  : num_tickets,
         'vehicles' : num_vehicles
       }
 
-      self.assertEqual(self.tweeter.form_summary_string(summary, username), ["@bdhowald The {} vehicles you queried have collectively received {} tickets with at least {} in fines, of which {} has been paid.\n\n".format(num_vehicles, num_tickets, '${:,.2f}'.format(fined), '${:,.2f}'.format(paid))])
+      self.assertEqual(self.tweeter.form_summary_string(summary, username), ["@bdhowald The {} vehicles you queried have collectively received {} tickets with at least {} in fines, of which {} has been paid.\n\n".format(num_vehicles, num_tickets, '${:,.2f}'.format(fined - reduced), '${:,.2f}'.format(paid))])
 
 
     def test_handle_response_part_formation(self):
@@ -919,7 +933,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'boroughs': [
             {'count': 2, 'title': 'Manhattan'}
           ],
-          'fines': [('fined', 130.0), ('paid', 0), ('outstanding', 0)],
+          'fines': [('fined', 150.0), ('reduced', 20.0), ('paid', 0), ('outstanding', 0)],
         }
 
         violations_mock = MagicMock(name='violations')
