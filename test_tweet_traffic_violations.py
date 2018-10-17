@@ -231,12 +231,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         index                       = random.randint(1,3000)
         tied_with                   = random.randint(0,3)
-        nth_place                   = index + tied_with - 1
+        min_id                      = random.randint(index - tied_with, index + tied_with - 1)
+        nth_place                   = min_id + tied_with - 1
 
 
         cursor_mock = MagicMock(name='cursor')
         # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
-        cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations, times_featured], [index, tied_with]]
+        cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations, times_featured], [index, tied_with, min_id]]
 
         connect_mock = MagicMock(name='connect')
         connect_mock.execute.return_value = cursor_mock

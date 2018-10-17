@@ -351,11 +351,17 @@ class TrafficViolationsTweeter:
 
 
             nth_worst_violator_query = """
-                select id, (
-                               select count(*)
-                                 from repeat_camera_offenders t2
-                                where total_camera_violations = t1.total_camera_violations
-                           )
+                select id
+                    ,  (
+                           select count(*)
+                             from repeat_camera_offenders t2
+                            where total_camera_violations = t1.total_camera_violations
+                       ) as tied_with
+                    ,  (
+                          select min(id)
+                             from repeat_camera_offenders t2
+                            where total_camera_violations = t1.total_camera_violations
+                       ) as min_id
                   from repeat_camera_offenders t1
                  where plate_id = %s
                    and state = %s
@@ -363,7 +369,7 @@ class TrafficViolationsTweeter:
 
             worst_violator_results = conn.execute(nth_worst_violator_query.replace('\n', ''), plate, state).fetchone()
 
-            nth_place = worst_violator_results[0] + worst_violator_results[1] - 1
+            nth_place = worst_violator_results[1] + worst_violator_results[2] - 1
             tied_with = worst_violator_results[1]
 
 
