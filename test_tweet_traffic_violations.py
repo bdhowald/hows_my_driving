@@ -8,7 +8,8 @@ import unittest
 from unittest.mock import call, MagicMock, patch
 
 # import class
-from tweet_traffic_violations import MyStreamListener, TrafficViolationsTweeter
+from tweet_traffic_violations import TrafficViolationsTweeter
+
 
 import pdb
 
@@ -19,13 +20,9 @@ import requests
 import requests_futures.sessions
 import pytz
 import sys
-import tweepy
+
 
 from datetime import datetime, timezone, time, timedelta
-
-
-
-
 
 
 
@@ -34,222 +31,12 @@ def inc(part, in_reply_to_status_id):
     int_mock.id = (in_reply_to_status_id + 1)
     return int_mock
 
-def create_error(arg):
-    raise ValueError('generic error')
-
-
-class TestMyStreamListener(unittest.TestCase):
-
-    def setUp(self):
-        self.listener = MyStreamListener(TrafficViolationsTweeter())
-
-
-    def test_on_data(self):
-        direct_message_data = '{"direct_message": "stuff"}'
-
-        parse_mock = MagicMock(name='parse')
-        parse_mock.return_value = 123
-
-        status_mock = MagicMock(name='status')
-        status_mock.parse = parse_mock
-
-        tweepy.Status = status_mock
-
-        initiate_reply_mock = MagicMock(name='initiate_reply')
-
-        self.listener.tweeter.initiate_reply = initiate_reply_mock
-
-        self.listener.on_data(direct_message_data)
-
-        self.listener.tweeter.initiate_reply.assert_called_with(123, 'direct_message')
-        parse_mock.assert_called_with(self.listener.api, json.loads(direct_message_data))
-
-
-        event_data = '{"event": "stuff"}'
-
-        self.listener.on_data(event_data)
-
-        parse_mock.assert_called_with(self.listener.api, json.loads(event_data))
-
-
-        in_reply_to_status_id_data = '{"in_reply_to_status_id": "stuff"}'
-
-        self.listener.on_data(in_reply_to_status_id_data)
-
-        self.listener.tweeter.initiate_reply.assert_called_with(123, 'status')
-        parse_mock.assert_called_with(self.listener.api, json.loads(in_reply_to_status_id_data))
-
-
-    def test_on_direct_message(self):
-        status_mock = MagicMock(name='status')
-
-        debug_mock  = MagicMock(name='debug')
-        logger_mock = MagicMock(name='logger')
-        logger_mock.debug = debug_mock
-
-        self.listener.logger = logger_mock
-
-        self.listener.on_direct_message(status_mock)
-
-        debug_mock.assert_called_with("on_direct_message: %s", status_mock)
-
-
-    def test_on_error(self):
-        status_mock = MagicMock(name='status')
-
-        debug_mock  = MagicMock(name='debug')
-        logger_mock = MagicMock(name='logger')
-        logger_mock.debug = debug_mock
-
-        self.listener.logger = logger_mock
-
-        self.listener.on_error(status_mock)
-
-        debug_mock.assert_called_with("on_error: %s", status_mock)
-
-
-    def test_on_event(self):
-        status_mock = MagicMock(name='status')
-
-        debug_mock  = MagicMock(name='debug')
-        logger_mock = MagicMock(name='logger')
-        logger_mock.debug = debug_mock
-
-        self.listener.logger = logger_mock
-
-        self.listener.on_event(status_mock)
-
-        debug_mock.assert_called_with("on_event: %s", status_mock)
-
-
-    def test_on_status(self):
-        status_mock = MagicMock(name='status')
-        status_mock.text = 'Here is some text!'
-
-        debug_mock  = MagicMock(name='debug')
-        logger_mock = MagicMock(name='logger')
-        logger_mock.debug = debug_mock
-
-        self.listener.logger = logger_mock
-
-        self.listener.on_status(status_mock)
-
-        debug_mock.assert_called_with("\n\n\non_status: %s\n\n\n", status_mock.text)
-
 
 
 class TestTrafficViolationsTweeter(unittest.TestCase):
 
     def setUp(self):
         self.tweeter = TrafficViolationsTweeter()
-
-
-    def test_detect_borough(self):
-        bronx_comp = {
-          'results': [
-            {
-              'address_components': [
-                {
-                  'long_name': 'Bronx',
-                  'short_name': 'Bronx',
-                  'types': [
-                    'political',
-                    'sublocality',
-                    'sublocality_level_1'
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-
-        empty_comp = {
-          'results': [
-            {
-              'address_components': [
-                {}
-              ]
-            }
-          ]
-        }
-
-        req_mock = MagicMock(name='json')
-        req_mock.json.return_value = bronx_comp
-
-        get_mock = MagicMock(name='get')
-        get_mock.return_value = req_mock
-
-        requests.get = get_mock
-
-        self.assertEqual(self.tweeter.detect_borough('Da Bronx'), ['Bronx'])
-
-
-        req_mock.json.return_value = empty_comp
-
-        self.assertEqual(self.tweeter.detect_borough('no match'), [])
-
-
-
-    def test_detect_campaign_hashtags(self):
-        cursor_mock = MagicMock(name='cursor')
-        cursor_mock.cursor = [[6, '#TestCampaign']]
-
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
-        # tweeter.
-        connect_mock = MagicMock(name='connect')
-        connect_mock.connect.return_value = execute_mock
-
-        self.tweeter.engine = connect_mock
-
-        self.assertEqual(self.tweeter.detect_campaign_hashtags(['#TestCampaign'])[0][1], '#TestCampaign')
-        self.assertEqual(self.tweeter.detect_campaign_hashtags(['#TestCampaign,'])[0][1], '#TestCampaign')
-
-
-    def test_detect_state(self):
-        str     = '99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QC|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT'
-        regions = str.split('|')
-
-        for region in regions:
-            self.assertEqual(self.tweeter.detect_state(region), True)
-            self.assertEqual(self.tweeter.detect_state(region + 'XX'), False)
-
-
-    def test_find_max_camera_streak(self):
-        list_of_camera_times1 = [
-          datetime(2015, 9, 18, 0, 0),
-          datetime(2015, 10, 16, 0, 0),
-          datetime(2015, 11, 2, 0, 0),
-          datetime(2015, 11, 5, 0, 0),
-          datetime(2015, 11, 12, 0, 0),
-          datetime(2016, 2, 2, 0, 0),
-          datetime(2016, 2, 25, 0, 0),
-          datetime(2016, 5, 31, 0, 0),
-          datetime(2016, 9, 8, 0, 0),
-          datetime(2016, 10, 17, 0, 0),
-          datetime(2016, 10, 24, 0, 0),
-          datetime(2016, 10, 26, 0, 0),
-          datetime(2016, 11, 21, 0, 0),
-          datetime(2016, 12, 18, 0, 0),
-          datetime(2016, 12, 22, 0, 0),
-          datetime(2017, 1, 5, 0, 0),
-          datetime(2017, 2, 13, 0, 0),
-          datetime(2017, 5, 10, 0, 0),
-          datetime(2017, 5, 24, 0, 0),
-          datetime(2017, 6, 27, 0, 0),
-          datetime(2017, 6, 27, 0, 0),
-          datetime(2017, 9, 14, 0, 0),
-          datetime(2017, 11, 6, 0, 0),
-          datetime(2018, 1, 28, 0, 0)
-        ]
-
-        result1 = {
-          'min_streak_date': 'September 8, 2016',
-          'max_streak': 13,
-          'max_streak_date': 'June 27, 2017'
-        }
-
-        self.assertEqual(self.tweeter.find_max_camera_violations_streak(list_of_camera_times1), result1)
 
 
     def test_find_and_respond_to_direct_messages(self):
@@ -270,7 +57,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       api_mock.direct_messages = direct_message_mock
 
       self.tweeter.api    = api_mock
-      self.tweeter.engine = engine_mock
+
+      self.tweeter.db_service = connect_mock
+      self.tweeter.db_service.__enter__.return_value = connect_mock
 
       self.tweeter.find_and_respond_to_direct_messages()
 
@@ -302,9 +91,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       execute_mock.fetchone.return_value = [random_id]
       connect_mock.execute.return_value = execute_mock
 
-      engine_mock         = MagicMock(name='engine_mock')
-      engine_mock.connect.return_value = connect_mock
-
       api_mock            = MagicMock(name='api_mock')
       status_mock         = MagicMock(name='status')
       status_mock.return_value = []
@@ -312,7 +98,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       api_mock.search     = status_mock
 
       self.tweeter.api    = api_mock
-      self.tweeter.engine = engine_mock
+
+      self.tweeter.db_service = connect_mock
+      self.tweeter.db_service.__enter__.return_value = connect_mock
 
       self.tweeter.find_and_respond_to_statuses()
 
@@ -349,472 +137,23 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       cursor_tuple = [tuple(d.values()) for d in [event_obj]]
 
       events_mock = MagicMock(name='events')
-      # events_mock.keys = {'a', 'b'}
+
       events_mock.keys.return_value = tuple(event_obj.keys())
       events_mock.cursor = (cursor_tuple[0],)
 
-      execute_mock = MagicMock(name='execute')
-      execute_mock.execute.return_value = events_mock
-      # tweeter.
       connect_mock = MagicMock(name='connect')
-      connect_mock.connect.return_value = execute_mock
+      connect_mock.execute.return_value = events_mock
 
-      self.tweeter.engine = connect_mock
+      self.tweeter.db_service = connect_mock
+      self.tweeter.db_service.__enter__.return_value = connect_mock
 
       initiate_reply_mock = MagicMock(name='initiate_reply')
-      self.tweeter.initiate_reply = initiate_reply_mock
+      self.tweeter.aggregator.initiate_reply = initiate_reply_mock
 
       self.tweeter.find_and_respond_to_twitter_events()
 
-      self.tweeter.initiate_reply.assert_called_with(event_obj, event_obj['event_type'])
+      self.tweeter.aggregator.initiate_reply.assert_called_with(event_obj, event_obj['event_type'])
 
-
-    def test_find_potential_vehicles(self):
-      string_parts       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
-
-      potential_vehicles = [
-        {'original_string':'ny:123abcd', 'state': 'ny', 'plate': '123abcd', 'valid_plate': True},
-        {'original_string':'ca:6vmd948', 'state': 'ca', 'plate': '6vmd948', 'valid_plate': True},
-        {'original_string':'xx:7kvj935', 'valid_plate': False}
-      ]
-
-      self.assertEqual(self.tweeter.find_potential_vehicles(string_parts), potential_vehicles)
-
-
-    def test_find_potential_vehicles_using_legacy_logic(self):
-        string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
-        string_parts2       = ['@HowsMyDrivingNY', 'I', 'love', 'you', 'very', 'much!']
-        string_parts3       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'state:fl', 'plate:d4kdm4', 'types:pas,com']
-        potential_vehicles1 = [{'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True}]
-        potential_vehicles3 = [{'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True, 'types': 'pas,com'}]
-
-        self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts1), potential_vehicles1)
-        self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts2), [])
-        self.assertEqual(self.tweeter.find_potential_vehicles_using_legacy_logic(string_parts3), potential_vehicles3)
-
-
-    def test_form_campaign_lookup_response_parts(self):
-        campaign_data1 = {'included_campaigns': [{'campaign_hashtag': '#SaferSkillman', 'campaign_tickets': 71, 'campaign_vehicles': 6}]}
-        campaign_data2 = {'included_campaigns': [{'campaign_hashtag': '#BetterPresident', 'campaign_tickets': 1, 'campaign_vehicles': 1}]}
-        campaign_data3 = {'included_campaigns': [{'campaign_hashtag': '#BusTurnaround', 'campaign_tickets': 0, 'campaign_vehicles': 1}]}
-
-        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data1, '@bdhowald'), ['@bdhowald 6 vehicles with a total of 71 tickets have been tagged with #SaferSkillman.\n\n'])
-        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data2, '@BarackObama'), ['@BarackObama 1 vehicle with 1 ticket has been tagged with #BetterPresident.\n\n'])
-        self.assertEqual(self.tweeter.form_campaign_lookup_response_parts(campaign_data3, '@FixQueensBlvd'), ['@FixQueensBlvd 1 vehicle with 0 tickets has been tagged with #BusTurnaround.\n\n'])
-
-
-    def test_form_plate_lookup_response_parts(self):
-        previous_time = datetime.now() - timedelta(minutes=10)
-        utc           = pytz.timezone('UTC')
-        eastern       = pytz.timezone('US/Eastern')
-
-        adjusted_time = utc.localize(previous_time).astimezone(eastern)
-
-
-        plate_lookup1 = {
-          'plate': 'HME6483',
-          'plate_types': 'pas',
-          'state': 'NY',
-          'violations': [
-            {'title': 'No Standing - Day/Time Limits', 'count': 14},
-            {'title': 'No Parking - Street Cleaning', 'count': 3},
-            {'title': 'Failure To Display Meter Receipt', 'count': 1},
-            {'title': 'No Violation Description Available', 'count': 1},
-            {'title': 'Bus Lane Violation', 'count': 1},
-            {'title': 'Failure To Stop At Red Light', 'count': 1},
-            {'title': 'No Standing - Commercial Meter Zone', 'count': 1},
-            {'title': 'Expired Meter', 'count': 1},
-            {'title': 'Double Parking', 'count': 1},
-            {'title': 'No Angle Parking', 'count': 1}
-          ],
-          'years': [
-            {'title': '2016', 'count': 2},
-            {'title': '2017', 'count': 8},
-            {'title': '2018', 'count': 13}
-          ],
-          'previous_result': {
-            'num_tickets': 23,
-            'created_at': previous_time
-          },
-          'frequency': 8,
-          'boroughs': [
-            {'count': 1, 'title': 'Bronx'},
-            {'count': 7, 'title': 'Brooklyn'},
-            {'count': 2, 'title': 'Queens'},
-            {'count': 13, 'title': 'Staten Island'}
-          ],
-          'fines': [
-            ('fined', 180,),
-            ('reduced', 50,),
-            ('paid', 100,),
-            ('outstanding', 30,),
-          ],
-          'camera_streak_data': {
-            'min_streak_date': 'September 18, 2015',
-            'max_streak': 4,
-            'max_streak_date': 'November 5, 2015'
-          }
-        }
-
-        response_parts1 = [
-          '@bdhowald #NY_HME6483 (types: pas) has been queried 8 times.\n'
-          '\n'
-          'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
-          '#NY_HME6483 has received 2 new tickets.\n'
-          '\n'
-          'Total parking and camera violation tickets: 25\n'
-          '\n'
-          '14 | No Standing - Day/Time Limits\n',
-          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
-          '\n'
-          '3   | No Parking - Street Cleaning\n'
-          '1   | Failure To Display Meter Receipt\n'
-          '1   | No Violation Description Available\n'
-          '1   | Bus Lane Violation\n'
-          '1   | Failure To Stop At Red Light\n',
-          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
-          '\n'
-          '1   | No Standing - Commercial Meter Zone\n'
-          '1   | Expired Meter\n'
-          '1   | Double Parking\n'
-          '1   | No Angle Parking\n',
-          '@bdhowald Violations by year for #NY_HME6483:\n'
-          '\n'
-          '2   | 2016\n'
-          '8   | 2017\n'
-          '13 | 2018\n',
-          '@bdhowald Violations by borough for #NY_HME6483:\n'
-          '\n'
-          '1   | Bronx\n'
-          '7   | Brooklyn\n'
-          '2   | Queens\n'
-          '13 | Staten Island\n',
-          '@bdhowald Known fines for #NY_HME6483:\n'
-          '\n'
-          '$180.00 | Fined\n'
-          '$50.00   | Reduced\n'
-          '$100.00 | Paid\n'
-          '$30.00   | Outstanding\n'
-        ]
-
-        self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup1, '@bdhowald'), response_parts1)
-
-
-        plate_lookup2 = {
-          'plate': 'HME6483',
-          'plate_types': None,
-          'state': 'NY',
-          'violations': [
-            {'title': 'No Standing - Day/Time Limits', 'count': 14},
-            {'title': 'No Parking - Street Cleaning', 'count': 3},
-            {'title': 'Failure To Display Meter Receipt', 'count': 1},
-            {'title': 'No Violation Description Available', 'count': 1},
-            {'title': 'Bus Lane Violation', 'count': 1},
-            {'title': 'Failure To Stop At Red Light', 'count': 1},
-            {'title': 'No Standing - Commercial Meter Zone', 'count': 1},
-            {'title': 'Expired Meter', 'count': 1},
-            {'title': 'Double Parking', 'count': 1},
-            {'title': 'No Angle Parking', 'count': 1}
-          ],
-          'years': [
-            {'title': '2016', 'count': 2},
-            {'title': '2017', 'count': 8},
-            {'title': '2018', 'count': 13}
-          ],
-          'previous_result': {
-            'num_tickets': 23,
-            'created_at': previous_time
-          },
-          'frequency': 8,
-          'boroughs': [
-            {'count': 1, 'title': 'Bronx'},
-            {'count': 7, 'title': 'Brooklyn'},
-            {'count': 2, 'title': 'Queens'},
-            {'count': 13, 'title': 'Staten Island'}
-          ],
-          'fines': [
-            ('fined', 0,),
-            ('reduced', 0,),
-            ('paid', 0,),
-            ('outstanding', 0,),
-          ],
-          'camera_streak_data': {
-            'min_streak_date': 'September 18, 2015',
-            'max_streak': 5,
-            'max_streak_date': 'November 5, 2015'
-          }
-        }
-
-        response_parts2 = [
-          '@bdhowald #NY_HME6483 has been queried 8 times.\n'
-          '\n'
-          'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
-          '#NY_HME6483 has received 2 new tickets.\n'
-          '\n'
-          'Total parking and camera violation tickets: 25\n'
-          '\n'
-          '14 | No Standing - Day/Time Limits\n',
-          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
-          '\n'
-          '3   | No Parking - Street Cleaning\n'
-          '1   | Failure To Display Meter Receipt\n'
-          '1   | No Violation Description Available\n'
-          '1   | Bus Lane Violation\n'
-          '1   | Failure To Stop At Red Light\n',
-          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
-          '\n'
-          '1   | No Standing - Commercial Meter Zone\n'
-          '1   | Expired Meter\n'
-          '1   | Double Parking\n'
-          '1   | No Angle Parking\n',
-          '@bdhowald Violations by year for #NY_HME6483:\n'
-          '\n'
-          '2   | 2016\n'
-          '8   | 2017\n'
-          '13 | 2018\n',
-          '@bdhowald Violations by borough for #NY_HME6483:\n'
-          '\n'
-          '1   | Bronx\n'
-          '7   | Brooklyn\n'
-          '2   | Queens\n'
-          '13 | Staten Island\n',
-          "@bdhowald Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its 5 camera violations (>= 5/year) from September 18, 2015 to November 5, 2015.\n",
-        ]
-
-        self.assertEqual(self.tweeter.form_plate_lookup_response_parts(plate_lookup2, '@bdhowald'), response_parts2)
-
-
-    def test_form_summary_string(self):
-
-      username     = '@bdhowald'
-
-      fined        = random.randint(10, 20000)
-      reduced      = random.randint(0, fined)
-      paid         = random.randint(0, fined - reduced)
-
-      num_tickets  = random.randint(10, 20000)
-
-      num_vehicles = random.randint(2,5)
-
-      summary = {
-        'fines': {
-          'fined'      : fined,
-          'outstanding': fined - reduced - paid,
-          'paid'       : paid,
-          'reduced'    : reduced
-        },
-        'tickets'  : num_tickets,
-        'vehicles' : num_vehicles
-      }
-
-      self.assertEqual(self.tweeter.form_summary_string(summary, username), ["@bdhowald The {} vehicles you queried have collectively received {} tickets with at least {} in fines, of which {} has been paid.\n\n".format(num_vehicles, num_tickets, '${:,.2f}'.format(fined - reduced), '${:,.2f}'.format(paid))])
-
-
-    def test_handle_response_part_formation(self):
-
-        plate      = 'HME6483'
-        state      = 'NY'
-        username   = '@NYC_DOT'
-
-        collection = [
-          {'title': '2017', 'count': 1},
-          {'title': '2018', 'count': 1}
-        ]
-
-        keys       = {
-          'count'                       : 'count',
-          'continued_format_string'     : "Violations by year for #{}_{}:, cont'd\n\n",
-          'continued_format_string_args': [state, plate],
-          'cur_string'                  : '',
-          'description'                 : 'title',
-          'default_description'         : 'No Year Available',
-          'prefix_format_string'        : 'Violations by year for #{}_{}:\n\n',
-          'prefix_format_string_args'   : [state, plate],
-          'result_format_string'        : '{}| {}\n',
-          'username'                    : username
-        }
-
-        result     = [(username + ' ' + keys['prefix_format_string']).format(state, plate) + '1 | 2017\n1 | 2018\n']
-
-        self.assertEqual(self.tweeter.handle_response_part_formation(collection, keys), result)
-
-
-    def test_initiate_reply(self):
-        rand_int = random.randint(10000000000000000000, 20000000000000000000)
-        now      = datetime.now()
-        utc      = pytz.timezone('UTC')
-        now_str  = utc.localize(now).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-
-        direct_message_mock = MagicMock(spec=[u'a'])
-        direct_message_mock.direct_message = {
-          'created_at': now,
-          'id': rand_int,
-          'recipient': {
-            'screen_name': 'HowsMyDrivingNY'
-          },
-          'sender': {
-            'screen_name': 'bdhowald',
-            'id': 30139847
-          },
-          'text': '@HowsMyDrivingNY ny:123abcd ca:cad4534 ny:456efgh'
-        }
-
-        direct_message_args_for_response = {
-          'created_at': now,
-          'id': rand_int,
-          'legacy_string_parts': [
-            '@howsmydrivingny',
-            'ny:123abcd',
-            'ca:cad4534',
-            'ny:456efgh'
-          ],
-          'string_parts': [
-            '@howsmydrivingny',
-            'ny:123abcd',
-            'ca:cad4534',
-            'ny:456efgh'
-          ],
-          'user_id': 30139847,
-          'username': 'bdhowald',
-          'type': 'direct_message'
-        }
-
-
-        entities_mock = MagicMock(spec=[u'b'])
-        entities_mock.created_at      = now
-        entities_mock.entities        = {
-          'user_mentions': [
-            {
-              'screen_name': 'HowsMyDrivingNY'
-            },
-            {
-              'screen_name': 'BarackObama'
-            }
-          ]
-        }
-        entities_mock.id             = rand_int
-        entities_mock.text           = '@HowsMyDrivingNY ny:123abcd:abc ca:cad4534:zyx ny:456efgh bex:az:1234567'
-
-        user_mock             = MagicMock('screen_name')
-        user_mock.screen_name = 'bdhowald'
-        user_mock.id          = 30139847
-
-        entities_mock.user           = user_mock
-
-        entities_args_for_response   = {
-          'created_at': now_str,
-          'id': rand_int,
-          'legacy_string_parts': [
-            '@howsmydrivingny',
-            'ny:123abcd:abc',
-            'ca:cad4534:zyx',
-            'ny:456efgh',
-            'bex:az:1234567'
-          ],
-          'mentioned_users': [
-            'howsmydrivingny',
-            'barackobama'
-          ],
-          'string_parts': [
-            '@howsmydrivingny',
-            'ny:123abcd:abc',
-            'ca:cad4534:zyx',
-            'ny:456efgh',
-            'bex:az:1234567'
-          ],
-          'user_id': 30139847,
-          'username': 'bdhowald',
-          'type': 'status'
-        }
-
-
-        extended_tweet_mock = MagicMock(spec=[u'c'])
-        extended_tweet_mock.created_at      = now
-        extended_tweet_mock.extended_tweet = {
-          'entities': {
-            'user_mentions': [
-              {
-                'screen_name': 'HowsMyDrivingNY'
-              },
-              {
-                'screen_name': 'BarackObama'
-              }
-            ]
-          },
-          'full_text': '@HowsMyDrivingNY ny:ny ca:1234567'
-        }
-        extended_tweet_mock.id             = rand_int
-
-        # user_mock             = MagicMock('screen_name')
-        # user_mock.screen_name = 'bdhowald'
-
-        extended_tweet_mock.user           = user_mock
-
-        extended_tweet_args_for_response   = {
-          'created_at': now_str,
-          'id': rand_int,
-          'legacy_string_parts': [
-            '@howsmydrivingny',
-            'ny:ny',
-            'ca:1234567'
-          ],
-          'mentioned_users': [
-            'howsmydrivingny',
-            'barackobama'
-          ],
-          'string_parts': [
-            '@howsmydrivingny',
-            'ny:ny',
-            'ca:1234567'
-          ],
-          'user_id': 30139847,
-          'username': 'bdhowald',
-          'type': 'status'
-        }
-
-
-
-        process_response_message_mock = MagicMock(name='process_response_message')
-
-        self.tweeter.process_response_message = process_response_message_mock
-
-
-        self.tweeter.initiate_reply(direct_message_mock, 'direct_message')
-
-        process_response_message_mock.assert_called_with(direct_message_args_for_response)
-
-
-        self.tweeter.initiate_reply(entities_mock, 'status')
-
-        process_response_message_mock.assert_called_with(entities_args_for_response)
-
-
-        self.tweeter.initiate_reply(extended_tweet_mock, 'status')
-
-        process_response_message_mock.assert_called_with(extended_tweet_args_for_response)
-
-
-    def test_infer_plate_and_state_data(self):
-        plate_tuples = [['ny', '123abcd'], ['ca', ''], ['xx', 'pxk3819'], ['99', '1234']]
-
-        result = [
-          {'original_string':'ny:123abcd', 'state': 'ny', 'plate': '123abcd', 'valid_plate': True},
-          {'original_string': 'ca:', 'valid_plate': False},
-          {'original_string': 'xx:pxk3819', 'valid_plate': False},
-          {'original_string':'99:1234', 'state': '99', 'plate': '1234', 'valid_plate': True}
-        ]
-
-        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),result)
-
-
-        plate_tuples = []
-
-        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),[])
-
-
-        plate_tuples = [['ny', 'ny']]
-
-        self.assertEqual(self.tweeter.infer_plate_and_state_data(plate_tuples),[{'original_string':'ny:ny', 'state': 'ny', 'plate': 'ny', 'valid_plate': True}])
 
 
     def test_is_production(self):
@@ -822,167 +161,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.assertEqual(self.tweeter.is_production(), (username == 'safestreets'))
 
-
-    def test_perform_campaign_lookup(self):
-        included_campaigns = [
-          (1, '#SaferSkillman')
-        ]
-
-        result = {
-          'included_campaigns': [
-            {
-              'campaign_hashtag': '#SaferSkillman',
-              'campaign_tickets': 7167,
-              'campaign_vehicles': 152
-            }
-          ]
-        }
-
-        cursor_mock = MagicMock(name='cursor')
-        cursor_mock.fetchone.return_value = (152, 7167)
-
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
-        # tweeter.
-        connect_mock = MagicMock(name='connect')
-        connect_mock.connect.return_value = execute_mock
-
-        self.tweeter.engine = connect_mock
-
-        self.assertEqual(self.tweeter.perform_campaign_lookup(included_campaigns), result)
-
-
-
-    def test_perform_plate_lookup(self):
-        rand_int = random.randint(10000000000000000000, 20000000000000000000)
-        now      = datetime.now()
-        previous = now - timedelta(minutes=10)
-        utc      = pytz.timezone('UTC')
-        now_str  = utc.localize(now).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-
-        args = {
-          'created_at': now_str,
-          'message_id': rand_int,
-          'message_type': 'direct_message',
-          'included_campaigns': [(87, '#BetterPresident')],
-          'plate': 'ABCDEFG',
-          'plate_types': 'com,pas',
-          'state': 'ny',
-          'username': 'bdhowald'
-        }
-
-        violations = [
-          {
-            'amount_due': '0',
-            'county': 'NY',
-            'fine_amount': '100',
-            'interest_amount': '0',
-            'issue_date': '01/19/2017',
-            'issuing_agency': 'TRAFFIC',
-            'license_type': 'PAS',
-            'payment_amount': '0',
-            'penalty_amount': '0',
-            'plate': 'HME6483',
-            'precinct': '005',
-            'reduction_amount': '0',
-            'state': 'NY',
-            'summons_image': 'http://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=VDBSVmQwNVVaekZOZWxreFQxRTlQUT09&locationName=_____________________',
-            'summons_image_description': 'View Summons',
-            'summons_number': '8505853659',
-            'violation_status': 'HEARING HELD-NOT GUILTY',
-            'violation_time': '08:39P'
-          },
-          {
-            'amount_due': '0',
-            'county': 'NY',
-            'fine_amount': '50',
-            'interest_amount': '0',
-            'issue_date': '01/20/2018',
-            'issuing_agency': 'TRAFFIC',
-            'license_type': 'PAS',
-            'payment_amount': '0',
-            'penalty_amount': '0',
-            'plate': 'HME6483',
-            'precinct': '005',
-            'reduction_amount': '20',
-            'state': 'NY',
-            'summons_image': 'http://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=VDBSVmQwNVVaekZOZWxreFQxRTlQUT09&locationName=_____________________',
-            'summons_image_description': 'View Summons',
-            'summons_number': '8505853660',
-            'violation': 'FAIL TO DSPLY MUNI METER RECPT',
-            'violation_description': 'FAIL TO DSPLY MUNI METER RECPT',
-            'violation_status': 'HEARING HELD-NOT GUILTY',
-            'violation_time': '08:40P'
-          }
-        ]
-
-        result = {
-          'plate': 'ABCDEFG',
-          'plate_types': 'com,pas',
-          'state': 'NY',
-          'violations': [
-            {
-              'count': 1,
-              'title': 'No Violation Description Available'
-            },
-            {
-              'count': 1,
-              'title': 'Fail To Dsply Muni Meter Recpt'
-            }
-          ],
-          'years': [
-            {'title': '2017', 'count': 1},
-            {'title': '2018', 'count': 1}
-          ],
-          'previous_result': {},
-          'frequency': 2,
-          'boroughs': [
-            {'count': 2, 'title': 'Manhattan'}
-          ],
-          'fines': [('fined', 150.0), ('reduced', 20.0), ('paid', 0), ('outstanding', 0)],
-        }
-
-        violations_mock = MagicMock(name='violations')
-        violations_mock.json.return_value = violations
-        violations_mock.status_code = 200
-
-        result_mock = MagicMock(name='result')
-        result_mock.result.return_value = violations_mock
-
-        get_mock = MagicMock(name='get')
-        get_mock.return_value = result_mock
-
-        session_mock = MagicMock(name='session_object')
-        session_mock.get = get_mock
-
-        session_object_mock = MagicMock(name='session_object')
-        session_object_mock.return_value = session_mock
-
-
-        requests_futures.sessions.FuturesSession = session_object_mock
-
-        cursor_mock = MagicMock(name='cursor')
-        cursor_mock.cursor = [{'num_tickets': 1, 'created_at': previous}]
-        cursor_mock.fetchone.return_value = (1,)
-
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
-        # tweeter.
-        connect_mock = MagicMock(name='connect')
-        connect_mock.connect.return_value = execute_mock
-
-        self.tweeter.engine = connect_mock
-
-        self.assertEqual(self.tweeter.perform_plate_lookup(args), result)
-
-
-        # Try again with a forced error.
-
-        error_result = {'error': 'server error', 'plate': 'ABCDEFG', 'state': 'NY'}
-
-        violations_mock.status_code = 503
-
-        self.assertEqual(self.tweeter.perform_plate_lookup(args), error_result)
 
 
     def test_print_daily_summary(self):
@@ -1011,7 +189,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         execute_mock.execute.return_value = cursor_mock
         # tweeter.
         connect_mock = MagicMock(name='connect')
-        connect_mock.connect.return_value = execute_mock
+        connect_mock.return_value = execute_mock
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
@@ -1025,7 +203,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.update_status = update_status_mock
 
-        self.tweeter.engine = connect_mock
+        self.tweeter.db_service = connect_mock
+        self.tweeter.db_service.__enter__ = connect_mock
+
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock
 
@@ -1058,11 +238,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
         cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations, times_featured], [index, tied_with]]
 
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
-        # tweeter.
         connect_mock = MagicMock(name='connect')
-        connect_mock.connect.return_value = execute_mock
+        connect_mock.execute.return_value = cursor_mock
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
@@ -1076,7 +253,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.update_status = update_status_mock
 
-        self.tweeter.engine = connect_mock
+        self.tweeter.db_service = connect_mock
+        self.tweeter.db_service.__enter__.return_value = connect_mock
+
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock
 
@@ -1099,7 +278,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         update_status_mock.assert_has_calls(calls)
 
 
-    def test_process_response_message(self):
+    def test_process_response(self):
         now           = datetime.now()
         previous_time = now - timedelta(minutes=10)
         utc           = pytz.timezone('UTC')
@@ -1127,35 +306,16 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'username': username1,
           'user_id': 30139847
         }
-        plate_lookup1 = {
-          'fines': [('fined', 200.0), ('outstanding', 125.0), ('paid', 75.0)],
-          'frequency': 1,
-          'plate': 'HME6483',
-          'plate_types': None,
-          'previous_result': {'created_at': previous_time,
-                               'num_tickets': 15},
-          'state': 'NY',
-          'violations': [{'count': 4, 'title': 'No Standing - Day/Time Limits'},
-                         {'count': 3, 'title': 'No Parking - Street Cleaning'},
-                         {'count': 1, 'title': 'Failure To Display Meter Receipt'},
-                         {'count': 1, 'title': 'No Violation Description Available'},
-                         {'count': 1, 'title': 'Bus Lane Violation'},
-                         {'count': 1, 'title': 'Failure To Stop At Red Light'},
-                         {'count': 1, 'title': 'No Standing - Commercial Meter Zone'},
-                         {'count': 1, 'title': 'Expired Meter'},
-                         {'count': 1, 'title': 'Double Parking'},
-                         {'count': 1, 'title': 'No Angle Parking'}
-          ],
-          'years': [
-            {'title': '2017', 'count': 10},
-            {'title': '2018', 'count': 15}
-          ]
-        }
 
         combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\n@bdhowald Known fines for #NY_HME6483:\n\n$200.00 | Fined\n$125.00 | Outstanding\n$75.00   | Paid\n"
 
-        plate_lookup_mock = MagicMock(name='plate_lookup')
-        plate_lookup_mock.return_value = plate_lookup1
+        reply_event_args1 = {
+          'error_on_lookup'  : False,
+          'response_args'    : response_args1,
+          'response_parts'   : [[combined_message]],
+          'success'          : True,
+          'successful_lookup': True
+        }
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
@@ -1165,13 +325,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.send_direct_message_new  = send_direct_message_mock
 
-        self.tweeter.perform_plate_lookup = plate_lookup_mock
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock
 
-        self.tweeter.process_response_message(response_args1)
+        self.tweeter.process_response(reply_event_args1)
 
-        # send_direct_message_mock.assert_called_with(screen_name=('@' + username1), text=combined_message)
         send_direct_message_mock.assert_called_with({
           'event': {
             'type': 'message_create',
@@ -1205,33 +363,16 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'type': 'status',
           'username': username2
         }
-        plate_lookup2 = {
-          'fines': [('fined', 1000.0), ('outstanding', 225.0), ('paid', 775.0)],
-          'frequency': 1,
-          'plate': 'GLF7467',
-          'plate_types': None,
-          'previous_result': {'created_at': previous_time,
-                              'num_tickets': 49},
-          'state': 'PA',
-          'violations': [{'count': 17, 'title': 'No Parking - Street Cleaning'},
-                         {'count': 6, 'title': 'Expired Meter'},
-                         {'count': 5, 'title': 'No Violation Description Available'},
-                         {'count': 3, 'title': 'Fire Hydrant'},
-                         {'count': 3, 'title': 'No Parking - Day/Time Limits'},
-                         {'count': 3, 'title': 'Failure To Display Meter Receipt'},
-                         {'count': 3, 'title': 'School Zone Speed Camera Violation'},
-                         {'count': 2, 'title': 'No Parking - Except Authorized Vehicles'},
-                         {'count': 2, 'title': 'Bus Lane Violation'},
-                         {'count': 1, 'title': 'Failure To Stop At Red Light'},
-                         {'count': 1, 'title': 'No Standing - Day/Time Limits'},
-                         {'count': 1, 'title': 'No Standing - Except Authorized Vehicle'},
-                         {'count': 1, 'title': 'Obstructing Traffic Or Intersection'},
-                         {'count': 1, 'title': 'Double Parking'}]
-        }
 
         response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", '@BarackObama Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
 
-        plate_lookup_mock.return_value = plate_lookup2
+        reply_event_args2 = {
+          'error_on_lookup'  : False,
+          'response_args'    : response_args2,
+          'response_parts'   : response_parts2,
+          'success'          : True,
+          'successful_lookup': True
+        }
 
         create_favorite_mock = MagicMock(name='is_production')
         create_favorite_mock.return_value = True
@@ -1242,7 +383,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.tweeter.recursively_process_status_updates = recursively_process_status_updates_mock
 
-        self.tweeter.process_response_message(response_args2)
+        self.tweeter.process_response(reply_event_args2)
 
         recursively_process_status_updates_mock.assert_called_with(response_parts2, message_id)
 
@@ -1283,18 +424,16 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         response_parts3 = [['@' + username3 + ' ' + str(campaign_vehicles) + ' vehicles with a total of ' + str(campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n\n']]
 
-        detect_campaign_hashtags_mock = MagicMock(name='detect_campaign_hashtags')
-        detect_campaign_hashtags_mock.return_value = included_campaigns
+        reply_event_args3 = {
+          'error_on_lookup'  : False,
+          'response_args'    : response_args3,
+          'response_parts'   : response_parts3,
+          'success'          : True,
+          'successful_lookup': True
+        }
 
-        perform_campaign_lookup_mock = MagicMock(name='perform_campaign_lookup')
-        perform_campaign_lookup_mock.return_value = campaign_result
+        self.tweeter.process_response(reply_event_args3)
 
-        self.tweeter.detect_campaign_hashtags = detect_campaign_hashtags_mock
-        self.tweeter.perform_campaign_lookup  = perform_campaign_lookup_mock
-
-        self.tweeter.process_response_message(response_args3)
-
-        perform_campaign_lookup_mock.assert_called_with(included_campaigns)
         recursively_process_status_updates_mock.assert_called_with(response_parts3, message_id)
 
 
@@ -1323,9 +462,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         response_parts4 = [['@' + username4 + ' I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234']]
 
-        detect_campaign_hashtags_mock.return_value = []
+        reply_event_args4 = {
+          'error_on_lookup'  : False,
+          'response_args'    : response_args4,
+          'response_parts'   : response_parts4,
+          'success'          : True,
+          'successful_lookup': True
+        }
 
-        self.tweeter.process_response_message(response_args4)
+        self.tweeter.process_response(reply_event_args4)
 
         recursively_process_status_updates_mock.assert_called_with(response_parts4, message_id)
 
@@ -1350,7 +495,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         response_parts5 = [['@' + username5 + " I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
 
-        self.tweeter.process_response_message(response_args5)
+        reply_event_args5 = {
+          'error_on_lookup'  : False,
+          'response_args'    : response_args5,
+          'response_parts'   : response_parts5,
+          'success'          : True,
+          'successful_lookup': True
+        }
+
+        self.tweeter.process_response(reply_event_args5)
 
         recursively_process_status_updates_mock.assert_called_with(response_parts5, message_id)
 
@@ -1362,9 +515,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         response_parts6 = [['@' + username2 + " Sorry, I encountered an error. Tagging @bdhowald."]]
 
-        self.tweeter.perform_plate_lookup = create_error
+        reply_event_args6 = {
+          'error_on_lookup'  : False,
+          'response_args'    : response_args2,
+          'response_parts'   : response_parts6,
+          'success'          : True,
+          'successful_lookup': True
+        }
 
-        self.tweeter.process_response_message(response_args2)
+        self.tweeter.process_response(reply_event_args6)
 
         recursively_process_status_updates_mock.assert_called_with(response_parts6, message_id)
 

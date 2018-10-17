@@ -12,3 +12,5 @@ pip-selfcheck.json
 .pytest_cache/
 
 .DS_Store
+
+*.sql
