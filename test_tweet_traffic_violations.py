@@ -25,7 +25,6 @@ import sys
 from datetime import datetime, timezone, time, timedelta
 
 
-
 def inc(part, in_reply_to_status_id):
     int_mock = MagicMock(name='api')
     int_mock.id = (in_reply_to_status_id + 1)
@@ -180,13 +179,28 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         message_id             = random.randint(10000000000000000000, 20000000000000000000)
 
+        tickets = []
+        for i in range(num_lookups - empty_lookups):
+            if (i + 1) < (num_lookups - empty_lookups):
+                tickets.append([max(int( random.randint(1, (num_tickets - sum(x[0] for x in tickets) - (num_lookups - (i + 1) ) ) )/100), 1)])
+            else:
+                tickets.append([num_tickets - sum(x[0] for x in tickets)])
+
+
+        for i in range(empty_lookups):
+            tickets.append([0])
+
+
+        sorted_tickets = sorted(tickets)
+        median = sorted_tickets[int(len(sorted_tickets)/2)][0] if num_lookups % 2 == 1 else ((sorted_tickets[int(len(sorted_tickets)/2)][0] + sorted_tickets[int((len(sorted_tickets)/2) - 1)][0])/2.0)
+
 
         cursor_mock = MagicMock(name='cursor')
         # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
         cursor_mock.fetchone.side_effect = [[num_lookups, num_tickets, empty_lookups, reckless_drivers], [total_reckless_drivers]]
 
         execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
+        execute_mock.execute.side_effect = [cursor_mock, tickets, cursor_mock]
         # tweeter.
         connect_mock = MagicMock(name='connect')
         connect_mock.return_value = execute_mock
@@ -209,7 +223,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock
 
-        lookup_str   = "On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
+        lookup_str   = "On {}, users requested {} {}. {} received {} {} for an average of {} {} and a median of {} {} per vehicle. {} {} returned no tickets.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', round(num_tickets/num_lookups, 2), 'ticket' if num_tickets == 1 else 'tickets', median, 'ticket' if median == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
         reckless_str = "{} {} eligible to be booted or impounded under @bradlander's proposed legislation ({} such lookups since June 6, 2018).".format(reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were', total_reckless_drivers)
 
 
@@ -231,7 +245,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         index                       = random.randint(1,3000)
         tied_with                   = random.randint(0,3)
-        min_id                      = random.randint(index - tied_with, index + tied_with - 1)
+        min_id                      = random.randint(max(index - (tied_with if tied_with == 0 else (tied_with - 1)), 1), index)
         nth_place                   = min_id + tied_with - 1
 
 

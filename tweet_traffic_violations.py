@@ -286,12 +286,32 @@ class TrafficViolationsTweeter:
                          and %s);
             """
 
+
             daily_lookup_query = conn.execute(daily_lookup_query_string.replace('\n', ''), (midnight_yesterday.strftime('%Y-%m-%d %H:%M:%S'), end_of_yesterday.strftime('%Y-%m-%d %H:%M:%S'))).fetchone()
 
             num_lookups      = daily_lookup_query[0]
             num_tickets      = daily_lookup_query[1]
             empty_lookups    = daily_lookup_query[2]
             reckless_drivers = daily_lookup_query[3]
+
+
+            daily_tickets_query_string = """
+                select num_tickets
+                  from plate_lookups t1
+                 where count_towards_frequency = 1
+                   and t1.created_at =
+                     (select MAX(t2.created_at)
+                        from plate_lookups t2
+                       where t2.plate = t1.plate
+                         and t2.state = t1.state
+                         and created_at between %s
+                         and %s);
+            """
+
+            daily_tickets_query = conn.execute(daily_tickets_query_string.replace('\n', ''), (midnight_yesterday.strftime('%Y-%m-%d %H:%M:%S'), end_of_yesterday.strftime('%Y-%m-%d %H:%M:%S')))
+
+            tickets = sorted([i[0] for i in daily_tickets_query])
+            median  = tickets[int(len(tickets)/2)] if num_lookups % 2 == 1 else ((tickets[int(len(tickets)/2)] + tickets[int((len(tickets)/2) - 1)])/2.0)
 
 
             boot_eligible_query_string = """
@@ -306,7 +326,7 @@ class TrafficViolationsTweeter:
 
 
             if num_lookups > 0:
-                lookups_summary_string = "On {}, users requested {} {}. {} received {} {}. {} {} returned no tickets.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
+                lookups_summary_string = "On {}, users requested {} {}. {} received {} {} for an average of {} {} and a median of {} {} per vehicle. {} {} returned no tickets.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(num_tickets), 'ticket' if num_tickets == 1 else 'tickets', round(num_tickets/num_lookups, 2), 'ticket' if (num_tickets/num_lookups) == 1 else 'tickets', median, 'ticket' if median == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
 
                 reckless_drivers_summary_string = "{} {} eligible to be booted or impounded under @bradlander's proposed legislation ({} such lookups since June 6, 2018).".format(reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were', total_reckless_drivers)
 
