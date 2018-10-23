@@ -43,9 +43,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
       connect_mock        = MagicMock(name='connect_mock')
       execute_mock        = MagicMock(name='execute_mock')
+      fetchone_mock       = MagicMock(name='fetchone_mock')
 
-      execute_mock.fetchone.return_value = [random_id]
-      connect_mock.execute.return_value = execute_mock
+      fetchone_mock.fetchone.return_value = [random_id]
+      execute_mock.execute.return_value   = fetchone_mock
+      connect_mock.return_value           = execute_mock
 
       engine_mock         = MagicMock(name='engine_mock')
       engine_mock.connect.return_value = connect_mock
@@ -57,8 +59,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
       self.tweeter.api    = api_mock
 
-      self.tweeter.db_service = connect_mock
-      self.tweeter.db_service.__enter__.return_value = connect_mock
+      self.tweeter.db_service.get_connection = connect_mock
 
       self.tweeter.find_and_respond_to_direct_messages()
 
@@ -86,9 +87,14 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
       connect_mock        = MagicMock(name='connect_mock')
       execute_mock        = MagicMock(name='execute_mock')
+      fetchone_mock       = MagicMock(name='fetchone_mock')
 
-      execute_mock.fetchone.return_value = [random_id]
-      connect_mock.execute.return_value = execute_mock
+      fetchone_mock.fetchone.return_value = [random_id]
+      execute_mock.execute.return_value   = fetchone_mock
+      connect_mock.return_value           = execute_mock
+
+      engine_mock         = MagicMock(name='engine_mock')
+      engine_mock.connect.return_value = connect_mock
 
       api_mock            = MagicMock(name='api_mock')
       status_mock         = MagicMock(name='status')
@@ -98,8 +104,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
       self.tweeter.api    = api_mock
 
-      self.tweeter.db_service = connect_mock
-      self.tweeter.db_service.__enter__.return_value = connect_mock
+      self.tweeter.db_service.get_connection = connect_mock
 
       self.tweeter.find_and_respond_to_statuses()
 
@@ -140,11 +145,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
       events_mock.keys.return_value = tuple(event_obj.keys())
       events_mock.cursor = (cursor_tuple[0],)
 
-      connect_mock = MagicMock(name='connect')
-      connect_mock.execute.return_value = events_mock
+      execute_mock = MagicMock(name='execute')
+      execute_mock.execute.return_value = events_mock
 
-      self.tweeter.db_service = connect_mock
-      self.tweeter.db_service.__enter__.return_value = connect_mock
+      connect_mock = MagicMock(name='connect')
+      connect_mock.return_value = execute_mock
+
+      self.tweeter.db_service.get_connection = connect_mock
 
       initiate_reply_mock = MagicMock(name='initiate_reply')
       self.tweeter.aggregator.initiate_reply = initiate_reply_mock
@@ -217,8 +224,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.update_status = update_status_mock
 
-        self.tweeter.db_service = connect_mock
-        self.tweeter.db_service.__enter__ = connect_mock
+        self.tweeter.db_service.get_connection = connect_mock
 
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock
@@ -253,8 +259,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
         cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations, red_light_camera_violations, speed_camera_violations, times_featured], [index, tied_with, min_id]]
 
+        execute_mock = MagicMock(name='execute')
+        execute_mock.execute.return_value = cursor_mock
+
         connect_mock = MagicMock(name='connect')
-        connect_mock.execute.return_value = cursor_mock
+        connect_mock.return_value = execute_mock
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
@@ -268,8 +277,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.update_status = update_status_mock
 
-        self.tweeter.db_service = connect_mock
-        self.tweeter.db_service.__enter__.return_value = connect_mock
+        self.tweeter.db_service.get_connection = connect_mock
 
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock

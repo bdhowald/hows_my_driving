@@ -78,34 +78,38 @@ class TrafficViolationsAggregator:
             # try to find it in the geocodes table first.
 
             # Instantiate a connection.
-            with self.db_service as conn:
-                boro_from_geocode = conn.execute(""" select borough from geocodes where lookup_string = %s """, geo_string).fetchone()
+            conn = self.db_service.get_connection()
 
-                if boro_from_geocode:
+            boro_from_geocode = conn.execute(""" select borough from geocodes where lookup_string = %s """, geo_string).fetchone()
 
-                    return [boro_from_geocode[0]]
+            if boro_from_geocode:
 
-                else:
+                return [boro_from_geocode[0]]
 
-                    url           = 'https://maps.googleapis.com/maps/api/geocode/json'
-                    api_key       = self.google_api_key
-                    params        = {'address': geo_string, 'key': api_key}
+            else:
 
-                    req     = requests.get(url, params=params)
-                    results = req.json()['results']
+                url           = 'https://maps.googleapis.com/maps/api/geocode/json'
+                api_key       = self.google_api_key
+                params        = {'address': geo_string, 'key': api_key}
 
-                    if results and results[0]:
-                        if results[0].get('address_components'):
+                req     = requests.get(url, params=params)
+                results = req.json()['results']
 
-                            address_components = results[0].get('address_components')
-                            boros = [comp['long_name'] for comp in results[0].get('address_components') if comp.get('types') and 'sublocality_level_1' in comp['types']]
+                if results and results[0]:
+                    if results[0].get('address_components'):
 
-                            if boros:
-                                # insert geocode
-                                conn.execute(""" insert into geocodes (lookup_string, borough, geocoding_service) values (%s, %s, 'google') """, (geo_string, boros[0]))
+                        address_components = results[0].get('address_components')
+                        boros = [comp['long_name'] for comp in results[0].get('address_components') if comp.get('types') and 'sublocality_level_1' in comp['types']]
 
-                                # return the boro
-                                return boros
+                        if boros:
+                            # insert geocode
+                            conn.execute(""" insert into geocodes (lookup_string, borough, geocoding_service) values (%s, %s, 'google') """, (geo_string, boros[0]))
+
+                            # return the boro
+                            return boros
+
+            # Close the connection
+            conn.close()
 
         return []
 
@@ -115,13 +119,16 @@ class TrafficViolationsAggregator:
         # hashtag_pattern   = re.compile('[^#\w]+', re.UNICODE)
 
         # Instantiate connection.
-        with self.db_service as conn:
+        conn = self.db_service.get_connection()
 
-            # Look for campaign hashtags in the message's text.
-            campaigns_present = conn.execute(""" select id, hashtag from campaigns where hashtag in (%s) """ % ','.join(['%s'] * len(string_parts)), [self.HASHTAG_PATTERN.sub('', string) for string in string_parts])
-            result            = [tuple(i) for i in campaigns_present.cursor]
+        # Look for campaign hashtags in the message's text.
+        campaigns_present = conn.execute(""" select id, hashtag from campaigns where hashtag in (%s) """ % ','.join(['%s'] * len(string_parts)), [self.HASHTAG_PATTERN.sub('', string) for string in string_parts])
+        result            = [tuple(i) for i in campaigns_present.cursor]
 
-            return result
+        # Close the connection
+        conn.close()
+
+        return result
 
 
 
@@ -695,37 +702,40 @@ class TrafficViolationsAggregator:
         self.logger.debug('Performing lookup for campaigns.')
 
         # Instantiate connection.
-        with self.db_service as conn:
+        conn = self.db_service.get_connection()
 
-            result = {'included_campaigns': []}
+        result = {'included_campaigns': []}
 
-            for campaign in included_campaigns:
-                # get new total for tickets
-                campaign_tickets_query_string = """
-                  select count(id) as campaign_vehicles,
-                         ifnull(sum(num_tickets), 0) as campaign_tickets
-                    from plate_lookups t1
-                   where (plate, state)
-                      in
-                    (select plate, state
-                      from campaigns_plate_lookups cpl
-                      join plate_lookups t2
-                        on t2.id = cpl.plate_lookup_id
-                     where campaign_id = %s)
-                     and t1.created_at =
-                      (select MAX(t3.created_at)
-                         from plate_lookups t3
-                        where t3.plate = t1.plate
-                          and t3.state = t1.state
-                          and count_towards_frequency = 1);
-                """
+        for campaign in included_campaigns:
+            # get new total for tickets
+            campaign_tickets_query_string = """
+              select count(id) as campaign_vehicles,
+                     ifnull(sum(num_tickets), 0) as campaign_tickets
+                from plate_lookups t1
+               where (plate, state)
+                  in
+                (select plate, state
+                  from campaigns_plate_lookups cpl
+                  join plate_lookups t2
+                    on t2.id = cpl.plate_lookup_id
+                 where campaign_id = %s)
+                 and t1.created_at =
+                  (select MAX(t3.created_at)
+                     from plate_lookups t3
+                    where t3.plate = t1.plate
+                      and t3.state = t1.state
+                      and count_towards_frequency = 1);
+            """
 
-                campaign_tickets_result = conn.execute(campaign_tickets_query_string.replace('\n', ''), (campaign[0])).fetchone()
-                # return data
-                # result['included_campaigns'].append((campaign[1], int(campaign_tickets), int(num_vehicles)))
-                result['included_campaigns'].append({'campaign_hashtag': campaign[1], 'campaign_tickets': int(campaign_tickets_result[1]), 'campaign_vehicles': int(campaign_tickets_result[0])})
+            campaign_tickets_result = conn.execute(campaign_tickets_query_string.replace('\n', ''), (campaign[0])).fetchone()
+            # return data
+            # result['included_campaigns'].append((campaign[1], int(campaign_tickets), int(num_vehicles)))
+            result['included_campaigns'].append({'campaign_hashtag': campaign[1], 'campaign_tickets': int(campaign_tickets_result[1]), 'campaign_vehicles': int(campaign_tickets_result[0])})
 
-            return result
+        # Close the connection
+        conn.close()
+
+        return result
 
 
 
@@ -734,334 +744,337 @@ class TrafficViolationsAggregator:
         self.logger.debug('Performing lookup for plate.')
 
         # Instantiate connection.
-        with self.db_service as conn:
+        conn = self.db_service.get_connection()
 
-            # pattern only allows alphanumeric characters.
-            plate_pattern = re.compile('[\W_]+', re.UNICODE)
+        # pattern only allows alphanumeric characters.
+        plate_pattern = re.compile('[\W_]+', re.UNICODE)
 
-            # Grab plate and plate from args.
-            created_at   = datetime.strptime(args['created_at'], '%a %b %d %H:%M:%S %z %Y').strftime('%Y-%m-%d %H:%M:%S') if 'created_at' in args else None
-            message_id   = args['message_id'] if 'message_id' in args else None
-            message_type = args['message_type']
-            plate        = plate_pattern.sub('', args['plate'].strip().upper())
-            state        = args['state'].strip().upper()
-            plate_types  = args['plate_types']
-            username     = re.sub('@', '', args['username'])
+        # Grab plate and plate from args.
+        created_at   = datetime.strptime(args['created_at'], '%a %b %d %H:%M:%S %z %Y').strftime('%Y-%m-%d %H:%M:%S') if 'created_at' in args else None
+        message_id   = args['message_id'] if 'message_id' in args else None
+        message_type = args['message_type']
+        plate        = plate_pattern.sub('', args['plate'].strip().upper())
+        state        = args['state'].strip().upper()
+        plate_types  = args['plate_types']
+        username     = re.sub('@', '', args['username'])
 
-            self.logger.debug('Listing args... plate: %s, state: %s, message_id: %s, created_at: %s', plate, state, str(message_id), str(created_at))
+        self.logger.debug('Listing args... plate: %s, state: %s, message_id: %s, created_at: %s', plate, state, str(message_id), str(created_at))
 
-            # Set up retry ability
-            s_req = requests_futures.sessions.FuturesSession(max_workers=6)
+        # Set up retry ability
+        s_req = requests_futures.sessions.FuturesSession(max_workers=6)
 
-            retries = Retry(total=5,
-                            backoff_factor=0.1,
-                            status_forcelist=[ 500, 502, 503, 504 ],
-                            raise_on_status=False)
+        retries = Retry(total=5,
+                        backoff_factor=0.1,
+                        status_forcelist=[ 500, 502, 503, 504 ],
+                        raise_on_status=False)
 
-            s_req.mount('https://', HTTPAdapter(max_retries=retries))
-
-
-            # Find medallion plates
-            #
-            medallion_regex    = r'^[0-9][A-Z][0-9]{2}$'
-            medallion_pattern  = re.compile(medallion_regex)
-
-            if medallion_pattern.search(plate.upper()) != None:
-                medallion_response = s_req.get('https://data.cityofnewyork.us/resource/7drc-shp9.json?license_number={}'.format(plate))
-                medallion_data     = medallion_response.result().json()
-
-                sorted_list        = sorted(set([res['dmv_license_plate_number'] for res in medallion_data]))
-                plate              = sorted_list[-1] if sorted_list else plate
+        s_req.mount('https://', HTTPAdapter(max_retries=retries))
 
 
-            # # Run search_query on local database.
-            # search_query = conn.execute("""select violation as name, count(violation) as count from all_traffic_violations_redo where plate = %s and state = %s group by violation""", (plate, state))
-            # # Query the result and get cursor.Dumping that data to a JSON is looked by extension
-            # result = {'violations': [dict(zip(tuple (search_query.keys()), i)) for i in search_query.cursor]}
+        # Find medallion plates
+        #
+        medallion_regex    = r'^[0-9][A-Z][0-9]{2}$'
+        medallion_pattern  = re.compile(medallion_regex)
 
-            # set up return data structure
-            combined_violations = {}
+        if medallion_pattern.search(plate.upper()) != None:
+            medallion_response = s_req.get('https://data.cityofnewyork.us/resource/7drc-shp9.json?license_number={}'.format(plate))
+            medallion_data     = medallion_response.result().json()
 
-            # set up remaining query params
-            limit = 10000
-            token = 'q198HrEaAdCJZD4XCLDl2Uq0G'
+            sorted_list        = sorted(set([res['dmv_license_plate_number'] for res in medallion_data]))
+            plate              = sorted_list[-1] if sorted_list else plate
 
-            # Grab data from 'Open Parking and Camera Violations'
-            #
-            # response from city open data portal
-            opacv_endpoint = 'https://data.cityofnewyork.us/resource/uvbq-3m68.json'
-            opacv_query    = opacv_endpoint + '?$limit={}&$$app_token={}&plate={}&state={}'.format(limit, token, plate, state)
+
+        # # Run search_query on local database.
+        # search_query = conn.execute("""select violation as name, count(violation) as count from all_traffic_violations_redo where plate = %s and state = %s group by violation""", (plate, state))
+        # # Query the result and get cursor.Dumping that data to a JSON is looked by extension
+        # result = {'violations': [dict(zip(tuple (search_query.keys()), i)) for i in search_query.cursor]}
+
+        # set up return data structure
+        combined_violations = {}
+
+        # set up remaining query params
+        limit = 10000
+        token = 'q198HrEaAdCJZD4XCLDl2Uq0G'
+
+        # Grab data from 'Open Parking and Camera Violations'
+        #
+        # response from city open data portal
+        opacv_endpoint = 'https://data.cityofnewyork.us/resource/uvbq-3m68.json'
+        opacv_query    = opacv_endpoint + '?$limit={}&$$app_token={}&plate={}&state={}'.format(limit, token, plate, state)
+
+        if plate_types is not None:
+            opacv_query += "&$where=license_type%20in(" + ','.join(['%27' + type + '%27' for type in plate_types.split(',')]) + ")"
+
+        opacv_response = s_req.get(opacv_query)
+        opacv_data     = opacv_response.result().json()
+
+        # log response
+        self.logger.debug('violations raw: %s', opacv_response)
+        self.logger.debug('Open Parking and Camera Violations data: %s', opacv_data)
+
+        # only data we're looking for
+        opacv_desired_keys = ['borough', 'county', 'fined', 'issue_date', 'paid', 'precinct', 'outstanding', 'reduced', 'violation']
+
+
+        # add violation if it's missing
+        for record in opacv_data:
+            if record.get('violation'):
+                record['violation'] = self.OPACV_HUMANIZED_NAMES[record['violation']]
+
+            if record.get('issue_date') is None:
+                record['has_date'] = False
+            else:
+                try:
+                    record['issue_date'] = datetime.strptime(record['issue_date'], '%m/%d/%Y').strftime('%Y-%m-%dT%H:%M:%S.%f')
+                    record['has_date']   = True
+                except ValueError as ve:
+                    record['has_date']   = False
+
+            if record.get('precinct'):
+                boros = [boro for boro, precincts in self.PRECINCTS_BY_BORO.items() if int(record['precinct']) in self.PRECINCTS]
+                if boros:
+                    record['borough'] = boros[0]
+                else:
+                    if record.get('county'):
+                        boros = [name for name,codes in self.COUNTY_CODES.items() if record.get('county') in codes]
+                        if boros:
+                            record['borough'] = boros[0]
+
+
+            record['fined']         = None
+            record['paid']          = None
+            record['reduced']       = None
+            record['outstanding']   = None
+
+            for key in ['amount_due', 'fine_amount', 'interest_amount', 'payment_amount', 'penalty_amount', 'reduction_amount']:
+                if key in record:
+                    try:
+                        amount = float(record[key])
+
+                        if key in ['fine_amount', 'interest_amount', 'penalty_amount']:
+                            if record['fined'] is None:
+                                record['fined'] = 0
+
+                            record['fined'] += amount
+
+                        elif key == 'reduction_amount':
+                            if record['reduced'] is None:
+                                record['reduced'] = 0
+
+                            record['reduced'] += amount
+
+                        elif key == 'amount_due':
+                            if record['outstanding'] is None:
+                                record['outstanding'] = 0
+
+                            record['outstanding'] += amount
+
+                        elif key == 'payment_amount':
+                            if record['paid'] is None:
+                                record['paid'] = 0
+
+                            record['paid'] += amount
+
+                    except ValueError as ve:
+
+                        self.logger.error('Error parsing value into float')
+                        self.logger.error(e)
+                        self.logger.error(str(e))
+                        self.logger.error(e.args)
+                        logging.exception("stack trace")
+
+                        pass
+
+            combined_violations[record['summons_number']] = { key: record.get(key) for key in opacv_desired_keys }
+
+
+
+        # collect summons numbers to use for excluding duplicates later
+        opacv_summons_numbers  = list(combined_violations.keys())
+
+
+        # Grab data from each of the fiscal year violation datasets
+        #
+
+        # collect the data in a list
+        fy_endpoints = ['https://data.cityofnewyork.us/resource/j7ig-zgkq.json', 'https://data.cityofnewyork.us/resource/aagd-wyjz.json', 'https://data.cityofnewyork.us/resource/avxe-2nrn.json', 'https://data.cityofnewyork.us/resource/ati4-9cgt.json', 'https://data.cityofnewyork.us/resource/9wgk-ev5c.json', 'https://data.cityofnewyork.us/resource/qpyv-8eyi.json']
+
+        # only data we're looking for
+        fy_desired_keys = ['borough', 'issue_date', 'violation', 'violation_precinct', 'violation_county']
+
+        # iterate through the endpoints
+        for endpoint in fy_endpoints:
+            query_string = '?$limit={}&$$app_token={}&plate_id={}&registration_state={}'.format(limit, token, plate, state)
 
             if plate_types is not None:
-                opacv_query += "&$where=license_type%20in(" + ','.join(['%27' + type + '%27' for type in plate_types.split(',')]) + ")"
+                query_string += "&$where=plate_type%20in(" + ','.join(['%27' + type + '%27' for type in plate_types.split(',')]) + ")"
 
-            opacv_response = s_req.get(opacv_query)
-            opacv_data     = opacv_response.result().json()
+            response     = s_req.get(endpoint + query_string)
+            result       = response.result()
 
-            # log response
-            self.logger.debug('violations raw: %s', opacv_response)
-            self.logger.debug('Open Parking and Camera Violations data: %s', opacv_data)
+            if result.status_code in range(200,300):
+                # Only attempt to read json on a successful response.
+                data     = result.json()
+            elif result.status_code in range(300,400):
+                return {'error': 'redirect', 'plate': plate, 'state': state}
+            elif result.status_code in range(400,500):
+                return {'error': 'user error', 'plate': plate, 'state': state}
+            elif result.status_code in range(500,600):
+                return {'error': 'server error', 'plate': plate, 'state': state}
+            else:
+                return {'error': 'unknown error', 'plate': plate, 'state': state}
 
-            # only data we're looking for
-            opacv_desired_keys = ['borough', 'county', 'fined', 'issue_date', 'paid', 'precinct', 'outstanding', 'reduced', 'violation']
 
 
-            # add violation if it's missing
-            for record in opacv_data:
-                if record.get('violation'):
-                    record['violation'] = self.OPACV_HUMANIZED_NAMES[record['violation']]
+            self.logger.debug('endpoint: %s', endpoint)
+            self.logger.debug('fy_response: %s', data)
+
+
+            for record in data:
+                if record.get('violation_description') is None:
+                    if record.get('violation_code') and self.FY_HUMANIZED_NAMES.get(record['violation_code']):
+                        record['violation'] = self.FY_HUMANIZED_NAMES.get(record['violation_code'])
+                else:
+                    if self.FY_HUMANIZED_NAMES.get(record['violation_description']):
+                        record['violation'] = self.FY_HUMANIZED_NAMES.get(record['violation_description'])
+                    else:
+                        record['violation'] = re.sub('[0-9]*-', '', record['violation_description'])
 
                 if record.get('issue_date') is None:
-                    record['has_date'] = False
+                    record['has_date']   = False
                 else:
                     try:
-                        record['issue_date'] = datetime.strptime(record['issue_date'], '%m/%d/%Y').strftime('%Y-%m-%dT%H:%M:%S.%f')
+                        record['issue_date'] = datetime.strptime(record['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y-%m-%dT%H:%M:%S.%f')
                         record['has_date']   = True
                     except ValueError as ve:
                         record['has_date']   = False
 
-                if record.get('precinct'):
-                    boros = [boro for boro, precincts in self.PRECINCTS_BY_BORO.items() if int(record['precinct']) in self.PRECINCTS]
+
+                if record.get('violation_precinct'):
+                    boros = [boro for boro, precincts in self.PRECINCTS_BY_BORO.items() if int(record['violation_precinct']) in precincts]
                     if boros:
                         record['borough'] = boros[0]
                     else:
-                        if record.get('county'):
-                            boros = [name for name,codes in self.COUNTY_CODES.items() if record.get('county') in codes]
+                        if record.get('violation_county'):
+                            boros = [name for name,codes in self.COUNTY_CODES.items() if record.get('violation_county') in codes]
                             if boros:
                                 record['borough'] = boros[0]
+                        else:
+                            if record.get('street_name'):
+                                street_name         = record.get('street_name')
+                                intersecting_street = record.get('intersecting_street') or ''
+
+                                google_boros = self.detect_borough([street_name, intersecting_street])
+                                if google_boros:
+                                    record['borough'] = google_boros[0].lower()
 
 
-                record['fined']         = None
-                record['paid']          = None
-                record['reduced']       = None
-                record['outstanding']   = None
+                # structure response and only use the data we need
+                new_data = { key: record.get(key) for key in fy_desired_keys }
 
-                for key in ['amount_due', 'fine_amount', 'interest_amount', 'payment_amount', 'penalty_amount', 'reduction_amount']:
-                    if key in record:
-                        try:
-                            amount = float(record[key])
-
-                            if key in ['fine_amount', 'interest_amount', 'penalty_amount']:
-                                if record['fined'] is None:
-                                    record['fined'] = 0
-
-                                record['fined'] += amount
-
-                            elif key == 'reduction_amount':
-                                if record['reduced'] is None:
-                                    record['reduced'] = 0
-
-                                record['reduced'] += amount
-
-                            elif key == 'amount_due':
-                                if record['outstanding'] is None:
-                                    record['outstanding'] = 0
-
-                                record['outstanding'] += amount
-
-                            elif key == 'payment_amount':
-                                if record['paid'] is None:
-                                    record['paid'] = 0
-
-                                record['paid'] += amount
-
-                        except ValueError as ve:
-
-                            self.logger.error('Error parsing value into float')
-                            self.logger.error(e)
-                            self.logger.error(str(e))
-                            self.logger.error(e.args)
-                            logging.exception("stack trace")
-
-                            pass
-
-                combined_violations[record['summons_number']] = { key: record.get(key) for key in opacv_desired_keys }
-
-
-
-            # collect summons numbers to use for excluding duplicates later
-            opacv_summons_numbers  = list(combined_violations.keys())
-
-
-            # Grab data from each of the fiscal year violation datasets
-            #
-
-            # collect the data in a list
-            fy_endpoints = ['https://data.cityofnewyork.us/resource/j7ig-zgkq.json', 'https://data.cityofnewyork.us/resource/aagd-wyjz.json', 'https://data.cityofnewyork.us/resource/avxe-2nrn.json', 'https://data.cityofnewyork.us/resource/ati4-9cgt.json', 'https://data.cityofnewyork.us/resource/9wgk-ev5c.json', 'https://data.cityofnewyork.us/resource/qpyv-8eyi.json']
-
-            # only data we're looking for
-            fy_desired_keys = ['borough', 'issue_date', 'violation', 'violation_precinct', 'violation_county']
-
-            # iterate through the endpoints
-            for endpoint in fy_endpoints:
-                query_string = '?$limit={}&$$app_token={}&plate_id={}&registration_state={}'.format(limit, token, plate, state)
-
-                if plate_types is not None:
-                    query_string += "&$where=plate_type%20in(" + ','.join(['%27' + type + '%27' for type in plate_types.split(',')]) + ")"
-
-                response     = s_req.get(endpoint + query_string)
-                result       = response.result()
-
-                if result.status_code in range(200,300):
-                    # Only attempt to read json on a successful response.
-                    data     = result.json()
-                elif result.status_code in range(300,400):
-                    return {'error': 'redirect', 'plate': plate, 'state': state}
-                elif result.status_code in range(400,500):
-                    return {'error': 'user error', 'plate': plate, 'state': state}
-                elif result.status_code in range(500,600):
-                    return {'error': 'server error', 'plate': plate, 'state': state}
+                if combined_violations.get(record['summons_number']) is None:
+                    combined_violations[record['summons_number']] = new_data
                 else:
-                    return {'error': 'unknown error', 'plate': plate, 'state': state}
+                    # Merge records together, treating fiscal year data as authoritative.
+                    return_record = combined_violations[record['summons_number']] = {**combined_violations.get(record['summons_number']), **new_data}
+
+                    # If we still don't have a violation after merging records, record it as blank
+                    if return_record.get('violation') is None:
+                        return_record['violation'] = "No Violation Description Available"
+                    if return_record.get('borough') is None:
+                        record['borough'] = 'No Borough Available'
 
 
 
-                self.logger.debug('endpoint: %s', endpoint)
-                self.logger.debug('fy_response: %s', data)
+        for record in combined_violations.values():
+            if record.get('violation') is None:
+                record['violation'] = "No Violation Description Available"
 
-
-                for record in data:
-                    if record.get('violation_description') is None:
-                        if record.get('violation_code') and self.FY_HUMANIZED_NAMES.get(record['violation_code']):
-                            record['violation'] = self.FY_HUMANIZED_NAMES.get(record['violation_code'])
-                    else:
-                        if self.FY_HUMANIZED_NAMES.get(record['violation_description']):
-                            record['violation'] = self.FY_HUMANIZED_NAMES.get(record['violation_description'])
-                        else:
-                            record['violation'] = re.sub('[0-9]*-', '', record['violation_description'])
-
-                    if record.get('issue_date') is None:
-                        record['has_date']   = False
-                    else:
-                        try:
-                            record['issue_date'] = datetime.strptime(record['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y-%m-%dT%H:%M:%S.%f')
-                            record['has_date']   = True
-                        except ValueError as ve:
-                            record['has_date']   = False
-
-
-                    if record.get('violation_precinct'):
-                        boros = [boro for boro, precincts in self.PRECINCTS_BY_BORO.items() if int(record['violation_precinct']) in precincts]
-                        if boros:
-                            record['borough'] = boros[0]
-                        else:
-                            if record.get('violation_county'):
-                                boros = [name for name,codes in self.COUNTY_CODES.items() if record.get('violation_county') in codes]
-                                if boros:
-                                    record['borough'] = boros[0]
-                            else:
-                                if record.get('street_name'):
-                                    street_name         = record.get('street_name')
-                                    intersecting_street = record.get('intersecting_street') or ''
-
-                                    google_boros = self.detect_borough([street_name, intersecting_street])
-                                    if google_boros:
-                                        record['borough'] = google_boros[0].lower()
-
-
-                    # structure response and only use the data we need
-                    new_data = { key: record.get(key) for key in fy_desired_keys }
-
-                    if combined_violations.get(record['summons_number']) is None:
-                        combined_violations[record['summons_number']] = new_data
-                    else:
-                        # Merge records together, treating fiscal year data as authoritative.
-                        return_record = combined_violations[record['summons_number']] = {**combined_violations.get(record['summons_number']), **new_data}
-
-                        # If we still don't have a violation after merging records, record it as blank
-                        if return_record.get('violation') is None:
-                            return_record['violation'] = "No Violation Description Available"
-                        if return_record.get('borough') is None:
-                            record['borough'] = 'No Borough Available'
+            if record.get('borough') is None:
+                record['borough'] = 'No Borough Available'
 
 
 
-            for record in combined_violations.values():
-                if record.get('violation') is None:
-                    record['violation'] = "No Violation Description Available"
+        # Marshal all ticket data into form.
+        fines    = [
+          ('fined',       sum(v['fined'] for v in combined_violations.values() if v.get('fined'))),
+          ('reduced',     sum(v['reduced'] for v in combined_violations.values() if v.get('reduced'))),
+          ('paid',        sum(v['paid'] for v in combined_violations.values() if v.get('paid'))),
+          ('outstanding', sum(v['outstanding'] for v in combined_violations.values() if v.get('outstanding')))
+        ]
+        tickets  = Counter([v['violation'] for v in combined_violations.values() if v.get('violation')]).most_common()
+        years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for v in combined_violations.values()]).most_common()
+        boroughs = Counter([v['borough'] for v in combined_violations.values() if v.get('borough')]).most_common()
 
-                if record.get('borough') is None:
-                    record['borough'] = 'No Borough Available'
+        camera_streak_data = self.find_max_camera_violations_streak(sorted([datetime.strptime(v['issue_date'],'%Y-%m-%dT%H:%M:%S.%f') for v in combined_violations.values() if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light', 'School Zone Speed Camera Violation']]))
 
+        result   = {
+          'boroughs'    : [{'title':k.title(),'count':v} for k, v in boroughs],
+          'fines'       : fines,
+          'plate'       : plate,
+          'plate_types' : plate_types,
+          'state'       : state,
+          'violations'  : [{'title':k.title(),'count':v} for k,v in tickets],
+          'years'       : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
+        }
 
-
-            # Marshal all ticket data into form.
-            fines    = [
-              ('fined',       sum(v['fined'] for v in combined_violations.values() if v.get('fined'))),
-              ('reduced',     sum(v['reduced'] for v in combined_violations.values() if v.get('reduced'))),
-              ('paid',        sum(v['paid'] for v in combined_violations.values() if v.get('paid'))),
-              ('outstanding', sum(v['outstanding'] for v in combined_violations.values() if v.get('outstanding')))
-            ]
-            tickets  = Counter([v['violation'] for v in combined_violations.values() if v.get('violation')]).most_common()
-            years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for v in combined_violations.values()]).most_common()
-            boroughs = Counter([v['borough'] for v in combined_violations.values() if v.get('borough')]).most_common()
-
-            camera_streak_data = self.find_max_camera_violations_streak(sorted([datetime.strptime(v['issue_date'],'%Y-%m-%dT%H:%M:%S.%f') for v in combined_violations.values() if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light', 'School Zone Speed Camera Violation']]))
-
-            result   = {
-              'boroughs'    : [{'title':k.title(),'count':v} for k, v in boroughs],
-              'fines'       : fines,
-              'plate'       : plate,
-              'plate_types' : plate_types,
-              'state'       : state,
-              'violations'  : [{'title':k.title(),'count':v} for k,v in tickets],
-              'years'       : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
-            }
-
-            # No need to add streak data if it doesn't exist
-            if camera_streak_data:
-                result['camera_streak_data'] = camera_streak_data
+        # No need to add streak data if it doesn't exist
+        if camera_streak_data:
+            result['camera_streak_data'] = camera_streak_data
 
 
-            self.logger.debug('violations sorted: %s', result)
+        self.logger.debug('violations sorted: %s', result)
 
-            previous_lookup = None
+        previous_lookup = None
 
-            # See if we've seen this vehicle before.
-            if plate_types:
-                previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, plate_types, True))
-            else:
-                previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, True))
+        # See if we've seen this vehicle before.
+        if plate_types:
+            previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, plate_types, True))
+        else:
+            previous_lookup = conn.execute(""" select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s ORDER BY created_at DESC LIMIT 1""", (plate, state, True))
 
-            # Turn data into list of dicts with attribute keys
-            previous_data   = [dict(zip(tuple (previous_lookup.keys()), i)) for i in previous_lookup.cursor]
+        # Turn data into list of dicts with attribute keys
+        previous_data   = [dict(zip(tuple (previous_lookup.keys()), i)) for i in previous_lookup.cursor]
 
-            # if we have a previous lookup, add it to the return data.
-            if previous_data:
-                result['previous_result'] = previous_data[0]
+        # if we have a previous lookup, add it to the return data.
+        if previous_data:
+            result['previous_result'] = previous_data[0]
 
-                self.logger.debug('we have previous data: %s', previous_data[0])
-
-
-            # Find the number of times we have seen this vehicle before.
-            if plate_types:
-                current_frequency = conn.execute(""" select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s """, (plate, state, plate_types, True)).fetchone()[0]
-            else:
-                current_frequency = conn.execute(""" select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s """, (plate, state, True)).fetchone()[0]
-
-            # Default to counting everything.
-            count_towards_frequency = 1
-
-            # Calculate the number of violations.
-            total_violations = len(combined_violations)
-
-            # If this came from message, add it to the plate_lookups table.
-            if message_type and message_id and created_at:
-                # Insert plate lookupresult
-                insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, plate_types, observed, message_id, lookup_source, created_at, twitter_handle, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (plate, state, plate_types, message_id, message_type, created_at, username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
-
-                # Iterate through included campaigns to tie lookup to each
-                for campaign in args['included_campaigns']:
-                    # insert join record for campaign lookup
-                    conn.execute(""" insert into campaigns_plate_lookups (campaign_id, plate_lookup_id) values (%s, %s) """, (campaign[0], insert_lookup.lastrowid))
+            self.logger.debug('we have previous data: %s', previous_data[0])
 
 
-            # how many times have we searched for this plate from a tweet
-            result['frequency'] = current_frequency + 1
+        # Find the number of times we have seen this vehicle before.
+        if plate_types:
+            current_frequency = conn.execute(""" select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s """, (plate, state, plate_types, True)).fetchone()[0]
+        else:
+            current_frequency = conn.execute(""" select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s """, (plate, state, True)).fetchone()[0]
 
-            self.logger.debug('returned_result: %s', result)
+        # Default to counting everything.
+        count_towards_frequency = 1
 
-            return result
+        # Calculate the number of violations.
+        total_violations = len(combined_violations)
+
+        # If this came from message, add it to the plate_lookups table.
+        if message_type and message_id and created_at:
+            # Insert plate lookupresult
+            insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, plate_types, observed, message_id, lookup_source, created_at, twitter_handle, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (plate, state, plate_types, message_id, message_type, created_at, username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
+
+            # Iterate through included campaigns to tie lookup to each
+            for campaign in args['included_campaigns']:
+                # insert join record for campaign lookup
+                conn.execute(""" insert into campaigns_plate_lookups (campaign_id, plate_lookup_id) values (%s, %s) """, (campaign[0], insert_lookup.lastrowid))
+
+
+        # how many times have we searched for this plate from a tweet
+        result['frequency'] = current_frequency + 1
+
+        self.logger.debug('returned_result: %s', result)
+
+        # Close the connection
+        conn.close()
+
+        return result
 
 
 
@@ -1199,11 +1212,13 @@ class TrafficViolationsAggregator:
                     # Record the failed lookup.
 
                     # Instantiate a connection.
-                    with self.db_service as conn:
+                    conn = self.db_service.get_connection()
 
-                        # Insert failed lookup
-                        conn.execute(""" insert into failed_plate_lookups (twitter_handle, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
+                    # Insert failed lookup
+                    conn.execute(""" insert into failed_plate_lookups (twitter_handle, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
 
+                    # Close the connection
+                    conn.close()
 
                     # Legacy data where state is not a valid abbreviation.
                     if potential_vehicle.get('state'):
@@ -1245,10 +1260,13 @@ class TrafficViolationsAggregator:
                 # Record the failed lookup
 
                 # Instantiate a connection.
-                with self.db_service as conn:
+                conn = self.db_service.get_connection()
 
-                    # Insert failed lookup
-                    conn.execute(""" insert into failed_plate_lookups (twitter_handle, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
+                # Insert failed lookup
+                conn.execute(""" insert into failed_plate_lookups (twitter_handle, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
+
+                # Close the connection
+                conn.close()
 
 
                 self.logger.debug('The data seems to be in the wrong format.')

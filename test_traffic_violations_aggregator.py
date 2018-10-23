@@ -81,8 +81,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         connect_mock = MagicMock(name='connect')
         connect_mock.return_value = execute_mock
 
-        self.aggregator.db_service = connect_mock
-        self.aggregator.db_service.__enter__ = connect_mock
+        self.aggregator.db_service.get_connection = connect_mock
 
         self.assertEqual(self.aggregator.detect_campaign_hashtags(['#TestCampaign'])[0][1], '#TestCampaign')
         self.assertEqual(self.aggregator.detect_campaign_hashtags(['#TestCampaign,'])[0][1], '#TestCampaign')
@@ -606,8 +605,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         connect_mock = MagicMock(name='connect')
         connect_mock.return_value = execute_mock
 
-        self.aggregator.db_service = connect_mock
-        self.aggregator.db_service.__enter__ = connect_mock
+        self.aggregator.db_service.get_connection = connect_mock
 
         self.assertEqual(self.aggregator.perform_campaign_lookup(included_campaigns), result)
 
@@ -731,8 +729,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         connect_mock = MagicMock(name='connect')
         connect_mock.return_value = execute_mock
 
-        self.aggregator.db_service = connect_mock
-        self.aggregator.db_service.__enter__ = connect_mock
+        self.aggregator.db_service.get_connection = connect_mock
 
         self.assertEqual(self.aggregator.perform_plate_lookup(args), result)
 

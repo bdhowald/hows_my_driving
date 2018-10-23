@@ -9,15 +9,12 @@ class DbService:
     def __init__(self, logger):
         self.logger = logger
 
-    def __enter__(self):
-        self.connection = DbService.get_engine().connect()
+
+    def get_connection(self):
+        connection = DbService.get_engine().connect()
         self.logger.debug('engine connecting')
 
-        return self.connection
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.logger.debug('engine disconnecting')
-        self.connection.close()
+        return connection
 
 
     @classmethod
