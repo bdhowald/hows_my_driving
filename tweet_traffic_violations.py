@@ -213,7 +213,7 @@ class TrafficViolationsTweeter:
         self.logger.debug('Looking up twitter events on iteration {}'.format(self.events_iteration))
 
         # start timer
-        threading.Timer(3000.0, self.find_and_respond_to_twitter_events).start()
+        threading.Timer(3.0, self.find_and_respond_to_twitter_events).start()
 
         # Instantiate a connection.
         conn = self.db_service.get_connection()
