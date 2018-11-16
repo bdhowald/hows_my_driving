@@ -117,7 +117,7 @@ class TrafficViolationsTweeter:
 
                     self.logger.debug("Responding to message: %s - %s", message.id, message)
 
-                    self.aggregator.initiate_reply(message, 'direct_message')
+                    self.aggregator.initiate_reply(message, 'twitter', 'direct_message')
 
 
         except Exception as e:
@@ -180,7 +180,7 @@ class TrafficViolationsTweeter:
 
                         self.logger.debug("Responding to mesasge: %s - %s", message.id, message)
 
-                        self.aggregator.initiate_reply(message, 'status')
+                        self.aggregator.initiate_reply(message, 'twitter', 'status')
 
                     else:
 
@@ -213,7 +213,7 @@ class TrafficViolationsTweeter:
         self.logger.debug('Looking up twitter events on iteration {}'.format(self.events_iteration))
 
         # start timer
-        threading.Timer(3.0, self.find_and_respond_to_twitter_events).start()
+        threading.Timer(3000.0, self.find_and_respond_to_twitter_events).start()
 
         # Instantiate a connection.
         conn = self.db_service.get_connection()
@@ -233,10 +233,13 @@ class TrafficViolationsTweeter:
                 conn.execute(""" update twitter_events set response_begun = 1 where id = %s """, (event['id']))
 
                 # Reply to the event.
-                reply_event = self.aggregator.initiate_reply(event, event['event_type'])
+                reply_event = self.aggregator.initiate_reply(event, 'twitter', event['event_type'])
                 success     = reply_event.get('success', False)
 
                 if success:
+                    # Need username for statuses
+                    reply_event['username'] = event['user_handle']
+
                     self.process_response(reply_event)
                     conn.execute(""" update twitter_events set responded_to = 1 where id = %s and responded_to = 0 """, (event['id']))
 
@@ -485,7 +488,7 @@ class TrafficViolationsTweeter:
 
             self.logger.debug('responding as status update')
 
-            self.recursively_process_status_updates(reply_event_args.get('response_parts', {}), message_id)
+            self.recursively_process_status_updates(reply_event_args.get('response_parts', {}), message_id, reply_event_args['username'])
 
 
 
@@ -504,16 +507,16 @@ class TrafficViolationsTweeter:
 
 
 
-    def recursively_process_status_updates(self, response_parts, message_id):
+    def recursively_process_status_updates(self, response_parts, message_id, username):
 
         # Iterate through all response parts
         for part in response_parts:
             # Some may be lists themselves
             if isinstance(part, list):
-                message_id = self.recursively_process_status_updates(part, message_id)
+                message_id = self.recursively_process_status_updates(part, message_id, username)
             else:
                 if self.is_production():
-                    new_message = self.api.update_status(part, in_reply_to_status_id = message_id)
+                    new_message = self.api.update_status('@' + username + ' ' + part, in_reply_to_status_id = message_id)
                     message_id  = new_message.id
 
                     self.logger.debug("message_id: %s", str(message_id))

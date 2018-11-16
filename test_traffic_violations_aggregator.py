@@ -162,9 +162,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         campaign_data2 = {'included_campaigns': [{'campaign_hashtag': '#BetterPresident', 'campaign_tickets': 1, 'campaign_vehicles': 1}]}
         campaign_data3 = {'included_campaigns': [{'campaign_hashtag': '#BusTurnaround', 'campaign_tickets': 0, 'campaign_vehicles': 1}]}
 
-        self.assertEqual(self.aggregator.form_campaign_lookup_response_parts(campaign_data1, '@bdhowald'), ['@bdhowald 6 vehicles with a total of 71 tickets have been tagged with #SaferSkillman.\n\n'])
-        self.assertEqual(self.aggregator.form_campaign_lookup_response_parts(campaign_data2, '@BarackObama'), ['@BarackObama 1 vehicle with 1 ticket has been tagged with #BetterPresident.\n\n'])
-        self.assertEqual(self.aggregator.form_campaign_lookup_response_parts(campaign_data3, '@FixQueensBlvd'), ['@FixQueensBlvd 1 vehicle with 0 tickets has been tagged with #BusTurnaround.\n\n'])
+        self.assertEqual(self.aggregator.form_campaign_lookup_response_parts(campaign_data1, '@bdhowald'), ['6 vehicles with a total of 71 tickets have been tagged with #SaferSkillman.\n\n'])
+        self.assertEqual(self.aggregator.form_campaign_lookup_response_parts(campaign_data2, '@BarackObama'), ['1 vehicle with 1 ticket has been tagged with #BetterPresident.\n\n'])
+        self.assertEqual(self.aggregator.form_campaign_lookup_response_parts(campaign_data3, '@FixQueensBlvd'), ['1 vehicle with 0 tickets has been tagged with #BusTurnaround.\n\n'])
 
 
     def test_form_plate_lookup_response_parts(self):
@@ -221,7 +221,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         }
 
         response_parts1 = [
-          '@bdhowald #NY_HME6483 (types: pas) has been queried 8 times.\n'
+          '#NY_HME6483 (types: pas) has been queried 8 times.\n'
           '\n'
           'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
           '#NY_HME6483 has received 2 new tickets.\n'
@@ -229,31 +229,31 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           'Total parking and camera violation tickets: 25\n'
           '\n'
           '14 | No Standing - Day/Time Limits\n',
-          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+          "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
           '3   | No Parking - Street Cleaning\n'
           '1   | Failure To Display Meter Receipt\n'
           '1   | No Violation Description Available\n'
           '1   | Bus Lane Violation\n'
           '1   | Failure To Stop At Red Light\n',
-          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+          "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
           '1   | No Standing - Commercial Meter Zone\n'
           '1   | Expired Meter\n'
           '1   | Double Parking\n'
           '1   | No Angle Parking\n',
-          '@bdhowald Violations by year for #NY_HME6483:\n'
+          'Violations by year for #NY_HME6483:\n'
           '\n'
           '2   | 2016\n'
           '8   | 2017\n'
           '13 | 2018\n',
-          '@bdhowald Violations by borough for #NY_HME6483:\n'
+          'Violations by borough for #NY_HME6483:\n'
           '\n'
           '1   | Bronx\n'
           '7   | Brooklyn\n'
           '2   | Queens\n'
           '13 | Staten Island\n',
-          '@bdhowald Known fines for #NY_HME6483:\n'
+          'Known fines for #NY_HME6483:\n'
           '\n'
           '$180.00 | Fined\n'
           '$50.00   | Reduced\n'
@@ -310,7 +310,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         }
 
         response_parts2 = [
-          '@bdhowald #NY_HME6483 has been queried 8 times.\n'
+          '#NY_HME6483 has been queried 8 times.\n'
           '\n'
           'Since the last time the vehicle was queried (' + adjusted_time.strftime('%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
           '#NY_HME6483 has received 2 new tickets.\n'
@@ -318,31 +318,31 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           'Total parking and camera violation tickets: 25\n'
           '\n'
           '14 | No Standing - Day/Time Limits\n',
-          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+          "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
           '3   | No Parking - Street Cleaning\n'
           '1   | Failure To Display Meter Receipt\n'
           '1   | No Violation Description Available\n'
           '1   | Bus Lane Violation\n'
           '1   | Failure To Stop At Red Light\n',
-          "@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+          "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
           '\n'
           '1   | No Standing - Commercial Meter Zone\n'
           '1   | Expired Meter\n'
           '1   | Double Parking\n'
           '1   | No Angle Parking\n',
-          '@bdhowald Violations by year for #NY_HME6483:\n'
+          'Violations by year for #NY_HME6483:\n'
           '\n'
           '2   | 2016\n'
           '8   | 2017\n'
           '13 | 2018\n',
-          '@bdhowald Violations by borough for #NY_HME6483:\n'
+          'Violations by borough for #NY_HME6483:\n'
           '\n'
           '1   | Bronx\n'
           '7   | Brooklyn\n'
           '2   | Queens\n'
           '13 | Staten Island\n',
-          "@bdhowald Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its 5 camera violations (>= 5/year) from September 18, 2015 to November 5, 2015.\n",
+          "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its 5 camera violations (>= 5/year) from September 18, 2015 to November 5, 2015.\n",
         ]
 
         self.assertEqual(self.aggregator.form_plate_lookup_response_parts(plate_lookup2, '@bdhowald'), response_parts2)
@@ -371,7 +371,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         'vehicles' : num_vehicles
       }
 
-      self.assertEqual(self.aggregator.form_summary_string(summary, username), ["@bdhowald The {} vehicles you queried have collectively received {} tickets with at least {} in fines, of which {} has been paid.\n\n".format(num_vehicles, num_tickets, '${:,.2f}'.format(fined - reduced), '${:,.2f}'.format(paid))])
+      self.assertEqual(self.aggregator.form_summary_string(summary, username), ["The {} vehicles you queried have collectively received {} tickets with at least {} in fines, of which {} has been paid.\n\n".format(num_vehicles, num_tickets, '${:,.2f}'.format(fined - reduced), '${:,.2f}'.format(paid))])
 
 
     def test_handle_response_part_formation(self):
@@ -398,7 +398,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           'username'                    : username
         }
 
-        result     = [(username + ' ' + keys['prefix_format_string']).format(state, plate) + '1 | 2017\n1 | 2018\n']
+        result     = [(keys['prefix_format_string']).format(state, plate) + '1 | 2017\n1 | 2018\n']
 
         self.assertEqual(self.aggregator.handle_response_part_formation(collection, keys), result)
 
@@ -413,6 +413,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         direct_message_mock.direct_message = {
           'created_at': now,
           'id': rand_int,
+          'needs_reply': True,
           'recipient': {
             'screen_name': 'HowsMyDrivingNY'
           },
@@ -432,15 +433,17 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'ca:cad4534',
             'ny:456efgh'
           ],
+          'needs_reply': True,
+          'source': 'twitter',
           'string_parts': [
             '@howsmydrivingny',
             'ny:123abcd',
             'ca:cad4534',
             'ny:456efgh'
           ],
+          'type': 'direct_message',
           'user_id': 30139847,
-          'username': 'bdhowald',
-          'type': 'direct_message'
+          'username': '@bdhowald'
         }
 
 
@@ -479,6 +482,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'howsmydrivingny',
             'barackobama'
           ],
+          'needs_reply': True,
+          'source': 'twitter',
           'string_parts': [
             '@howsmydrivingny',
             'ny:123abcd:abc',
@@ -486,15 +491,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'ny:456efgh',
             'bex:az:1234567'
           ],
+          'type': 'status',
           'user_id': 30139847,
-          'username': 'bdhowald',
-          'type': 'status'
+          'username': '@bdhowald'
         }
 
 
         extended_tweet_mock = MagicMock(spec=[u'c'])
         extended_tweet_mock.created_at      = now
-        extended_tweet_mock.extended_tweet = {
+        extended_tweet_mock.extended_tweet  = {
           'entities': {
             'user_mentions': [
               {
@@ -526,36 +531,91 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'howsmydrivingny',
             'barackobama'
           ],
+          'needs_reply': True,
+          'source': 'twitter',
           'string_parts': [
             '@howsmydrivingny',
             'ny:ny',
             'ca:1234567'
           ],
+          'type': 'status',
           'user_id': 30139847,
-          'username': 'bdhowald',
-          'type': 'status'
+          'username': '@bdhowald'
         }
 
 
+        another_rand_int = random.randint(10000000000000000000, 20000000000000000000)
 
-        process_response_message_mock = MagicMock(name='process_response_message')
+        twitter_event_mock = {}
+        twitter_event_mock['created_at']    = now.strftime('%s') + '000'
+        twitter_event_mock['event_id']      = rand_int
+        twitter_event_mock['event_text']    = 'ca:1357 az:2468'
+        twitter_event_mock['event_type'] = 'status'
+        twitter_event_mock['user_handle']   = 'bdhowald'
+        twitter_event_mock["user_id"]       = another_rand_int
+        twitter_event_mock['user_mentions'] = '@howsmydrivingny barackobama'
 
-        self.aggregator.process_response_message = process_response_message_mock
+        twitter_event_args_for_response = {
+          'created_at': now.astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y'),
+          'id': rand_int,
+          'legacy_string_parts': ['ca:1357', 'az:2468'],
+          'mentioned_users': ['@howsmydrivingny', 'barackobama'],
+          'needs_reply': True,
+          'source': 'twitter',
+          'string_parts': ['ca:1357', 'az:2468'],
+          'type': 'status',
+          'user_id': another_rand_int,
+          'username': '@bdhowald'
+        }
 
 
-        self.aggregator.initiate_reply(direct_message_mock, 'direct_message')
+        api_event_mock = {}
+        api_event_mock['created_at'] = now_str
+        api_event_mock['event_id']   = rand_int
+        api_event_mock['event_text'] = 'ca:1234567 az:9876543'
+        api_event_mock['username']   = 'Reported NYC'
 
-        process_response_message_mock.assert_called_with(direct_message_args_for_response)
+        api_event_args_for_response = {
+          'created_at': now_str,
+          'id': rand_int,
+          'legacy_string_parts': ['ca:1234567', 'az:9876543'],
+          'mentioned_users': [],
+          'needs_reply': True,
+          'source': 'api',
+          'string_parts': ['ca:1234567', 'az:9876543'],
+          'type': 'lookup',
+          'username': 'Reported NYC'
+        }
 
 
-        self.aggregator.initiate_reply(entities_mock, 'status')
+        create_response_mock = MagicMock(name='create_response')
 
-        process_response_message_mock.assert_called_with(entities_args_for_response)
+        self.aggregator.create_response = create_response_mock
 
 
-        self.aggregator.initiate_reply(extended_tweet_mock, 'status')
+        self.aggregator.initiate_reply(direct_message_mock, 'twitter', 'direct_message')
 
-        process_response_message_mock.assert_called_with(extended_tweet_args_for_response)
+        create_response_mock.assert_called_with(direct_message_args_for_response)
+
+
+        self.aggregator.initiate_reply(entities_mock, 'twitter', 'status')
+
+        create_response_mock.assert_called_with(entities_args_for_response)
+
+
+        self.aggregator.initiate_reply(extended_tweet_mock, 'twitter', 'status')
+
+        create_response_mock.assert_called_with(extended_tweet_args_for_response)
+
+
+        self.aggregator.initiate_reply(twitter_event_mock, 'twitter', 'status')
+
+        create_response_mock.assert_called_with(twitter_event_args_for_response)
+
+
+        self.aggregator.initiate_reply(api_event_mock, 'api', 'lookup')
+
+        create_response_mock.assert_called_with(api_event_args_for_response)
 
 
     def test_infer_plate_and_state_data(self):
@@ -743,7 +803,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertEqual(self.aggregator.perform_plate_lookup(args), error_result)
 
 
-    def test_process_response_message(self):
+    def test_create_response(self):
         now           = datetime.now()
         previous_time = now - timedelta(minutes=10)
         utc           = pytz.timezone('UTC')
@@ -796,7 +856,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           ]
         }
 
-        combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\n@bdhowald Known fines for #NY_HME6483:\n\n$200.00 | Fined\n$125.00 | Outstanding\n$75.00   | Paid\n"
+        combined_message = "#NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\nParking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\nViolations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\nKnown fines for #NY_HME6483:\n\n$200.00 | Fined\n$125.00 | Outstanding\n$75.00   | Paid\n"
 
 
         response1 = {
@@ -804,7 +864,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           'response_args'    : response_args1,
           'response_parts'   : [
             [
-              '@bdhowald #NY_HME6483 has been queried 1 time.\n'
+              '#NY_HME6483 has been queried 1 time.\n'
               '\n'
               'Total parking and camera violation tickets: 15\n'
               '\n'
@@ -813,7 +873,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
               '1 | Failure To Display Meter Receipt\n'
               '1 | No Violation Description Available\n'
               '1 | Bus Lane Violation\n',
-              '@bdhowald Parking and camera violation tickets for '
+              'Parking and camera violation tickets for '
               "#NY_HME6483, cont'd:\n"
               '\n'
               '1 | Failure To Stop At Red Light\n'
@@ -821,11 +881,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
               '1 | Expired Meter\n'
               '1 | Double Parking\n'
               '1 | No Angle Parking\n',
-              '@bdhowald Violations by year for #NY_HME6483:\n'
+              'Violations by year for #NY_HME6483:\n'
               '\n'
               '10 | 2017\n'
               '15 | 2018\n',
-              '@bdhowald Known fines for #NY_HME6483:\n'
+              'Known fines for #NY_HME6483:\n'
               '\n'
               '$200.00 | Fined\n'
               '$125.00 | Outstanding\n'
@@ -847,7 +907,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.aggregator.perform_plate_lookup = plate_lookup_mock
         self.aggregator.api = api_mock
 
-        self.assertEqual(self.aggregator.process_response_message(response_args1), response1)
+        self.assertEqual(self.aggregator.create_response(response_args1), response1)
 
 
 
@@ -893,7 +953,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                          {'count': 1, 'title': 'Double Parking'}]
         }
 
-        response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", '@BarackObama Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
+        response_parts2 = [['#PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n", "Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", 'Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
 
         response2 = {
           'error_on_lookup'  : False,
@@ -905,7 +965,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         plate_lookup_mock.return_value = plate_lookup2
 
-        self.assertEqual(self.aggregator.process_response_message(response_args2), response2)
+        self.assertEqual(self.aggregator.create_response(response_args2), response2)
 
 
 
@@ -942,7 +1002,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         included_campaigns = [(1, campaign_hashtag)]
 
-        response_parts3 = [['@' + username3 + ' ' + str(campaign_vehicles) + ' vehicles with a total of ' + str(campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n\n']]
+        response_parts3 = [[str(campaign_vehicles) + ' vehicles with a total of ' + str(campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n\n']]
 
 
         response3 = {
@@ -962,7 +1022,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.aggregator.detect_campaign_hashtags = detect_campaign_hashtags_mock
         self.aggregator.perform_campaign_lookup  = perform_campaign_lookup_mock
 
-        self.assertEqual(self.aggregator.process_response_message(response_args3), response3)
+        self.assertEqual(self.aggregator.create_response(response_args3), response3)
 
         perform_campaign_lookup_mock.assert_called_with(included_campaigns)
 
@@ -990,7 +1050,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           'username': username4
         }
 
-        response_parts4 = [['@' + username4 + ' I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234']]
+        response_parts4 = [["I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
 
         response4 = {
           'error_on_lookup'  : False,
@@ -1002,7 +1062,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         detect_campaign_hashtags_mock.return_value = []
 
-        self.assertEqual(self.aggregator.process_response_message(response_args4), response4)
+        self.assertEqual(self.aggregator.create_response(response_args4), response4)
 
 
 
@@ -1024,7 +1084,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           'username': username5
         }
 
-        response_parts5 = [['@' + username5 + " I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
+        response_parts5 = [["I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
 
         response5 = {
           'error_on_lookup'  : False,
@@ -1034,7 +1094,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           'successful_lookup': False
         }
 
-        self.assertEqual(self.aggregator.process_response_message(response_args5), response5)
+        self.assertEqual(self.aggregator.create_response(response_args5), response5)
 
 
 
@@ -1042,11 +1102,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         # Test error handling #
         #######################
 
-        response_parts6 = [['@' + username2 + " Sorry, I encountered an error. Tagging @bdhowald."]]
+        response_parts6 = [["Sorry, I encountered an error. Tagging @bdhowald."]]
 
         self.aggregator.perform_plate_lookup = create_error
 
-        self.aggregator.process_response_message(response_args2)
+        self.aggregator.create_response(response_args2)
 
         response6 = {
           'error_on_lookup'  : False,
@@ -1056,5 +1116,5 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
           'successful_lookup': False
         }
 
-        self.assertEqual(self.aggregator.process_response_message(response_args2), response6)
+        self.assertEqual(self.aggregator.create_response(response_args2), response6)
 

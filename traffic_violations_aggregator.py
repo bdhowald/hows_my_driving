@@ -12,6 +12,8 @@ from pprint import pprint
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
+from reply_argument_builder import ReplyArgumentBuilder
+
 class TrafficViolationsAggregator:
 
     MAX_TWITTER_STATUS_LENGTH = 280
@@ -58,9 +60,10 @@ class TrafficViolationsAggregator:
 
 
     def __init__(self, db_service, logger, google_api_key):
-      self.db_service     = db_service
-      self.logger         = logger
-      self.google_api_key = google_api_key
+      self.db_service             = db_service
+      self.logger                 = logger
+      self.google_api_key         = google_api_key
+      self.reply_argument_builder = ReplyArgumentBuilder
 
 
 
@@ -219,11 +222,11 @@ class TrafficViolationsAggregator:
             if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
                 campaign_string += next_string_part
             else:
-                campaign_chunks.append(username + ' ' + campaign_string)
+                campaign_chunks.append(campaign_string)
                 campaign_string = next_string_part
 
         # Get any part of string left over
-        campaign_chunks.append(username + ' ' + campaign_string)
+        campaign_chunks.append(campaign_string)
 
         return campaign_chunks
 
@@ -339,7 +342,7 @@ class TrafficViolationsAggregator:
                 # formulate next string part
                 next_part = '{}| {}\n'.format(currency_string.ljust(left_justify_amount), fine_type.replace('_', ' ').title())
 
-                # determine current string length
+                # determine current string length if necessary
                 potential_response_length = len(username + ' ' + cur_string + next_part)
 
                 # If username, space, violation string so far and new part are less or
@@ -347,13 +350,13 @@ class TrafficViolationsAggregator:
                 if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
                     cur_string += next_part
                 else:
-                    response_chunks.append(username + ' ' + cur_string)
+                    response_chunks.append(cur_string)
 
                     cur_string = "Known fines for #{}_{}, cont'd:\n\n"
                     cur_string += next_part
 
             # add to container
-            response_chunks.append(username + ' ' + cur_string)
+            response_chunks.append(cur_string)
 
 
         if query_result.get('camera_streak_data'):
@@ -366,23 +369,7 @@ class TrafficViolationsAggregator:
                 streak_string = "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its {} camera violations (>= 5/year) from {} to {}.\n".format(streak_data['max_streak'], streak_data['min_streak_date'], streak_data['max_streak_date'])
 
                 # add to container
-                response_chunks.append(username + ' ' + streak_string)
-
-        #         # add Simcha Felder string until bill is passed
-        #         simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
-
-        #         # add to container
-        #         response_chunks.append(username + ' ' + simcha_felder_string)
-
-        #     else:
-        #         simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
-
-        #         response_chunks.append(username + ' ' + simcha_felder_string)
-
-        # else:
-        #     simcha_felder_string = "Authorization for NYC's speed safety cameras expired on July 25, 2018.\n\nPlease call @LeaderFlanagan, @NYSenatorFelder, @SenMartyGolden, and @senatorlanza and tell them that they are jeopardizing the safety of NYC's children by failing to renew the program.\n"
-
-        #     response_chunks.append(username + ' ' + simcha_felder_string)
+                response_chunks.append(streak_string)
 
 
         # Send it back!
@@ -391,11 +378,13 @@ class TrafficViolationsAggregator:
 
 
     def form_summary_string(self, summary, username):
-        return ["{} The {} vehicles you queried have collectively received {} {} with at least {} in fines, of which {} has been paid.\n\n".format(username, summary['vehicles'], summary['tickets'], 'ticket' if summary['tickets'] == 1 else 'tickets', '${:,.2f}'.format(summary['fines']['fined'] - summary['fines']['reduced']), '${:,.2f}'.format(summary['fines']['paid']))]
+        return ["The {} vehicles you queried have collectively received {} {} with at least {} in fines, of which {} has been paid.\n\n".format(summary['vehicles'], summary['tickets'], 'ticket' if summary['tickets'] == 1 else 'tickets', '${:,.2f}'.format(summary['fines']['fined'] - summary['fines']['reduced']), '${:,.2f}'.format(summary['fines']['paid']))]
 
 
 
     def handle_response_part_formation(self, collection, keys):
+
+        # collect the responses
         response_container = []
 
         cur_string = keys['cur_string'] if keys.get('cur_string') else ''
@@ -433,7 +422,7 @@ class TrafficViolationsAggregator:
             if (potential_response_length <= self.MAX_TWITTER_STATUS_LENGTH):
                 cur_string += next_part
             else:
-                response_container.append(keys['username'] + ' ' + cur_string)
+                response_container.append(cur_string)
                 if keys['continued_format_string']:
                     cur_string = keys['continued_format_string'].format(*keys['continued_format_string_args'])
                 else:
@@ -450,7 +439,7 @@ class TrafficViolationsAggregator:
         # append that string to response parts
         if len(cur_string) != 0:
             # Append ready string into parts for response.
-            response_container.append(keys['username'] + ' ' + cur_string)
+            response_container.append(cur_string)
 
             self.logger.debug("length: %s", len(cur_string))
             self.logger.debug("string: %s", cur_string)
@@ -492,208 +481,14 @@ class TrafficViolationsAggregator:
 
 
 
-    def initiate_reply(self, received, message_type):
+    def initiate_reply(self, message, message_source, message_type):
         self.logger.info('\n')
         self.logger.info('Calling initiate_reply')
 
-        # Print args
-        self.logger.info('args:')
-        self.logger.info('received: %s', received)
+        args_for_response = self.reply_argument_builder.build_reply_data(message, message_source, message_type)
 
-        utc = pytz.timezone('UTC')
-
-        args_for_response = {}
-
-        if message_type == 'status':
-
-            # Using old streaming service for a tweet longer than 140 characters
-
-            if hasattr(received, 'extended_tweet'):
-                self.logger.debug('\n\nWe have an extended tweet\n\n')
-
-                extended_tweet = received.extended_tweet
-
-                # don't perform if there is no text
-                if 'full_text' in extended_tweet:
-                    entities = extended_tweet['entities']
-
-                    if 'user_mentions' in entities:
-                        array_of_usernames = [v['screen_name'] for v in entities['user_mentions']]
-
-                        if 'HowsMyDrivingNY' in array_of_usernames:
-                            full_text       = extended_tweet['full_text']
-                            modified_string = ' '.join(full_text.split())
-
-                            args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                            args_for_response['id']                  = received.id
-                            args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                            args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
-                            args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                            args_for_response['user_id']             = received.user.id
-                            args_for_response['username']            = received.user.screen_name
-                            args_for_response['type']                = message_type
-
-                            if received.user.screen_name != 'HowsMyDrivingNY':
-                                return self.process_response_message(args_for_response)
-
-
-
-            # Using tweet api search endpoint
-
-            elif hasattr(received, 'full_text') and (not hasattr(received, 'retweeted_status')):
-                self.logger.debug('\n\nWe have a tweet from the search api endpoint\n\n')
-
-                entities = received.entities
-
-                if 'user_mentions' in entities:
-                    array_of_usernames = [v['screen_name'] for v in entities['user_mentions']]
-
-                    if 'HowsMyDrivingNY' in array_of_usernames:
-                        full_text       = received.full_text
-                        modified_string = ' '.join(full_text.split())
-
-                        args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                        args_for_response['id']                  = received.id
-                        args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                        args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
-                        args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                        args_for_response['user_id']             = received.user.id
-                        args_for_response['username']            = received.user.screen_name
-                        args_for_response['type']                = message_type
-
-                        if received.user.screen_name != 'HowsMyDrivingNY':
-                            return self.process_response_message(args_for_response)
-
-
-
-            # Using old streaming service for a tweet of 140 characters or fewer
-
-            elif hasattr(received, 'entities') and (not hasattr(received, 'retweeted_status')):
-
-                self.logger.debug('\n\nWe are dealing with a tweet of 140 characters or fewer\n\n')
-
-                entities = received.entities
-
-                if 'user_mentions' in entities:
-                    array_of_usernames = [v['screen_name'] for v in entities['user_mentions']]
-
-                    if 'HowsMyDrivingNY' in array_of_usernames:
-                        text            = received.text
-                        modified_string = ' '.join(text.split())
-
-                        args_for_response['created_at']          = utc.localize(received.created_at).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                        args_for_response['id']                  = received.id
-                        args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                        args_for_response['mentioned_users']     = [s.lower() for s in array_of_usernames]
-                        args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                        args_for_response['user_id']             = received.user.id
-                        args_for_response['username']            = received.user.screen_name
-                        args_for_response['type']                = message_type
-
-                        if received.user.screen_name != 'HowsMyDrivingNY':
-                            return self.process_response_message(args_for_response)
-
-
-
-            # Using new account api service by way of SQL table for events
-
-            elif type(received) == dict and 'event_type' in received:
-
-                self.logger.debug('\n\nWe are dealing with account activity api object\n\n')
-
-                text            = received['event_text']
-                modified_string = ' '.join(text.split())
-
-                args_for_response['created_at']          = utc.localize(datetime.utcfromtimestamp((int(received['created_at']) / 1000))).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                args_for_response['id']                  = received['event_id']
-                args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                args_for_response['mentioned_users']     = re.split(' ', received['user_mentions']) if received['user_mentions'] is not None else []
-                args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                args_for_response['user_id']             = received['user_id']
-                args_for_response['username']            = received['user_handle']
-                args_for_response['type']                = message_type
-
-                return self.process_response_message(args_for_response)
-
-
-        elif message_type == 'direct_message':
-
-            self.logger.debug('\n\nWe have a direct message\n\n')
-
-
-            # Using old streaming service for a direct message
-
-            if hasattr(received, 'direct_message'):
-
-                direct_message  = received.direct_message
-                recipient       = direct_message['recipient']
-                sender          = direct_message['sender']
-
-                if recipient['screen_name'] == 'HowsMyDrivingNY':
-                    text            = direct_message['text']
-                    modified_string = ' '.join(text.split())
-
-                    args_for_response['created_at']          = direct_message['created_at']
-                    args_for_response['id']                  = direct_message['id']
-                    args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                    args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                    args_for_response['user_id']             = sender['id']
-                    args_for_response['username']            = sender['screen_name']
-                    args_for_response['type']                = message_type
-
-                    if sender['screen_name'] != 'HowsMyDrivingNY':
-                        return self.process_response_message(args_for_response)
-
-
-
-            # Using new direct message api endpoint
-
-            elif hasattr(received, 'message_create'):
-
-                direct_message  = received
-
-                recipient_id    = int(direct_message.message_create['target']['recipient_id'])
-                sender_id       = int(direct_message.message_create['sender_id'])
-
-                recipient       = self.api.get_user(recipient_id)
-                sender          = self.api.get_user(sender_id)
-
-                if recipient.screen_name == 'HowsMyDrivingNY':
-                    text            = direct_message.message_create['message_data']['text']
-                    modified_string = ' '.join(text.split())
-
-                    args_for_response['created_at']          = utc.localize(datetime.utcfromtimestamp((int(direct_message.created_timestamp) / 1000))).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                    args_for_response['id']                  = int(direct_message.id)
-                    args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                    args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                    args_for_response['user_id']             = sender.id
-                    args_for_response['username']            = sender.screen_name
-                    args_for_response['type']                = message_type
-
-                    if sender.screen_name != 'HowsMyDrivingNY':
-                        return self.process_response_message(args_for_response)
-
-
-
-            # Using account activity api endpoint
-
-            elif 'event_type' in received:
-
-                self.logger.debug('\n\nWe are dealing with account activity api object\n\n')
-
-                text            = received['event_text']
-                modified_string = ' '.join(text.split())
-
-                args_for_response['created_at']          = utc.localize(datetime.utcfromtimestamp((int(received['created_at']) / 1000))).astimezone(timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
-                args_for_response['id']                  = received['event_id']
-                args_for_response['legacy_string_parts'] = re.split(r'(?<!state:|plate:)\s', modified_string.lower())
-                args_for_response['mentioned_users']     = re.split(' ', received['user_mentions']) if received['user_mentions'] is not None else []
-                args_for_response['string_parts']        = re.split(' ', modified_string.lower())
-                args_for_response['user_id']             = received['user_id']
-                args_for_response['username']            = received['user_handle']
-                args_for_response['type']                = message_type
-
-                return self.process_response_message(args_for_response)
+        if args_for_response['needs_reply']:
+            return self.create_response(args_for_response)
 
 
 
@@ -1058,7 +853,7 @@ class TrafficViolationsAggregator:
         # If this came from message, add it to the plate_lookups table.
         if message_type and message_id and created_at:
             # Insert plate lookupresult
-            insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, plate_types, observed, message_id, lookup_source, created_at, twitter_handle, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (plate, state, plate_types, message_id, message_type, created_at, username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
+            insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, plate_types, observed, message_id, lookup_source, created_at, external_username, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (plate, state, plate_types, message_id, message_type, created_at, username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
 
             # Iterate through included campaigns to tie lookup to each
             for campaign in args['included_campaigns']:
@@ -1078,10 +873,10 @@ class TrafficViolationsAggregator:
 
 
 
-    def process_response_message(self, response_args):
+    def create_response(self, response_args):
 
         self.logger.info('\n')
-        self.logger.info("Calling process_response_message")
+        self.logger.info("Calling create_response")
 
         # Print args
         self.logger.info('args:')
@@ -1110,7 +905,7 @@ class TrafficViolationsAggregator:
 
 
         # Grab user info
-        username =  '@' + response_args['username']
+        username = response_args['username']
         self.logger.debug('username: %s', username)
 
         mentioned_users = response_args['mentioned_users'] if 'mentioned_users' in response_args else []
@@ -1124,8 +919,25 @@ class TrafficViolationsAggregator:
         message_created_at = response_args['created_at']
         self.logger.debug('message created at: %s', message_created_at)
 
+        message_source = response_args['type']
+        self.logger.debug('message_source: %s', message_source)
+
         message_type = response_args['type']
         self.logger.debug('message_type: %s', message_type)
+
+
+        # # get necessary formatter
+        # formatter = None
+
+        # if response_args['source'] == 'api':
+        #     formatter = APIResponseFormatter()
+
+        # elif response_args['source'] == 'twitter':
+        #     formatter = TwitterResponseFormatter()
+
+        # else:
+        #     formatter = ResponseFormatter()
+
 
 
         # Collect response parts here.
@@ -1196,7 +1008,7 @@ class TrafficViolationsAggregator:
                         # Record lookup error.
                         error_on_lookup = True
 
-                        response_parts.append(["{} Sorry, I received an error when looking up {}:{}{}. Please try again.".format(username, plate_lookup.get('state').upper(), plate_lookup.get('plate').upper(), (' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else '')])
+                        response_parts.append(["Sorry, I received an error when looking up {}:{}{}. Please try again.".format(plate_lookup.get('state').upper(), plate_lookup.get('plate').upper(), (' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else '')])
 
                     else:
 
@@ -1204,8 +1016,8 @@ class TrafficViolationsAggregator:
                         successful_lookup = True
 
                         # Let user know we didn't find anything.
-                        # sorry_message = "{} Sorry, I couldn't find any tickets for that plate.".format(username)
-                        response_parts.append(["{} Sorry, I couldn't find any tickets for {}:{}{}.".format(username, potential_vehicle.get('state').upper(), potential_vehicle.get('plate').upper(), (' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else '',  )])
+                        # sorry_message = "{} Sorry, I couldn't find any tickets for that plate."
+                        response_parts.append(["Sorry, I couldn't find any tickets for {}:{}{}.".format(potential_vehicle.get('state').upper(), potential_vehicle.get('plate').upper(), (' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else '',  )])
 
                 else:
 
@@ -1215,7 +1027,7 @@ class TrafficViolationsAggregator:
                     conn = self.db_service.get_connection()
 
                     # Insert failed lookup
-                    conn.execute(""" insert into failed_plate_lookups (twitter_handle, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
+                    conn.execute(""" insert into failed_plate_lookups (external_username, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
 
                     # Close the connection
                     conn.close()
@@ -1224,19 +1036,19 @@ class TrafficViolationsAggregator:
                     if potential_vehicle.get('state'):
                         self.logger.debug("We have a state, but it's invalid.")
 
-                        response_parts.append(["{} The state should be two characters, but you supplied '{}'. Please try again.".format(username, potential_vehicle.get('state'))])
+                        response_parts.append(["The state should be two characters, but you supplied '{}'. Please try again.".format(potential_vehicle.get('state'))])
 
                     # '<state>:<plate>' format, but no valid state could be detected.
                     elif potential_vehicle.get('original_string'):
                         self.logger.debug("We don't have a state, but we have an attempted lookup with the new format.")
 
-                        response_parts.append(["{} Sorry, a plate and state could not be inferred from {}.".format(username, potential_vehicle.get('original_string'))])
+                        response_parts.append(["Sorry, a plate and state could not be inferred from {}.".format(potential_vehicle.get('original_string'))])
 
                     # If we have a plate, but no state.
                     elif potential_vehicle.get('plate'):
                         self.logger.debug("We have a plate, but no state")
 
-                        response_parts.append(["{} Sorry, the state appears to be blank.".format(username, query_info['state'])])
+                        response_parts.append(["Sorry, the state appears to be blank.".format(query_info['state'])])
 
 
             # If we have multiple vehicles, prepend a summary.
@@ -1263,7 +1075,7 @@ class TrafficViolationsAggregator:
                 conn = self.db_service.get_connection()
 
                 # Insert failed lookup
-                conn.execute(""" insert into failed_plate_lookups (twitter_handle, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
+                conn.execute(""" insert into failed_plate_lookups (external_username, message_id, responded_to) values (%s, %s, 1) """, re.sub('@', '', username), message_id)
 
                 # Close the connection
                 conn.close()
@@ -1285,7 +1097,7 @@ class TrafficViolationsAggregator:
                     self.logger.debug('There is both plate and state information in this message.')
 
                     # Let user know plate format
-                    response_parts.append(["{} I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234".format(username)])
+                    response_parts.append(["I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"])
 
                 # Maybe we have plate or state. Let's find out.
                 else:
@@ -1302,7 +1114,7 @@ class TrafficViolationsAggregator:
                     if any(state_minus_words_matches) or any(number_matches):
 
                         # Let user know plate format
-                        response_parts.append(["{} I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234".format(username)])
+                        response_parts.append(["I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"])
 
                     # We have neither plate nor state. Do nothing.
                     else:
@@ -1311,14 +1123,13 @@ class TrafficViolationsAggregator:
 
         except Exception as e:
             # Log error
-            response_parts.append(["{} Sorry, I encountered an error. Tagging @bdhowald.".format(username)])
+            response_parts.append(["Sorry, I encountered an error. Tagging @bdhowald."])
 
             self.logger.error('Missing necessary information to continue')
             self.logger.error(e)
             self.logger.error(str(e))
             self.logger.error(e.args)
             logging.exception("stack trace")
-
 
 
         # Indicate successful response processing.

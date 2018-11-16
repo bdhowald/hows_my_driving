@@ -126,15 +126,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
       event_obj = {
         'id': db_id,
-        'event_type': event_type,
-        'event_id': random_id,
-        'user_handle': user_handle,
-        'user_id': user_id,
-        'event_text': event_text,
         'created_at': timestamp,
+        'event_id': random_id,
+        'event_text': event_text,
+        'event_type': event_type,
         'in_reply_to_message_id': in_reply_to_message_id,
         'location': location,
         'responded_to': responded_to,
+        'user_handle': user_handle,
+        'user_id': user_id,
         'user_mentions': user_mentions
       }
 
@@ -158,7 +158,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
       self.tweeter.find_and_respond_to_twitter_events()
 
-      self.tweeter.aggregator.initiate_reply.assert_called_with(event_obj, event_obj['event_type'])
+      self.tweeter.aggregator.initiate_reply.assert_called_with(event_obj, 'twitter', event_obj['event_type'])
 
 
 
@@ -406,9 +406,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.tweeter.recursively_process_status_updates = recursively_process_status_updates_mock
 
+        reply_event_args2['username'] = username2
+
         self.tweeter.process_response(reply_event_args2)
 
-        recursively_process_status_updates_mock.assert_called_with(response_parts2, message_id)
+        recursively_process_status_updates_mock.assert_called_with(response_parts2, message_id, username2)
 
 
 
@@ -455,9 +457,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'successful_lookup': True
         }
 
+        reply_event_args3['username'] = username3
+
         self.tweeter.process_response(reply_event_args3)
 
-        recursively_process_status_updates_mock.assert_called_with(response_parts3, message_id)
+        recursively_process_status_updates_mock.assert_called_with(response_parts3, message_id, username3)
 
 
 
@@ -493,9 +497,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'successful_lookup': True
         }
 
+        reply_event_args4['username'] = username4
+
         self.tweeter.process_response(reply_event_args4)
 
-        recursively_process_status_updates_mock.assert_called_with(response_parts4, message_id)
+        recursively_process_status_updates_mock.assert_called_with(response_parts4, message_id, username4)
 
 
         username5        = 'NYCDDC'
@@ -526,9 +532,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'successful_lookup': True
         }
 
+        reply_event_args5['username'] = username5
+
         self.tweeter.process_response(reply_event_args5)
 
-        recursively_process_status_updates_mock.assert_called_with(response_parts5, message_id)
+        recursively_process_status_updates_mock.assert_called_with(response_parts5, message_id, username5)
 
 
 
@@ -546,9 +554,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
           'successful_lookup': True
         }
 
+        reply_event_args6['username'] = username2
+
         self.tweeter.process_response(reply_event_args6)
 
-        recursively_process_status_updates_mock.assert_called_with(response_parts6, message_id)
+        recursively_process_status_updates_mock.assert_called_with(response_parts6, message_id, username2)
 
 
     def test_recursively_process_direct_messages(self):
@@ -570,6 +580,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         str2 = 'Some other stuff\nSome more Stuff'
         str3 = 'Yet more stuff'
 
+        username = 'BarackObama'
+
         original_id = 1
 
         response_parts = [
@@ -585,11 +597,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.api = api_mock
         self.tweeter.is_production = is_production_mock
 
-        self.assertEqual(self.tweeter.recursively_process_status_updates(response_parts, original_id), original_id + len(response_parts))
+        self.assertEqual(self.tweeter.recursively_process_status_updates(response_parts, original_id, 'BarackObama'), original_id + len(response_parts))
 
         new_id             = 1
         new_response_parts = [[[[str1]]]]
 
-        self.assertEqual(self.tweeter.recursively_process_status_updates(response_parts, original_id), original_id + len(response_parts))
+        self.assertEqual(self.tweeter.recursively_process_status_updates(response_parts, original_id, 'BarackObama'), original_id + len(response_parts))
 
 
