@@ -572,7 +572,7 @@ class TrafficViolationsAggregator:
         plate        = plate_pattern.sub('', args['plate'].strip().upper())
         state        = args['state'].strip().upper()
         plate_types  = args['plate_types']
-        plate_types  = ','.join(sorted([type for type in args['plate_types'].split(',')]))
+        plate_types  = ','.join(sorted([type for type in args['plate_types'].split(',')])) if args.get('plate_types') is not None else None
         username     = re.sub('@', '', args['username'])
 
         self.logger.debug('Listing args... plate: %s, state: %s, message_id: %s, created_at: %s', plate, state, str(message_id), str(created_at))
@@ -834,6 +834,8 @@ class TrafficViolationsAggregator:
           'violations'  : [{'title':k.title(),'count':v} for k,v in tickets],
           'years'       : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
         }
+
+        # pdb.set_trace()
 
         # No need to add streak data if it doesn't exist
         if camera_streak_data:
