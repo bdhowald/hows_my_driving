@@ -835,8 +835,6 @@ class TrafficViolationsAggregator:
           'years'       : sorted([{'title':k.title(),'count':v} for k,v in years], key=lambda k: k['title'])
         }
 
-        # pdb.set_trace()
-
         # No need to add streak data if it doesn't exist
         if camera_streak_data:
             result['camera_streak_data'] = camera_streak_data
