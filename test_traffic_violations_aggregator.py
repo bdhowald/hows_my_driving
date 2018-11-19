@@ -87,6 +87,17 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertEqual(self.aggregator.detect_campaign_hashtags(['#TestCampaign,'])[0][1], '#TestCampaign')
 
 
+    def test_detect_plate_types(self):
+        str   = 'AGC|AGR|AMB|APP|ARG|ATD|ATV|AYG|BOB|BOT|CBS|CCK|CHC|CLG|CMB|CME|CMH|COM|CSP|DLR|FAR|FPW|GAC|GSM|HAC|HAM|HIR|HIS|HOU|HSM|IRP|ITP|JCA|JCL|JSC|JWV|LMA|LMB|LMC|LOC|LTR|LUA|MCD|MCL|MED|MOT|NLM|NYA|NYC|NYS|OMF|OML|OMO|OMR|OMS|OMT|OMV|ORC|ORG|ORM|PAS|PHS|PPH|PSD|RGC|RGL|SCL|SEM|SNO|SOS|SPC|SPO|SRF|SRN|STA|STG|SUP|THC|TOW|TRA|TRC|TRL|USC|USS|VAS|VPL|WUG'
+        types = str.split('|')
+
+        for type in types:
+            self.assertEqual(self.aggregator.detect_plate_types(type), True)
+            self.assertEqual(self.aggregator.detect_plate_types(type + 'XX'), False)
+
+        self.assertEqual(self.aggregator.detect_plate_types('{},{}'.format(types[random.randint(0, len(types))], 'XXX')), True)
+
+
     def test_detect_state(self):
         str     = '99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QC|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT'
         regions = str.split('|')
@@ -619,13 +630,14 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
 
     def test_infer_plate_and_state_data(self):
-        plate_tuples = [['ny', '123abcd'], ['ca', ''], ['xx', 'pxk3819'], ['99', '1234']]
+        plate_tuples = [['ny', '123abcd'], ['ca', ''], ['xx', 'pxk3819'], ['99', '1234'], ['ny', 't327sd', 'pas,agr']]
 
         result = [
           {'original_string':'ny:123abcd', 'state': 'ny', 'plate': '123abcd', 'valid_plate': True},
           {'original_string': 'ca:', 'valid_plate': False},
           {'original_string': 'xx:pxk3819', 'valid_plate': False},
-          {'original_string':'99:1234', 'state': '99', 'plate': '1234', 'valid_plate': True}
+          {'original_string':'99:1234', 'state': '99', 'plate': '1234', 'valid_plate': True},
+          {'original_string':'ny:t327sd:pas,agr', 'state': 'ny', 'plate': 't327sd', 'types': 'pas,agr', 'valid_plate': True}
         ]
 
         self.assertEqual(self.aggregator.infer_plate_and_state_data(plate_tuples),result)

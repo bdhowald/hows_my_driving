@@ -9,7 +9,7 @@ from datetime import datetime, timezone, time, timedelta
 
 class ReplyArgumentBuilder:
 
-    _logger                   = logging.getLogger("ReplyArgumentBuilder")
+    _logger                   = logging.getLogger('hows_my_driving')
     legacy_string_parts_regex = r'(?<!state:|plate:)\s'
     hmdny_twitter_handle      = 'HowsMyDrivingNY'
     strftime_format_string    = '%a %b %d %H:%M:%S %z %Y'
@@ -206,7 +206,7 @@ class ReplyArgumentBuilder:
                     args_for_response['username']            = '@' + message['user_handle']
 
 
-        elif message_source == "api":
+        elif message_source == 'api':
 
             text            = message['event_text']
             modified_string = ' '.join(text.split())
