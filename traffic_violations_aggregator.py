@@ -630,11 +630,12 @@ class TrafficViolationsAggregator:
         self.logger.debug('Open Parking and Camera Violations data: %s', opacv_data)
 
         # only data we're looking for
-        opacv_desired_keys = ['borough', 'county', 'fined', 'issue_date', 'paid', 'precinct', 'outstanding', 'reduced', 'violation']
+        opacv_desired_keys = ['borough', 'county', 'fined', 'has_date', 'issue_date', 'paid', 'precinct', 'outstanding', 'reduced', 'violation']
 
 
         # add violation if it's missing
         for record in opacv_data:
+
             if record.get('violation'):
                 record['violation'] = self.OPACV_HUMANIZED_NAMES[record['violation']]
 
@@ -717,7 +718,7 @@ class TrafficViolationsAggregator:
         fy_endpoints = ['https://data.cityofnewyork.us/resource/j7ig-zgkq.json', 'https://data.cityofnewyork.us/resource/aagd-wyjz.json', 'https://data.cityofnewyork.us/resource/avxe-2nrn.json', 'https://data.cityofnewyork.us/resource/ati4-9cgt.json', 'https://data.cityofnewyork.us/resource/9wgk-ev5c.json', 'https://data.cityofnewyork.us/resource/qpyv-8eyi.json']
 
         # only data we're looking for
-        fy_desired_keys = ['borough', 'issue_date', 'violation', 'violation_precinct', 'violation_county']
+        fy_desired_keys = ['borough', 'has_date', 'issue_date', 'violation', 'violation_precinct', 'violation_county']
 
         # iterate through the endpoints
         for endpoint in fy_endpoints:
@@ -819,8 +820,9 @@ class TrafficViolationsAggregator:
           ('paid',        sum(v['paid'] for v in combined_violations.values() if v.get('paid'))),
           ('outstanding', sum(v['outstanding'] for v in combined_violations.values() if v.get('outstanding')))
         ]
+
         tickets  = Counter([v['violation'] for v in combined_violations.values() if v.get('violation')]).most_common()
-        years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('issue_date') else 'No Year Available' for v in combined_violations.values()]).most_common()
+        years    = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get('has_date') else 'No Year Available' for v in combined_violations.values()]).most_common()
         boroughs = Counter([v['borough'] for v in combined_violations.values() if v.get('borough')]).most_common()
 
         camera_streak_data = self.find_max_camera_violations_streak(sorted([datetime.strptime(v['issue_date'],'%Y-%m-%dT%H:%M:%S.%f') for v in combined_violations.values() if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light', 'School Zone Speed Camera Violation']]))
