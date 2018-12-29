@@ -145,15 +145,34 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
 
     def test_find_potential_vehicles(self):
-      string_parts       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
+      string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
 
-      potential_vehicles = [
+      potential_vehicles1 = [
         {'original_string':'ny:123abcd', 'state': 'ny', 'plate': '123abcd', 'valid_plate': True},
         {'original_string':'ca:6vmd948', 'state': 'ca', 'plate': '6vmd948', 'valid_plate': True},
         {'original_string':'xx:7kvj935', 'valid_plate': False}
       ]
 
-      self.assertEqual(self.aggregator.find_potential_vehicles(string_parts), potential_vehicles)
+      self.assertEqual(self.aggregator.find_potential_vehicles(string_parts1), potential_vehicles1)
+
+
+      string_parts2       = ['The', 'fact', 'that', 'red', 'light', 'camera', 'tickets', 'are', 'only', '$50', '(and', 'the', 'fact', 'that,', 'I', 'assume,', 'they', 'are', 'relatively', 'sparse', 'throughout', 'the', 'city)', 'explains', 'a', 'lot.', 'From', 'this', 'morning:', 'NY:HJY3401', '@HowsMyDrivingNY']
+
+      potential_vehicles2 = [
+        {'original_string': 'morning:NY', 'plate': 'morning', 'state': 'NY', 'valid_plate': True},
+        {'original_string': 'NY:HJY3401', 'plate': 'HJY3401', 'state': 'NY', 'valid_plate': True}
+      ]
+
+      self.assertEqual(self.aggregator.find_potential_vehicles(string_parts2), potential_vehicles2)
+
+
+      string_parts3       = ['The', 'fact', 'that', 'red', 'light', 'camera', 'tickets', 'are', 'only', '$50', '(and', 'the', 'fact', 'that,', 'I', 'assume,', 'they', 'are', 'relatively', 'sparse', 'throughout', 'the', 'city)', 'explains', 'a', 'lot.', 'From', 'this', 'morning:', 'check', 'NY:HJY3401', '@HowsMyDrivingNY']
+
+      potential_vehicles3 = [
+        {'original_string': 'NY:HJY3401', 'plate': 'HJY3401', 'state': 'NY', 'valid_plate': True}
+      ]
+
+      self.assertEqual(self.aggregator.find_potential_vehicles(string_parts3), potential_vehicles3)
 
 
     def test_find_potential_vehicles_using_legacy_logic(self):
