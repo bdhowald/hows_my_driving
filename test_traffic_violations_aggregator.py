@@ -175,6 +175,17 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
       self.assertEqual(self.aggregator.find_potential_vehicles(string_parts3), potential_vehicles3)
 
 
+      string_parts4       = ['@HowsMyDrivingNY', 'check:' ,'ny:', '123abcd']
+
+      potential_vehicles4 = [
+        {'original_string': 'check:ny', 'plate': 'check', 'state': 'ny', 'valid_plate': True},
+        {'original_string': 'ny:123abcd', 'plate': '123abcd', 'state': 'ny', 'valid_plate': True}
+
+      ]
+
+      self.assertEqual(self.aggregator.find_potential_vehicles(string_parts4), potential_vehicles4)
+
+
     def test_find_potential_vehicles_using_legacy_logic(self):
         string_parts1       = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
         string_parts2       = ['@HowsMyDrivingNY', 'I', 'love', 'you', 'very', 'much!']
