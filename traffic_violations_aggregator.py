@@ -590,13 +590,18 @@ class TrafficViolationsAggregator:
         s_req.mount('https://', HTTPAdapter(max_retries=retries))
 
 
+        # set up remaining query params
+        limit = 10000
+        token = 'q198HrEaAdCJZD4XCLDl2Uq0G'
+
+
         # Find medallion plates
         #
         medallion_regex    = r'^[0-9][A-Z][0-9]{2}$'
         medallion_pattern  = re.compile(medallion_regex)
 
         if medallion_pattern.search(plate.upper()) != None:
-            medallion_response = s_req.get('https://data.cityofnewyork.us/resource/7drc-shp9.json?license_number={}'.format(plate))
+            medallion_response = s_req.get('https://data.cityofnewyork.us/resource/rhe8-mgbb.json?license_number={}&$limit={}&$$app_token={}'.format(plate, limit, token))
             medallion_data     = medallion_response.result().json()
 
             sorted_list        = sorted(set([res['dmv_license_plate_number'] for res in medallion_data]))
@@ -610,10 +615,6 @@ class TrafficViolationsAggregator:
 
         # set up return data structure
         combined_violations = {}
-
-        # set up remaining query params
-        limit = 10000
-        token = 'q198HrEaAdCJZD4XCLDl2Uq0G'
 
         # Grab data from 'Open Parking and Camera Violations'
         #
@@ -951,18 +952,6 @@ class TrafficViolationsAggregator:
         message_type = response_args['type']
         self.logger.debug('message_type: %s', message_type)
 
-
-        # # get necessary formatter
-        # formatter = None
-
-        # if response_args['source'] == 'api':
-        #     formatter = APIResponseFormatter()
-
-        # elif response_args['source'] == 'twitter':
-        #     formatter = TwitterResponseFormatter()
-
-        # else:
-        #     formatter = ResponseFormatter()
 
 
 
