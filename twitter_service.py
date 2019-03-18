@@ -6,7 +6,6 @@ import sys
 import threading
 import tweepy
 
-
 from datetime import datetime, time, timedelta
 
 from common.db_service import DbService
@@ -93,13 +92,14 @@ class TrafficViolationsTweeter:
 
             self.logger.debug('events: {}'.format(events))
 
+            # Note that we began the response.
+            self.logger.debug(f"updating response_begun = 1 for events {','.join([str(event['id']) for event in events])}")
+            conn.execute(
+                """ update twitter_events set response_begun = 1 where id IN (%s) """ % ','.join(['%s'] * len(events)), [event['id'] for event in events])
+
             for event in events:
 
                 self.logger.debug('handling event: {}'.format(event))
-
-                # Note that we began the response.
-                conn.execute(
-                    """ update twitter_events set response_begun = 1 where id = %s """, (event['id']))
 
                 # build request
                 lookup_request = self.reply_argument_builder.build_reply_data(
