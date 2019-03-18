@@ -8,6 +8,8 @@ import tweepy
 
 from datetime import datetime, time, timedelta
 
+import pdb
+
 from common.db_service import DbService
 
 from traffic_violations.reply_argument_builder import ReplyArgumentBuilder
@@ -93,9 +95,10 @@ class TrafficViolationsTweeter:
             self.logger.debug('events: {}'.format(events))
 
             # Note that we began the response.
-            self.logger.debug(f"updating response_begun = 1 for events {','.join([str(event['id']) for event in events])}")
-            conn.execute(
-                """ update twitter_events set response_begun = 1 where id IN (%s) """ % ','.join(['%s'] * len(events)), [event['id'] for event in events])
+            if events:
+                self.logger.debug(f"updating response_begun = 1 for events {','.join([str(event['id']) for event in events])}")
+                conn.execute(
+                    """ update twitter_events set response_begun = 1 where id IN (%s) """ % ','.join(['%s'] * len(events)), [event['id'] for event in events])
 
             for event in events:
 
