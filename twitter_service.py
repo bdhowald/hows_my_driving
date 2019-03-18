@@ -9,7 +9,7 @@ import tweepy
 
 from datetime import datetime, time, timedelta
 
-from db_service import DbService
+from common.db_service import DbService
 
 from traffic_violations.reply_argument_builder import ReplyArgumentBuilder
 from traffic_violations.traffic_violations_aggregator import TrafficViolationsAggregator

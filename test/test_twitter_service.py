@@ -1,4 +1,4 @@
-# test_tweet_traffic_violations.py
+# test_twitter_service.py
 
 # import pytest
 import random
@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import call, MagicMock
 
 # import class
-from traffic_violations.tweet_traffic_violations import TrafficViolationsTweeter
+from twitter_service import TrafficViolationsTweeter
 
 # import helper class
 from traffic_violations.reply_argument_builder import AccountActivityAPIDirectMessage, AccountActivityAPIStatus

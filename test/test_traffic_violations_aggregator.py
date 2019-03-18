@@ -7,7 +7,8 @@ import requests_futures.sessions
 import unittest
 
 from datetime import datetime, timezone, timedelta
-from db_service import DbService
+
+from common.db_service import DbService
 from unittest.mock import MagicMock
 
 from traffic_violations.reply_argument_builder import HowsMyDrivingAPIRequest

@@ -6,7 +6,7 @@ import tweepy
 from unittest.mock import MagicMock
 
 from traffic_violations.traffic_violations_stream_listener import TrafficViolationsStreamListener
-from traffic_violations.tweet_traffic_violations import TrafficViolationsTweeter
+from twitter_service import TrafficViolationsTweeter
 
 
 class TestTrafficViolationsStreamListener(unittest.TestCase):
