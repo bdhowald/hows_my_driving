@@ -5,6 +5,7 @@ include/
 lib/
 
 .Python
+.python-version
 
 pip-selfcheck.json
 
