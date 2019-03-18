@@ -96,7 +96,8 @@ class TrafficViolationsTweeter:
 
             # Note that we began the response.
             if events:
-                self.logger.debug(f"updating response_begun = 1 for events {','.join([str(event['id']) for event in events])}")
+                self.logger.debug("updating response_begun = 1 for events {}".format(','.join(
+                    [str(event['id']) for event in events])))
                 conn.execute(
                     """ update twitter_events set response_begun = 1 where id IN (%s) """ % ','.join(['%s'] * len(events)), [event['id'] for event in events])
 

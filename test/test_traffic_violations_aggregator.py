@@ -891,7 +891,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             message={
                 'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
                 'event_id': message_id,
-                'event_text': f"@howsmydrivingny {campaign_hashtag}",
+                'event_text': "@howsmydrivingny {}".format(campaign_hashtag),
                 'username': username3
             },
             message_source='api',

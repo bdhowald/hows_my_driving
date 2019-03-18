@@ -372,7 +372,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             message={
                 'created_at': random.randint(1_000_000_000_000, 2_000_000_000_000),
                 'event_id': message_id,
-                'event_text': f"@howsmydrivingny {campaign_hashtag}",
+                'event_text': "@howsmydrivingny {}".format(campaign_hashtag),
                 'source': 'twitter',
                 'type': 'status',
                 'user_handle': username3,
