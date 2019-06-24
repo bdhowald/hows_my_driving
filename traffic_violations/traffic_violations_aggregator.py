@@ -216,6 +216,7 @@ class TrafficViolationsAggregator:
         return potential_vehicles
 
     def form_campaign_lookup_response_parts(self, query_result, username):
+
         campaign_chunks = []
         campaign_string = ""
 
@@ -223,8 +224,10 @@ class TrafficViolationsAggregator:
             num_vehicles = campaign['campaign_vehicles']
             num_tickets = campaign['campaign_tickets']
 
-            next_string_part = "{} {} {} {} {} been tagged with {}.\n\n".format(num_vehicles, 'vehicle with' if num_vehicles == 1 else 'vehicles with a total of',
-                                                                                num_tickets, 'ticket' if num_tickets == 1 else 'tickets', 'has' if num_vehicles == 1 else 'have', campaign['campaign_hashtag'])
+            next_string_part = (
+                f"{num_vehicles} {'vehicle with' if num_vehicles == 1 else 'vehicles with a total of'} "
+                f"{num_tickets} ticket{'' if num_tickets == 1 else 's'} {'has' if num_vehicles == 1 else 'have'} "
+                f"been tagged with { campaign['campaign_hashtag']}.\n\n")
 
             # how long would it be
             potential_response_length = len(
@@ -254,8 +257,10 @@ class TrafficViolationsAggregator:
         self.logger.debug("total_violations: %s", total_violations)
 
         # Append to initially blank string to build tweet.
-        violations_string += "#{}_{}{} has been queried {} {}.\n\n".format(query_result['state'], query_result['plate'], (' (types: ' + query_result[
-                                                                           'plate_types'] + ')') if query_result['plate_types'] else '', query_result['frequency'], 'time' if int(query_result['frequency']) == 1 else 'times')
+        violations_string += (
+            f"#{query_result['state']}_{query_result['plate']}"
+            f"{(' (types: ' + query_result['plate_types'] + ')') if query_result['plate_types'] else ''} "
+            f"has been queried {query_result['frequency']} time{'' if int(query_result['frequency']) == 1 else 's'}.\n\n")
 
         # If this vehicle has been queried before...
         if query_result.get('previous_result'):
@@ -282,8 +287,9 @@ class TrafficViolationsAggregator:
 
                     # Add the new ticket info and previous lookup time to the
                     # string.
-                    violations_string += 'Since the last time the vehicle was queried ({} at {}), #{}_{} has received {} new {}.\n\n'.format(adjusted_time.strftime(
-                        '%B %e, %Y'), adjusted_time.strftime('%I:%M%p'), query_result['state'], query_result['plate'], new_violations, 'ticket' if new_violations == 1 else 'tickets')
+                    violations_string += (
+                        f"Since the last time the vehicle was queried ({adjusted_time.strftime('%B %e, %Y')} at {adjusted_time.strftime('%I:%M%p')}), "
+                        f"#{query_result['state']}_{query_result['plate']} has received {new_violations} new ticket{'' if new_violations == 1 else 's'}.\n\n")
 
         violations_keys = {
             'count': 'count',
@@ -337,8 +343,7 @@ class TrafficViolationsAggregator:
 
             fines = query_result['fines']
 
-            cur_string = "Known fines for #{}_{}:\n\n".format(
-                query_result['state'], query_result['plate'])
+            cur_string = f"Known fines for #{query_result['state']}_{query_result['plate']}:\n\n"
 
             max_count_length = len('${:,.2f}'.format(max(t[1] for t in fines)))
             spaces_needed = (max_count_length * 2) + 1
@@ -353,8 +358,9 @@ class TrafficViolationsAggregator:
                 left_justify_amount = spaces_needed - count_length
 
                 # formulate next string part
-                next_part = '{}| {}\n'.format(currency_string.ljust(
-                    left_justify_amount), fine_type.replace('_', ' ').title())
+                next_part = (
+                    f"{currency_string.ljust(left_justify_amount)}| "
+                    f"{fine_type.replace('_', ' ').title()}\n")
 
                 # determine current string length if necessary
                 potential_response_length = len(
@@ -380,8 +386,12 @@ class TrafficViolationsAggregator:
             if streak_data.get('max_streak') and streak_data['max_streak'] >= 5:
 
                 # formulate streak string
-                streak_string = "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its {} camera violations (>= 5/year) from {} to {}.\n".format(
-                    streak_data['max_streak'], streak_data['min_streak_date'], streak_data['max_streak_date'])
+                streak_string = (
+                    f"Under @bradlander's proposed legislation, "
+                    f"this vehicle could have been booted or impounded "
+                    f"due to its {streak_data['max_streak']} camera violations "
+                    f"(>= 5/year) from {streak_data['min_streak_date']}"
+                    f" to {streak_data['max_streak_date']}.\n")
 
                 # add to container
                 response_chunks.append(streak_string)
@@ -390,7 +400,11 @@ class TrafficViolationsAggregator:
         return response_chunks
 
     def form_summary_string(self, summary, username):
-        return ["The {} vehicles you queried have collectively received {} {} with at least {} in fines, of which {} has been paid.\n\n".format(summary['vehicles'], summary['tickets'], 'ticket' if summary['tickets'] == 1 else 'tickets', '${:,.2f}'.format(summary['fines']['fined'] - summary['fines']['reduced']), '${:,.2f}'.format(summary['fines']['paid']))]
+        return [
+            f"The {summary['vehicles']} vehicles you queried have collectively received "
+            f"{summary['tickets']} ticket{'' if summary['tickets'] == 1 else 's'} with at "
+            f"least {'${:,.2f}'.format(summary['fines']['fined'] - summary['fines']['reduced'])} "
+            f"in fines, of which {'${:,.2f}'.format(summary['fines']['paid'])} has been paid.\n\n"]
 
     def handle_response_part_formation(self, collection, keys):
 
@@ -600,7 +614,8 @@ class TrafficViolationsAggregator:
 
         if medallion_pattern.search(plate.upper()) != None:
             medallion_response = s_req.get(
-                'https://data.cityofnewyork.us/resource/rhe8-mgbb.json?license_number={}&$limit={}&$$app_token={}'.format(plate, limit, token))
+                f'https://data.cityofnewyork.us/resource/rhe8-mgbb.json'
+                f'?license_number={plate}&$limit={limit}&$$app_token={token}')
             medallion_data = medallion_response.result().json()
 
             sorted_list = sorted(
@@ -620,8 +635,7 @@ class TrafficViolationsAggregator:
         # response from city open data portal
         opacv_endpoint = 'https://data.cityofnewyork.us/resource/uvbq-3m68.json'
         opacv_query = opacv_endpoint + \
-            '?$limit={}&$$app_token={}&plate={}&state={}'.format(
-                limit, token, plate, state)
+            f'?$limit={limit}&$$app_token={token}&plate={plate}&state={state}'
 
         if plate_types is not None:
             opacv_query += "&$where=license_type%20in(" + ','.join(
@@ -731,8 +745,8 @@ class TrafficViolationsAggregator:
 
         # iterate through the endpoints
         for endpoint in fy_endpoints:
-            query_string = '?$limit={}&$$app_token={}&plate_id={}&registration_state={}'.format(
-                limit, token, plate, state)
+            query_string = (
+                f'?$limit={limit}&$$app_token={token}&plate_id={plate}&registration_state={state}')
 
             if plate_types is not None:
                 query_string += "&$where=plate_type%20in(" + ','.join(
@@ -1034,8 +1048,11 @@ class TrafficViolationsAggregator:
                         # Record lookup error.
                         error_on_lookup = True
 
-                        response_parts.append(["Sorry, I received an error when looking up {}:{}{}. Please try again.".format(plate_lookup.get('state').upper(
-                        ), plate_lookup.get('plate').upper(), (' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else '')])
+                        response_parts.append([
+                            f"Sorry, I received an error when looking up "
+                            f"{plate_lookup.get('state').upper()}:{plate_lookup.get('plate').upper()}"
+                            f"{(' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else ''}. "
+                            f"Please try again."])
 
                     else:
 
@@ -1044,8 +1061,10 @@ class TrafficViolationsAggregator:
 
                         # Let user know we didn't find anything.
                         # sorry_message = "{} Sorry, I couldn't find any tickets for that plate."
-                        response_parts.append(["Sorry, I couldn't find any tickets for {}:{}{}.".format(potential_vehicle.get('state').upper(), potential_vehicle.get(
-                            'plate').upper(), (' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else '',)])
+                        response_parts.append([
+                            f"Sorry, I couldn't find any tickets for "
+                            f"{potential_vehicle.get('state').upper()}:{potential_vehicle.get('plate').upper()}"
+                            f"{(' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else ''}."])
 
                 else:
 
@@ -1065,26 +1084,28 @@ class TrafficViolationsAggregator:
                     if potential_vehicle.get('state'):
                         self.logger.debug("We have a state, but it's invalid.")
 
-                        response_parts.append(["The state should be two characters, but you supplied '{}'. Please try again.".format(
-                            potential_vehicle.get('state'))])
+                        response_parts.append([
+                            f"The state should be two characters, but you supplied '{potential_vehicle.get('state')}'. "
+                            f"Please try again."])
 
                     # '<state>:<plate>' format, but no valid state could be detected.
                     elif potential_vehicle.get('original_string'):
                         self.logger.debug(
                             "We don't have a state, but we have an attempted lookup with the new format.")
 
-                        response_parts.append(["Sorry, a plate and state could not be inferred from {}.".format(
-                            potential_vehicle.get('original_string'))])
+                        response_parts.append([
+                            f"Sorry, a plate and state could not be inferred from "
+                            f"{potential_vehicle.get('original_string')}."])
 
                     # If we have a plate, but no state.
                     elif potential_vehicle.get('plate'):
                         self.logger.debug("We have a plate, but no state")
 
                         response_parts.append(
-                            ["Sorry, the state appears to be blank.".format(query_info['state'])])
+                            ["Sorry, the state appears to be blank."])
 
             # If we have multiple vehicles, prepend a summary.
-            if summary['vehicles'] > 1:
+            if summary.get('vehicles') > 1 and int(summary.get('fines', {}).get('fined')) > 0:
                 response_parts.insert(0, self.form_summary_string(
                     summary, request_object.username()))
 

@@ -24,7 +24,7 @@ class DbService:
                 'MYSQL_PASSWORD'] if 'MYSQL_PASSWORD' in os.environ else ''
 
             # Create a engine for connecting to MySQL
-            cls.engine = create_engine('mysql+pymysql://{}:'.format(os.environ[
-                                       'MYSQL_USER']) + password_str + '@localhost/{}?charset=utf8'.format(os.environ['MYSQL_DATABASE']))
+            cls.engine = create_engine(
+                f"mysql+pymysql://{os.environ['MYSQL_USER']}:{password_str}@localhost/{os.environ['MYSQL_DATABASE']}?charset=utf8")
 
             return cls.engine

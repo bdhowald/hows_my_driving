@@ -121,21 +121,21 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         num_lookups = random.randint(1, 10000)
         num_tickets = random.randint(1, 1000000)
-        empty_lookups = random.randint(1, 100)
-        reckless_drivers = random.randint(1, 250)
+        num_empty_lookups = random.randint(1, 100)
+        num_reckless_drivers = random.randint(1, 250)
         total_reckless_drivers = random.randint(1, 1000)
 
         message_id = random.randint(10000000000000000000, 20000000000000000000)
 
         tickets = []
-        for i in range(num_lookups - empty_lookups):
-            if (i + 1) < (num_lookups - empty_lookups):
+        for i in range(num_lookups - num_empty_lookups):
+            if (i + 1) < (num_lookups - num_empty_lookups):
                 tickets.append([max(int(random.randint(
                     1, (num_tickets - sum(x[0] for x in tickets) - (num_lookups - (i + 1)))) / 100), 1)])
             else:
                 tickets.append([num_tickets - sum(x[0] for x in tickets)])
 
-        for i in range(empty_lookups):
+        for i in range(num_empty_lookups):
             tickets.append([0])
 
         sorted_tickets = sorted(tickets)
@@ -143,9 +143,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             int(len(sorted_tickets) / 2)][0] + sorted_tickets[int((len(sorted_tickets) / 2) - 1)][0]) / 2.0)
 
         cursor_mock = MagicMock(name='cursor')
-        # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
+        # cursor_mock.fetchone.return_value = (num_lookups, num_tickets,
+        # num_empty_lookups, num_reckless_drivers)
         cursor_mock.fetchone.side_effect = [
-            [num_lookups, num_tickets, empty_lookups, reckless_drivers], [total_reckless_drivers]]
+            [num_lookups, num_tickets, num_empty_lookups, num_reckless_drivers], [total_reckless_drivers]]
 
         execute_mock = MagicMock(name='execute')
         execute_mock.execute.side_effect = [cursor_mock, tickets, cursor_mock]
@@ -170,10 +171,17 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock
 
-        lookup_str = "On {}, users requested {} {}. {} received {} {} for an average of {} {} and a median of {} {} per vehicle. {} {} returned no tickets.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(
-            num_tickets), 'ticket' if num_tickets == 1 else 'tickets', round(num_tickets / num_lookups, 2), 'ticket' if num_tickets == 1 else 'tickets', median, 'ticket' if median == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
-        reckless_str = "{} {} eligible to be booted or impounded under @bradlander's proposed legislation ({} such lookups since June 6, 2018).".format(
-            reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were', total_reckless_drivers)
+        lookup_str = (
+            f"On {midnight_yesterday.strftime('%A, %B %-d, %Y')}, users requested {num_lookups} lookup{'' if num_lookups == 1 else 's'}. "
+            f"{'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have'} received {'{:,}'.format(num_tickets)} ticket{'' if num_tickets == 1 else 's'} "
+            f"for an average of {round(num_tickets / num_lookups, 2)} ticket{'' if num_tickets == 1 else 's'} "
+            f"and a median of {median} ticket{'' if median == 1 else 's'} per vehicle. "
+            f"{num_empty_lookups} lookup{'' if num_empty_lookups == 1 else 's'} returned no tickets.")
+
+        reckless_str = (
+            f"{num_reckless_drivers} {'vehicle was' if num_reckless_drivers == 1 else 'vehicles were'} "
+            f"eligible to be booted or impounded under @bradlander's proposed legislation "
+            f"({total_reckless_drivers} such lookups since June 6, 2018).")
 
         self.tweeter.print_daily_summary()
 
@@ -199,7 +207,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         nth_place = min_id + tied_with - 1
 
         cursor_mock = MagicMock(name='cursor')
-        # cursor_mock.fetchone.return_value = (num_lookups, num_tickets, empty_lookups, reckless_drivers)
+        # cursor_mock.fetchone.return_value = (num_lookups, num_tickets,
+        # num_empty_lookups, num_reckless_drivers)
         cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations,
                                              red_light_camera_violations, speed_camera_violations, times_featured], [index, tied_with, min_id]]
 
@@ -226,19 +235,22 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.is_production = is_production_mock
         self.tweeter.api = api_mock
 
-        vehicle_hashtag = "#{}_{}".format(state, plate)
+        vehicle_hashtag = f'#{state}_{plate}'
         suffix = 'st' if (nth_place % 10 == 1 and nth_place % 100 != 11) else ('nd' if (
             nth_place % 10 == 2 and nth_place % 100 != 12) else ('rd' if (nth_place % 10 == 3 and nth_place % 100 != 13) else 'th'))
-        worst_substring = "{}{}-worst".format(nth_place,
-                                              suffix) if nth_place > 1 else "worst"
+        worst_substring = f'{nth_place}{suffix}-worst' if nth_place > 1 else "worst"
         tied_substring = ' tied for' if tied_with != 1 else ''
 
         max_count_length = len(
             str(max(red_light_camera_violations, speed_camera_violations)))
         spaces_needed = (max_count_length * 2) + 1
 
-        featured_string = "Featured #RepeatCameraOffender:\n\n{} has received {} camera violations:\n\n{} | Red Light Camera Violations\n{} | Speed Safety Camera Violations\n\nThis makes {}{} the {} camera violator in New York City.".format(
-            vehicle_hashtag, total_camera_violations, str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations))), str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations))), vehicle_hashtag, tied_substring, worst_substring)
+        featured_string = (
+            f'Featured #RepeatCameraOffender:\n\n'
+            f'{vehicle_hashtag} has received {total_camera_violations} camera violations:\n\n'
+            f'{str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations)))} | Red Light Camera Violations\n'
+            f'{str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations)))} | Speed Safety Camera Violations\n\n'
+            f'This makes {vehicle_hashtag}{tied_substring} the {worst_substring} camera violator in New York City.')
 
         self.tweeter.print_featured_plate()
 
@@ -372,7 +384,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             message={
                 'created_at': random.randint(1_000_000_000_000, 2_000_000_000_000),
                 'event_id': message_id,
-                'event_text': "@howsmydrivingny {}".format(campaign_hashtag),
+                'event_text': f'@howsmydrivingny {campaign_hashtag}',
                 'source': 'twitter',
                 'type': 'status',
                 'user_handle': username3,

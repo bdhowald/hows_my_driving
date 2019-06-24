@@ -8,8 +8,6 @@ import tweepy
 
 from datetime import datetime, time, timedelta
 
-import pdb
-
 from common.db_service import DbService
 
 from traffic_violations.reply_argument_builder import ReplyArgumentBuilder
@@ -76,7 +74,7 @@ class TrafficViolationsTweeter:
 
         self.events_iteration += 1
         self.logger.debug(
-            'Looking up twitter events on iteration {}'.format(self.events_iteration))
+            f'Looking up twitter events on iteration {self.events_iteration}')
 
         # start timer
         threading.Timer(
@@ -92,18 +90,17 @@ class TrafficViolationsTweeter:
             events = [dict(zip(tuple(events_query.keys()), i))
                       for i in events_query.cursor]
 
-            self.logger.debug('events: {}'.format(events))
+            self.logger.debug(f'events: {events}')
 
             # Note that we began the response.
             if events:
-                self.logger.debug("updating response_begun = 1 for events {}".format(','.join(
-                    [str(event['id']) for event in events])))
+                self.logger.debug(f'updating response_begun = 1 for events {",".join([str(event["id"]) for event in events])}')
                 conn.execute(
                     """ update twitter_events set response_begun = 1 where id IN (%s) """ % ','.join(['%s'] * len(events)), [event['id'] for event in events])
 
             for event in events:
 
-                self.logger.debug('handling event: {}'.format(event))
+                self.logger.debug(f'handling event: {event}')
 
                 # build request
                 lookup_request = self.reply_argument_builder.build_reply_data(
@@ -159,11 +156,12 @@ class TrafficViolationsTweeter:
         end_of_yesterday = (eastern.localize(datetime.combine(
             today, time.min)) - timedelta(seconds=1)).astimezone(utc)
 
+        # num lookups
         daily_lookup_query_string = """
             select count(t1.id) as lookups,
                    ifnull(sum(num_tickets), 0) as total_tickets,
-                   count(case when num_tickets = 0 then 1 end) as empty_lookups,
-                   count(case when boot_eligible = 1 then 1 end) as reckless_drivers
+                   count(case when num_tickets = 0 then 1 end) as num_empty_lookups,
+                   count(case when boot_eligible = 1 then 1 end) as num_reckless_drivers
               from plate_lookups t1
              where count_towards_frequency = 1
                and t1.created_at =
@@ -178,11 +176,7 @@ class TrafficViolationsTweeter:
         daily_lookup_query = conn.execute(daily_lookup_query_string.replace('\n', ''), (midnight_yesterday.strftime(
             '%Y-%m-%d %H:%M:%S'), end_of_yesterday.strftime('%Y-%m-%d %H:%M:%S'))).fetchone()
 
-        num_lookups = daily_lookup_query[0]
-        num_tickets = daily_lookup_query[1]
-        empty_lookups = daily_lookup_query[2]
-        reckless_drivers = daily_lookup_query[3]
-
+        # num tickets
         daily_tickets_query_string = """
             select num_tickets
               from plate_lookups t1
@@ -199,10 +193,7 @@ class TrafficViolationsTweeter:
         daily_tickets_query = conn.execute(daily_tickets_query_string.replace(
             '\n', ''), (midnight_yesterday.strftime('%Y-%m-%d %H:%M:%S'), end_of_yesterday.strftime('%Y-%m-%d %H:%M:%S')))
 
-        tickets = sorted([i[0] for i in daily_tickets_query])
-        median = tickets[int(len(tickets) / 2)] if num_lookups % 2 == 1 else (
-            (tickets[int(len(tickets) / 2)] + tickets[int((len(tickets) / 2) - 1)]) / 2.0)
-
+        # num reckless drivers
         boot_eligible_query_string = """
             select count(distinct plate, state) as boot_eligible_count
               from plate_lookups
@@ -212,29 +203,50 @@ class TrafficViolationsTweeter:
         boot_eligible_query = conn.execute(
             boot_eligible_query_string.replace('\n', '')).fetchone()
 
-        total_reckless_drivers = boot_eligible_query[0]
+        num_lookups = daily_lookup_query[0]
+        num_tickets = daily_lookup_query[1]
+        num_empty_lookups = daily_lookup_query[2]
+        num_reckless_drivers = daily_lookup_query[3]
+
+        lookups_summary_string = (
+            f'On {midnight_yesterday.strftime("%A, %B %-d, %Y")}, '
+            f"users requested {num_lookups} lookup{'' if num_lookups == 1 else 's'}. ")
 
         if num_lookups > 0:
-            lookups_summary_string = "On {}, users requested {} {}. {} received {} {} for an average of {} {} and a median of {} {} per vehicle. {} {} returned no tickets.".format(midnight_yesterday.strftime('%A, %B %-d, %Y'), num_lookups, 'lookup' if num_lookups == 1 else 'lookups', 'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have', "{:,}".format(
-                num_tickets), 'ticket' if num_tickets == 1 else 'tickets', round(num_tickets / num_lookups, 2), 'ticket' if (num_tickets / num_lookups) == 1 else 'tickets', median, 'ticket' if median == 1 else 'tickets', empty_lookups, 'lookup' if empty_lookups == 1 else 'lookups')
 
-            reckless_drivers_summary_string = "{} {} eligible to be booted or impounded under @bradlander's proposed legislation ({} such lookups since June 6, 2018).".format(
-                reckless_drivers, 'vehicle was' if reckless_drivers == 1 else 'vehicles were', total_reckless_drivers)
+            tickets = sorted([i[0] for i in daily_tickets_query])
 
-            if self.is_production():
-                try:
-                    message = self.api.update_status(lookups_summary_string)
-                    self.api.update_status(
-                        reckless_drivers_summary_string, in_reply_to_status_id=message.id)
+            median = tickets[int(len(tickets) / 2)] if num_lookups % 2 == 1 else (
+                (tickets[int(len(tickets) / 2)] + tickets[int((len(tickets) / 2) - 1)]) / 2.0)
 
-                except tweepy.error.TweepError as te:
-                    print(te)
-                    self.api.update_status(
-                        "Error printing daily summary. Tagging @bdhowald.")
+            lookups_summary_string += (
+                f"{'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have'} "
+                f"received {'{:,}'.format(num_tickets)} ticket{'' if num_tickets == 1 else 's'} "
+                f"for an average of {round(num_tickets / num_lookups, 2)} ticket{'' if (num_tickets / num_lookups) == 1 else 's'} "
+                f"and a median of {median} ticket{'' if median == 1 else 's'} per vehicle. "
+                f"{num_empty_lookups} lookup{'' if num_empty_lookups == 1 else 's'} returned no tickets.")
 
-            else:
-                print(lookups_summary_string)
-                print(reckless_drivers_summary_string)
+        total_reckless_drivers = boot_eligible_query[0]
+
+        reckless_drivers_summary_string = (
+            f"{num_reckless_drivers} {'vehicle was' if num_reckless_drivers == 1 else 'vehicles were'} "
+            f"eligible to be booted or impounded under @bradlander's proposed legislation "
+            f"({total_reckless_drivers} such lookups since June 6, 2018).")
+
+        if self.is_production():
+            try:
+                message = self.api.update_status(lookups_summary_string)
+                self.api.update_status(
+                    reckless_drivers_summary_string, in_reply_to_status_id=message.id)
+
+            except tweepy.error.TweepError as te:
+                print(te)
+                self.api.update_status(
+                    "Error printing daily summary. Tagging @bdhowald.")
+
+        else:
+            print(lookups_summary_string)
+            print(reckless_drivers_summary_string)
 
         # Close the connection
         conn.close()
@@ -288,19 +300,22 @@ class TrafficViolationsTweeter:
         tied_with = worst_violator_results[1]
 
         if nth_place:
-            vehicle_hashtag = "#{}_{}".format(state, plate)
+            vehicle_hashtag = f'#{state}_{plate}'
             suffix = 'st' if (nth_place % 10 == 1 and nth_place % 100 != 11) else ('nd' if (
                 nth_place % 10 == 2 and nth_place % 100 != 12) else ('rd' if (nth_place % 10 == 3 and nth_place % 100 != 13) else 'th'))
-            worst_substring = "{}{}-worst".format(
-                nth_place, suffix) if nth_place > 1 else "worst"
+            worst_substring = f'{nth_place}{suffix}-worst' if nth_place > 1 else 'worst'
             tied_substring = ' tied for' if tied_with != 1 else ''
 
             max_count_length = len(
                 str(max(red_light_camera_violations, speed_camera_violations)))
             spaces_needed = (max_count_length * 2) + 1
 
-            featured_string = "Featured #RepeatCameraOffender:\n\n{} has received {} camera violations:\n\n{} | Red Light Camera Violations\n{} | Speed Safety Camera Violations\n\nThis makes {}{} the {} camera violator in New York City.".format(
-                vehicle_hashtag, total_camera_violations, str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations))), str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations))), vehicle_hashtag, tied_substring, worst_substring)
+            featured_string = (
+                f'Featured #RepeatCameraOffender:\n\n'
+                f'{vehicle_hashtag} has received {total_camera_violations} camera violations:\n\n'
+                f'{str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations)))} | Red Light Camera Violations\n'
+                f'{str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations)))} | Speed Safety Camera Violations\n\n'
+                f'This makes {vehicle_hashtag}{tied_substring} the {worst_substring} camera violator in New York City.')
 
             if self.is_production():
                 try:
@@ -316,8 +331,9 @@ class TrafficViolationsTweeter:
                         "Error printing featured plate. Tagging @bdhowald.")
 
             else:
-                print("\nupdate repeat_camera_offenders set times_featured = {} where id = {}\n".format(
-                    times_featured + 1, rco_id))
+                print(
+                    f'\n'
+                    f'update repeat_camera_offenders set times_featured = {times_featured + 1} where id = {rco_id}\n')
                 print(featured_string)
 
         # Close the connection
@@ -353,7 +369,8 @@ class TrafficViolationsTweeter:
                 }
             }
 
-            # self.is_production() and self.api.send_direct_message(screen_name = username, text = combined_message)
+            # self.is_production() and self.api.send_direct_message(screen_name
+            # = username, text = combined_message)
             self.is_production() and self.api.send_direct_message_new(event)
 
         else:

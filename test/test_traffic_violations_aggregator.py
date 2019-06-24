@@ -103,7 +103,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 self.aggregator.detect_plate_types(type + 'XX'), False)
 
         self.assertEqual(self.aggregator.detect_plate_types(
-            '{},{}'.format(types[random.randint(0, len(types))], 'XXX')), True)
+            f'{types[random.randint(0, len(types))]},XXX'), True)
 
     def test_detect_state(self):
         str = '99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QC|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT'
@@ -417,18 +417,18 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
                 '\n'
-                '14 | No Standing - Day/Time Limits\n',
+                '14 | No Standing - Day/Time Limits\n'
+                '3   | No Parking - Street Cleaning\n',
                 "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
                 '\n'
-                '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
-                '1   | Failure To Stop At Red Light\n',
+                '1   | Failure To Stop At Red Light\n'
+                '1   | No Standing - Commercial Meter Zone\n'
+                '1   | Expired Meter\n',
                 "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
                 '\n'
-                '1   | No Standing - Commercial Meter Zone\n'
-                '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
                 'Violations by year for #NY_HME6483:\n'
@@ -475,8 +475,10 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'vehicles': num_vehicles
         }
 
-        self.assertEqual(self.aggregator.form_summary_string(summary, username), ["The {} vehicles you queried have collectively received {} tickets with at least {} in fines, of which {} has been paid.\n\n".format(
-            num_vehicles, num_tickets, '${:,.2f}'.format(fined - reduced), '${:,.2f}'.format(paid))])
+        self.assertEqual(
+            self.aggregator.form_summary_string(summary, username), [
+                f"The {num_vehicles} vehicles you queried have collectively received {num_tickets} tickets "
+                f"with at least {'${:,.2f}'.format(fined - reduced)} in fines, of which {'${:,.2f}'.format(paid)} has been paid.\n\n"])
 
     def test_handle_response_part_formation(self):
 
@@ -891,7 +893,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             message={
                 'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
                 'event_id': message_id,
-                'event_text': "@howsmydrivingny {}".format(campaign_hashtag),
+                'event_text': f'@howsmydrivingny {campaign_hashtag}',
                 'username': username3
             },
             message_source='api',
