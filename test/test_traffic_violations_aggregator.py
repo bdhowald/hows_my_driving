@@ -153,14 +153,18 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
     def test_find_potential_vehicles(self):
         string_parts1 = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more',
-                         'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
+                         'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4', '79217:ny:med']
 
         potential_vehicles1 = [
             {'original_string': 'ny:123abcd', 'state': 'ny',
                 'plate': '123abcd', 'valid_plate': True},
             {'original_string': 'ca:6vmd948', 'state': 'ca',
              'plate': '6vmd948', 'valid_plate': True},
-            {'original_string': 'xx:7kvj935', 'valid_plate': False}
+            {'original_string': 'xx:7kvj935', 'valid_plate': False},
+            {'original_string': '79217:ny:med', 'valid_plate': True,
+                'plate': '79217', 'state': 'ny', 'types': 'med'},
+            {'original_string': 'ny:med', 'valid_plate': True,
+                'plate': 'med', 'state': 'ny'},
         ]
 
         self.assertEqual(self.aggregator.find_potential_vehicles(
@@ -527,7 +531,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
     def test_infer_plate_and_state_data(self):
         plate_tuples = [['ny', '123abcd'], ['ca', ''], [
-            'xx', 'pxk3819'], ['99', '1234'], ['ny', 't327sd', 'pas,agr']]
+            'xx', 'pxk3819'], ['99', '1234'], ['ny', 't327sd', 'pas,agr'], ['79217', 'ny', 'med'], ['ny', 'med']]
 
         result = [
             {'original_string': 'ny:123abcd', 'state': 'ny',
@@ -537,7 +541,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             {'original_string': '99:1234', 'state': '99',
              'plate': '1234', 'valid_plate': True},
             {'original_string': 'ny:t327sd:pas,agr', 'state': 'ny',
-             'plate': 't327sd', 'types': 'pas,agr', 'valid_plate': True}
+             'plate': 't327sd', 'types': 'pas,agr', 'valid_plate': True},
+            {'original_string': '79217:ny:med', 'state': 'ny',
+             'plate': '79217', 'types': 'med', 'valid_plate': True},
+            {'original_string': 'ny:med', 'state': 'ny',
+             'plate': 'med', 'valid_plate': True},
         ]
 
         self.assertEqual(

@@ -148,7 +148,18 @@ class TrafficViolationsAggregator:
 
     def detect_state(self, state_input):
         # state_abbr_regex   = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NU|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QC|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
-        # state_full_regex   = r'^(ALABAMA|ALASKA|ARKANSAS|ARIZONA|CALIFORNIA|COLORADO|CONNECTICUT|DELAWARE|D\.C\.|DISTRICT OF COLUMBIA|FEDERATED STATES OF MICRONESIA|FLORIDA|GEORGIA|GUAM|HAWAII|IDAHO|ILLINOIS|INDIANA|IOWA|KANSAS|KENTUCKY|LOUISIANA|MAINE|MARSHALL ISLANDS|MARYLAND|MASSACHUSETTS|MICHIGAN|MINNESTOA|MISSISSIPPI|MISSOURI|MONTANA|NEBRASKA|NEVADA|NEW HAMPSHIRE|NEW JERSEY|NEW MEXICO|NEW YORK|NORTH CAROLINA|NORTH DAKOTA|NORTHERN MARIANA ISLANDS|OHIO|OKLAHOMA|OREGON|PALAU|PENNSYLVANIA|PUERTO RICO|RHODE ISLAND|SOUTH CAROLINA|SOUTH DAKOTA|TENNESSEE|TEXAS|UTAH|VERMONT|U\.S\. VIRGIN ISLANDS|US VIRGIN ISLANDS|VIRGIN ISLANDS|VIRGINIA|WASHINGTON|WEST VIRGINIA|WISCONSIN|WYOMING)$'
+        # state_full_regex   =
+        # r'^(ALABAMA|ALASKA|ARKANSAS|ARIZONA|CALIFORNIA|COLORADO|CONNECTICUT|DELAWARE|D\.C\.|DISTRICT
+        # OF COLUMBIA|FEDERATED STATES OF
+        # MICRONESIA|FLORIDA|GEORGIA|GUAM|HAWAII|IDAHO|ILLINOIS|INDIANA|IOWA|KANSAS|KENTUCKY|LOUISIANA|MAINE|MARSHALL
+        # ISLANDS|MARYLAND|MASSACHUSETTS|MICHIGAN|MINNESTOA|MISSISSIPPI|MISSOURI|MONTANA|NEBRASKA|NEVADA|NEW
+        # HAMPSHIRE|NEW JERSEY|NEW MEXICO|NEW YORK|NORTH CAROLINA|NORTH
+        # DAKOTA|NORTHERN MARIANA
+        # ISLANDS|OHIO|OKLAHOMA|OREGON|PALAU|PENNSYLVANIA|PUERTO RICO|RHODE
+        # ISLAND|SOUTH CAROLINA|SOUTH
+        # DAKOTA|TENNESSEE|TEXAS|UTAH|VERMONT|U\.S\. VIRGIN ISLANDS|US VIRGIN
+        # ISLANDS|VIRGIN ISLANDS|VIRGINIA|WASHINGTON|WEST
+        # VIRGINIA|WISCONSIN|WYOMING)$'
 
         # state_abbr_pattern = re.compile(self.STATE_ABBR_REGEX)
         # state_full_pattern = re.compile(state_full_regex)
@@ -489,27 +500,47 @@ class TrafficViolationsAggregator:
                 try:
                     state_index = state_bools.index(True)
                 except ValueError:
-                    state_index = -1
+                    state_index = None
 
                 plate_types_bools = [self.detect_plate_types(
                     part) for part in vehicle_tuple]
                 try:
                     plate_types_index = plate_types_bools.index(True)
                 except ValueError:
-                    plate_types_index = -1
+                    plate_types_index = None
 
-                have_valid_plate = (len(vehicle_tuple) == 2 and state_index != -1) or (
-                    len(vehicle_tuple) == 3 and -1 not in [plate_types_index, state_index])
+                have_valid_plate = (len(vehicle_tuple) == 2 and state_index is not None) or (
+                    len(vehicle_tuple) == 3 and None not in [plate_types_index, state_index])
 
                 if have_valid_plate:
-                    plate_index = [x for x in list(range(0, len(vehicle_tuple))) if x not in [
-                        plate_types_index, state_index]][0]
+                    non_state_plate_types_parts = [x for x in list(range(0, len(vehicle_tuple))) if x not in [
+                        plate_types_index, state_index]]
 
-                    if vehicle_tuple[plate_index] != '':
+                    plate_index = None
+
+                    # We have a tuple with state and plate, and possibly plate
+                    # types
+                    if non_state_plate_types_parts:
+
+                        plate_index = non_state_plate_types_parts[0]
+
+                    # We don't seem to have a plate, which means the plate
+                    # types might be the plate
+                    elif plate_types_index is not None:
+
+                        alphanumeric_only = re.match(
+                            '^[\w-]+$', vehicle_tuple[plate_types_index]) is not None
+
+                        if alphanumeric_only:
+                            plate_index = plate_types_index
+                            plate_types_index = None
+
+                    # Put plate data together
+                    if plate_index is not None and vehicle_tuple[plate_index] != '':
                         this_plate['plate'] = vehicle_tuple[plate_index]
                         this_plate['state'] = vehicle_tuple[state_index]
 
-                        if plate_types_index >= 0:
+                        if plate_types_index is not None:
                             this_plate['types'] = vehicle_tuple[
                                 plate_types_index]
 
