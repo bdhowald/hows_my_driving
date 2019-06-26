@@ -114,6 +114,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             self.assertEqual(
                 self.aggregator.detect_state(region + 'XX'), False)
 
+        self.assertEqual(self.aggregator.detect_state(None), False)
+
     def test_find_max_camera_streak(self):
         list_of_camera_times1 = [
             datetime(2015, 9, 18, 0, 0),

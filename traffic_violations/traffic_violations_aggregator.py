@@ -165,7 +165,10 @@ class TrafficViolationsAggregator:
         # state_full_pattern = re.compile(state_full_regex)
 
         # or state_full_pattern.search(state_input.upper()) != None
-        return self.STATE_ABBR_PATTERN.search(state_input.upper()) != None
+        if state_input is not None:
+            return self.STATE_ABBR_PATTERN.search(state_input.upper()) != None
+
+        return False
 
     def find_max_camera_violations_streak(self, list_of_violation_times):
         if list_of_violation_times:
