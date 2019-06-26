@@ -980,39 +980,6 @@ class TrafficViolationsAggregator:
         # Grab string parts
         self.logger.debug('string_tokens: %s', request_object.string_tokens())
 
-        # Find potential plates
-        potential_vehicles = self.find_potential_vehicles(
-            request_object.string_tokens())
-        self.logger.debug('potential_vehicles: %s', potential_vehicles)
-
-        # Find included campaign hashtags
-        included_campaigns = self.detect_campaign_hashtags(
-            request_object.string_tokens())
-        self.logger.debug('included_campaigns: %s', included_campaigns)
-
-        # Grab legacy string parts
-        self.logger.debug('legacy_string_tokens: %s',
-                          request_object.legacy_string_tokens())
-
-        potential_vehicles += self.find_potential_vehicles_using_legacy_logic(
-            request_object.legacy_string_tokens())
-        self.logger.debug('potential_vehicles: %s', potential_vehicles)
-
-        # Grab user info
-        self.logger.debug('username: %s',           request_object.username())
-        self.logger.debug('mentioned_users: %s',
-                          request_object.mentioned_users())
-
-        # Grab tweet details for reply.
-        self.logger.debug("message id: %s",
-                          request_object.external_id())
-        self.logger.debug('message created at: %s',
-                          request_object.created_at())
-        self.logger.debug('message_source: %s',
-                          request_object.message_source())
-        self.logger.debug('message_type: %s',
-                          request_object.message_type())
-
         # Collect response parts here.
         response_parts = []
         successful_lookup = False
@@ -1020,6 +987,40 @@ class TrafficViolationsAggregator:
 
         # Wrap in try/catch block
         try:
+            # Find potential plates
+            potential_vehicles = self.find_potential_vehicles(
+                request_object.string_tokens())
+            self.logger.debug('potential_vehicles: %s', potential_vehicles)
+
+            # Find included campaign hashtags
+            included_campaigns = self.detect_campaign_hashtags(
+                request_object.string_tokens())
+            self.logger.debug('included_campaigns: %s', included_campaigns)
+
+            # Grab legacy string parts
+            self.logger.debug('legacy_string_tokens: %s',
+                              request_object.legacy_string_tokens())
+
+            potential_vehicles += self.find_potential_vehicles_using_legacy_logic(
+                request_object.legacy_string_tokens())
+            self.logger.debug('potential_vehicles: %s', potential_vehicles)
+
+            # Grab user info
+            self.logger.debug('username: %s',
+                              request_object.username())
+            self.logger.debug('mentioned_users: %s',
+                              request_object.mentioned_users())
+
+            # Grab tweet details for reply.
+            self.logger.debug("message id: %s",
+                              request_object.external_id())
+            self.logger.debug('message created at: %s',
+                              request_object.created_at())
+            self.logger.debug('message_source: %s',
+                              request_object.message_source())
+            self.logger.debug('message_type: %s',
+                              request_object.message_type())
+
             # Split plate and state strings into key/value pairs.
             query_info = {}
 
@@ -1219,10 +1220,12 @@ class TrafficViolationsAggregator:
                             'ignoring message since no plate or state information to respond to.')
 
         except Exception as e:
-            # Log error
+            # Set response data
+            error_on_lookup = True
             response_parts.append(
                 ["Sorry, I encountered an error. Tagging @bdhowald."])
 
+            # Log error
             self.logger.error('Missing necessary information to continue')
             self.logger.error(e)
             self.logger.error(str(e))

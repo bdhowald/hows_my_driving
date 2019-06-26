@@ -1025,7 +1025,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.aggregator.create_response(lookup_request2)
 
         response6 = {
-            'error_on_lookup': False,
+            'error_on_lookup': True,
             'request_object': lookup_request2,
             'response_parts': response_parts6,
             'success': True,
