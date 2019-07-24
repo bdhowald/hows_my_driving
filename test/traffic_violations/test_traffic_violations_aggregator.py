@@ -31,50 +31,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     def setUp(self):
         logger = logging.getLogger('hows_my_driving')
         db_service = DbService(logger)
-        self.aggregator = TrafficViolationsAggregator(db_service, logger, '')
-
-    def test_detect_borough(self):
-        bronx_comp = {
-            'results': [
-                {
-                    'address_components': [
-                        {
-                            'long_name': 'Bronx',
-                            'short_name': 'Bronx',
-                            'types': [
-                                'political',
-                                'sublocality',
-                                'sublocality_level_1'
-                            ]
-                        }
-                    ]
-                }
-            ]
-        }
-
-        empty_comp = {
-            'results': [
-                {
-                    'address_components': [
-                        {}
-                    ]
-                }
-            ]
-        }
-
-        req_mock = MagicMock(name='json')
-        req_mock.json.return_value = bronx_comp
-
-        get_mock = MagicMock(name='get')
-        get_mock.return_value = req_mock
-
-        requests.get = get_mock
-
-        self.assertEqual(self.aggregator.detect_borough('Da Bronx'), ['Bronx'])
-
-        req_mock.json.return_value = empty_comp
-
-        self.assertEqual(self.aggregator.detect_borough('no match'), [])
+        self.aggregator = TrafficViolationsAggregator(logger)
 
     def test_detect_campaign_hashtags(self):
         cursor_mock = MagicMock(name='cursor')
@@ -115,43 +72,6 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 self.aggregator.detect_state(region + 'XX'), False)
 
         self.assertEqual(self.aggregator.detect_state(None), False)
-
-    def test_find_max_camera_streak(self):
-        list_of_camera_times1 = [
-            datetime(2015, 9, 18, 0, 0),
-            datetime(2015, 10, 16, 0, 0),
-            datetime(2015, 11, 2, 0, 0),
-            datetime(2015, 11, 5, 0, 0),
-            datetime(2015, 11, 12, 0, 0),
-            datetime(2016, 2, 2, 0, 0),
-            datetime(2016, 2, 25, 0, 0),
-            datetime(2016, 5, 31, 0, 0),
-            datetime(2016, 9, 8, 0, 0),
-            datetime(2016, 10, 17, 0, 0),
-            datetime(2016, 10, 24, 0, 0),
-            datetime(2016, 10, 26, 0, 0),
-            datetime(2016, 11, 21, 0, 0),
-            datetime(2016, 12, 18, 0, 0),
-            datetime(2016, 12, 22, 0, 0),
-            datetime(2017, 1, 5, 0, 0),
-            datetime(2017, 2, 13, 0, 0),
-            datetime(2017, 5, 10, 0, 0),
-            datetime(2017, 5, 24, 0, 0),
-            datetime(2017, 6, 27, 0, 0),
-            datetime(2017, 6, 27, 0, 0),
-            datetime(2017, 9, 14, 0, 0),
-            datetime(2017, 11, 6, 0, 0),
-            datetime(2018, 1, 28, 0, 0)
-        ]
-
-        result1 = {
-            'min_streak_date': 'September 8, 2016',
-            'max_streak': 13,
-            'max_streak_date': 'June 27, 2017'
-        }
-
-        self.assertEqual(self.aggregator.find_max_camera_violations_streak(
-            list_of_camera_times1), result1)
 
     def test_find_potential_vehicles(self):
         string_parts1 = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more',
@@ -329,9 +249,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'response': [
                 '#NY_HME6483 (types: pas) has been queried 8 times.\n'
                 '\n'
-                'Since the last time the vehicle was queried (' + adjusted_time.strftime(
-                    '%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
-                '#NY_HME6483 has received 2 new tickets.\n'
+                'This vehicle was last queried on ' + adjusted_time.strftime(
+                    '%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '. '
+                'Since then, #NY_HME6483 has received 2 new tickets.\n'
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
                 '\n'
@@ -417,9 +337,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'response': [
                 '#NY_HME6483 has been queried 8 times.\n'
                 '\n'
-                'Since the last time the vehicle was queried (' + adjusted_time.strftime(
-                    '%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '), '
-                '#NY_HME6483 has received 2 new tickets.\n'
+                'This vehicle was last queried on ' + adjusted_time.strftime(
+                    '%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '. '
+                'Since then, #NY_HME6483 has received 2 new tickets.\n'
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
                 '\n'
@@ -717,7 +637,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         # Try again with a forced error.
 
         error_result = {'error': 'server error',
-                        'plate': 'ABCDEFG', 'state': 'NY'}
+                        'frequency': 2,
+                        'previous_result': {},
+                        'url': 'https://data.cityofnewyork.us/resource/uvbq-3m68.json?plate=ABCDEFG&state=NY&$where=license_type%20in(%27com%27,%27pas%27)&$limit=10000&$$app_token=q198HrEaAdCJZD4XCLDl2Uq0G'}
 
         violations_mock.status_code = 503
 

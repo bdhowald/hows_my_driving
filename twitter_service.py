@@ -37,9 +37,6 @@ class TrafficViolationsTweeter:
         self.api = tweepy.API(self.auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True,
                               retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
 
-        google_api_key = os.environ['GOOGLE_API_KEY'] if os.environ.get(
-            'GOOGLE_API_KEY') else ''
-
         # get instance of db service
         self.db_service = DbService(self.logger)
 
@@ -47,8 +44,7 @@ class TrafficViolationsTweeter:
         self.reply_argument_builder = ReplyArgumentBuilder(self.api)
 
         # create new aggregator
-        self.aggregator = TrafficViolationsAggregator(
-            self.db_service, self.logger, google_api_key)
+        self.aggregator = TrafficViolationsAggregator(self.logger)
 
         # Log how many times we've called the apis
         self.direct_messages_iteration = 0
@@ -115,8 +111,14 @@ class TrafficViolationsTweeter:
                     reply_event['username'] = event['user_handle']
 
                     self.process_response(reply_event)
+
                     conn.execute(
                         """ update twitter_events set responded_to = 1 where id = %s and responded_to = 0 """, (event['id']))
+
+                    if reply_event.get('error_on_lookup'):
+                        conn.execute(
+                            """ update twitter_events set error_on_lookup = 1 where id = %s and error_on_lookup = 0 """, (event['id']))
+
 
         except Exception as e:
 
@@ -132,18 +134,10 @@ class TrafficViolationsTweeter:
     def find_messages_to_respond_to(self):
         self.find_and_respond_to_twitter_events()
 
-        # time.sleep(30)
-
-        # # Until I get access to account activity API,
-        # # just search for statuses to which we haven't responded.
-        # self.find_and_respond_to_statuses()
-        # self.find_and_respond_to_direct_messages()
-
     def is_production(self):
         return os.environ.get('ENV') == 'production'
 
     def print_daily_summary(self):
-        # Instantiate a connection.
         conn = self.db_service.get_connection()
 
         utc = pytz.timezone('UTC')
@@ -437,4 +431,3 @@ if __name__ == '__main__':
         tweeter.print_featured_plate()
     else:
         tweeter.run()
-        # app.run()
