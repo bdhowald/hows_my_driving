@@ -636,15 +636,14 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         # Try again with a forced error.
 
-        error_result = {'error': 'server error',
-                        'frequency': 2,
-                        'previous_result': {},
-                        'url': 'https://data.cityofnewyork.us/resource/uvbq-3m68.json?plate=ABCDEFG&state=NY&$where=license_type%20in(%27com%27,%27pas%27)&$limit=10000&$$app_token=q198HrEaAdCJZD4XCLDl2Uq0G'}
-
         violations_mock.status_code = 503
 
-        self.assertEqual(
-            self.aggregator.perform_plate_lookup(args), error_result)
+        result = self.aggregator.perform_plate_lookup(args)
+
+        self.assertEqual('server error', result['error'])
+        self.assertIn('frequency', result)
+        self.assertIn('previous_result', result)
+        self.assertIn('url', result)
 
     def test_create_response(self):
         now = datetime.now()
