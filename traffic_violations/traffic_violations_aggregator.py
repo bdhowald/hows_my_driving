@@ -622,7 +622,7 @@ class TrafficViolationsAggregator:
         count_towards_frequency = 1
 
         # Calculate the number of violations.
-        total_violations = len(result.get('violations', {}))
+        total_violations = result.get('num_violations')
 
         # If this came from message, add it to the plate_lookups table.
         if plate_lookup.message_type and plate_lookup.message_id and plate_lookup.created_at:

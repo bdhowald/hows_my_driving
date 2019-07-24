@@ -173,6 +173,7 @@ class OpenDataService:
         result = {
             'boroughs': [{'title': k.title(), 'count': v} for k, v in boroughs],
             'fines': fines,
+            'num_violations': len(violations),
             'plate': plate_lookup.plate,
             'plate_types': plate_lookup.plate_types,
             'state': plate_lookup.state,
