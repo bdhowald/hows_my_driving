@@ -8,6 +8,7 @@ from common.db_service import DbService
 from datetime import datetime, timedelta
 from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.services.open_data_service import OpenDataService
+from traffic_violations.services.tweet_detection_service import TweetDetectionService
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from typing import Dict, List, Optional
@@ -72,6 +73,7 @@ class TrafficViolationsAggregator:
     def __init__(self, logger):
         self.logger = logger
         self.db_service = DbService(logger)
+        self.tweet_detection_service = TweetDetectionService(logger=self.logger)
 
     def detect_campaign_hashtags(self, string_tokens):
         # hashtag_pattern   = re.compile('[^#\w]+', re.UNICODE)
@@ -200,12 +202,24 @@ class TrafficViolationsAggregator:
         if query_result.get('previous_result'):
 
             # Find new violations.
-            previous_violations = query_result[
-                'previous_result']['num_tickets']
+            previous_lookup = query_result['previous_result']
+            previous_violations = previous_lookup['num_tickets']
             new_violations = total_violations - previous_violations
+            username_for_url = re.sub('@', '', username)
 
             # If there are new violations...
             if new_violations > 0:
+
+                # assume we can't link
+                can_link_tweet = False
+
+                # Where did this come from?
+                if previous_lookup['lookup_source'] == 'status':
+                    # Determine if tweet is still visible:
+                    if self.tweet_detection_service.tweet_exists(id=previous_lookup['message_id'],
+                                                            username=username_for_url):
+
+                        can_link_tweet = True
 
                 # Determine when the last lookup was...
                 previous_time = query_result['previous_result']['created_at']
@@ -222,8 +236,19 @@ class TrafficViolationsAggregator:
                     # Add the new ticket info and previous lookup time to the
                     # string.
                     violations_string += (
-                        f"This vehicle was last queried on {adjusted_time.strftime('%B %-d, %Y')} at {adjusted_time.strftime('%I:%M%p')}. "
-                        f"Since then, #{query_result['state']}_{query_result['plate']} has received {new_violations} new ticket{'' if new_violations == 1 else 's'}.\n\n")
+                        f"This vehicle was last queried on {adjusted_time.strftime('%B% %-d, %Y')} "
+                        f"at {adjusted_time.strftime('%I:%M%p')}")
+
+                    if can_link_tweet:
+                        violations_string += (
+                            f" by @{previous_lookup['external_username']}: "
+                            f"https://twitter.com/{previous_lookup['external_username']}/status/{str(previous_lookup['message_id'])}.")
+                    else:
+                        violations_string += '.'
+
+                    violations_string += (
+                        f" Since then, #{query_result['state']}_{query_result['plate']} "
+                        f"has received {new_violations} new ticket{'' if new_violations == 1 else 's'}.\n\n")
 
         violations_keys = {
             'count': 'count',
@@ -600,10 +625,10 @@ class TrafficViolationsAggregator:
 
         if plate_lookup.plate_types:
             previous_lookup = conn.execute(
-                """ select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s order by created_at desc limit 1 """, (plate_lookup.plate, plate_lookup.state, plate_lookup.plate_types, True))
+                """ select created_at, external_username, lookup_source, message_id, num_tickets from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s order by created_at desc limit 1 """, (plate_lookup.plate, plate_lookup.state, plate_lookup.plate_types, True))
         else:
             previous_lookup = conn.execute(
-                """ select num_tickets, created_at from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s order by created_at desc limit 1 """, (plate_lookup.plate, plate_lookup.state, True))
+                """ select created_at, external_username, lookup_source, message_id, num_tickets from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s order by created_at desc limit 1 """, (plate_lookup.plate, plate_lookup.state, True))
 
         # Turn data into list of dicts with attribute keys
         previous_data = [dict(zip(tuple(previous_lookup.keys()), i))

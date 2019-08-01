@@ -224,8 +224,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': '2018', 'count': 13}
                 ],
                 'previous_result': {
-                    'num_tickets': 23,
-                    'created_at': previous_time
+                    'created_at': previous_time,
+                    'external_username': '@BarackObama',
+                    'message_id': 12345678901234567890,
+                    'lookup_source': 'direct_message',
+                    'num_tickets': 23
                 },
                 'frequency': 8,
                 'boroughs': [
@@ -250,7 +253,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '#NY_HME6483 (types: pas) has been queried 8 times.\n'
                 '\n'
                 'This vehicle was last queried on ' + adjusted_time.strftime(
-                    '%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '. '
+                    '%B %-d, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '. '
                 'Since then, #NY_HME6483 has received 2 new tickets.\n'
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
@@ -312,8 +315,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': '2018', 'count': 13}
                 ],
                 'previous_result': {
-                    'num_tickets': 23,
-                    'created_at': previous_time
+                    'created_at': previous_time,
+                    'external_username': 'BarackObama',
+                    'message_id': 12345678901234567890,
+                    'lookup_source': 'status',
+                    'num_tickets': 23
                 },
                 'frequency': 8,
                 'boroughs': [
@@ -338,23 +344,24 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '#NY_HME6483 has been queried 8 times.\n'
                 '\n'
                 'This vehicle was last queried on ' + adjusted_time.strftime(
-                    '%B %e, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '. '
+                    '%B %-d, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') +
+                    ' by @BarackObama: https://twitter.com/BarackObama/status/12345678901234567890. ' +
                 'Since then, #NY_HME6483 has received 2 new tickets.\n'
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
+                '\n',
+                "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
                 '\n'
                 '14 | No Standing - Day/Time Limits\n'
-                '3   | No Parking - Street Cleaning\n',
-                "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
-                '\n'
+                '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
-                '1   | Bus Lane Violation\n'
-                '1   | Failure To Stop At Red Light\n'
-                '1   | No Standing - Commercial Meter Zone\n'
-                '1   | Expired Meter\n',
+                '1   | Bus Lane Violation\n',
                 "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
                 '\n'
+                '1   | Failure To Stop At Red Light\n'
+                '1   | No Standing - Commercial Meter Zone\n'
+                '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
                 'Violations by year for #NY_HME6483:\n'
@@ -375,6 +382,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     )
     @ddt.unpack
     def test_form_plate_lookup_response_parts(self, data: {}, response: [], username):
+
+        tweet_exists_mock = MagicMock(name='tweet_exists')
+        tweet_exists_mock.return_value = True
+
+        tweet_detection_service_mock = MagicMock(name='tweet_detection_service')
+        tweet_detection_service_mock.tweet_exists = tweet_exists_mock
+
+        self.aggregator.tweet_detection_service = tweet_detection_service_mock
+
         self.assertEqual(self.aggregator.form_plate_lookup_response_parts(
             data, username), response)
 
@@ -577,8 +593,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         ]
 
         result = {
+            'boroughs': [
+                {'count': 2, 'title': 'Manhattan'}
+            ],
+            'fines': [('fined', 150.0), ('reduced', 20.0), ('paid', 0), ('outstanding', 0)],
+            'frequency': 2,
+            'num_violations': 2,
             'plate': 'ABCDEFG',
             'plate_types': 'com,pas',
+            'previous_result': {},
             'state': 'NY',
             'violations': [
                 {
@@ -594,12 +617,6 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 {'title': '2017', 'count': 1},
                 {'title': '2018', 'count': 1}
             ],
-            'previous_result': {},
-            'frequency': 2,
-            'boroughs': [
-                {'count': 2, 'title': 'Manhattan'}
-            ],
-            'fines': [('fined', 150.0), ('reduced', 20.0), ('paid', 0), ('outstanding', 0)],
         }
 
         violations_mock = MagicMock(name='violations')

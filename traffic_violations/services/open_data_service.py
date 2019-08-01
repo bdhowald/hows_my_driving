@@ -5,7 +5,6 @@ import requests
 import requests_futures.sessions
 
 from collections import Counter
-from common.db_service import DbService
 from datetime import datetime
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
@@ -86,7 +85,7 @@ class OpenDataService:
 
     def __init__(self, logger):
         # Set up retry ability
-        s_req = requests_futures.sessions.FuturesSession(max_workers=6)
+        s_req = requests_futures.sessions.FuturesSession(max_workers=9)
 
         retries = Retry(total=5,
                         backoff_factor=0.1,
@@ -98,7 +97,6 @@ class OpenDataService:
         self.api = s_req
 
         self.logger = logger
-        self.db_service = DbService(self.logger)
         self.location_service = LocationService(logger)
 
 
