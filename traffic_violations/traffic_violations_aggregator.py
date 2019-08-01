@@ -236,7 +236,7 @@ class TrafficViolationsAggregator:
                     # Add the new ticket info and previous lookup time to the
                     # string.
                     violations_string += (
-                        f"This vehicle was last queried on {adjusted_time.strftime('%B% %-d, %Y')} "
+                        f"This vehicle was last queried on {adjusted_time.strftime('%B %-d, %Y')} "
                         f"at {adjusted_time.strftime('%I:%M%p')}")
 
                     if can_link_tweet:
