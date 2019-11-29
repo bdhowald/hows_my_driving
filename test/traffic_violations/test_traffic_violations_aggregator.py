@@ -1,5 +1,6 @@
 import ddt
 import logging
+import mock
 import pytz
 import random
 import requests
@@ -11,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 from common.db_service import DbService
 from unittest.mock import MagicMock
 
+from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.reply_argument_builder import HowsMyDrivingAPIRequest
 from traffic_violations.traffic_violations_aggregator import TrafficViolationsAggregator
 
@@ -223,13 +225,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': '2017', 'count': 8},
                     {'title': '2018', 'count': 13}
                 ],
-                'previous_result': {
-                    'created_at': previous_time,
-                    'external_username': '@BarackObama',
-                    'message_id': 12345678901234567890,
-                    'lookup_source': 'direct_message',
-                    'num_tickets': 23
-                },
+                'previous_result': PlateLookup(
+                    created_at=previous_time,
+                    message_id=12345678901234567890,
+                    message_type='direct_message',
+                    num_tickets=23,
+                    username='BarackObama'
+                ),
                 'frequency': 8,
                 'boroughs': [
                     {'count': 1, 'title': 'Bronx'},
@@ -314,13 +316,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': '2017', 'count': 8},
                     {'title': '2018', 'count': 13}
                 ],
-                'previous_result': {
-                    'created_at': previous_time,
-                    'external_username': 'BarackObama',
-                    'message_id': 12345678901234567890,
-                    'lookup_source': 'status',
-                    'num_tickets': 23
-                },
+                'previous_result': PlateLookup(
+                    created_at=previous_time,
+                    message_id=12345678901234567890,
+                    message_type='status',
+                    num_tickets=23,
+                    username='BarackObama'
+                ),
                 'frequency': 8,
                 'boroughs': [
                     {'count': 1, 'title': 'Bronx'},
@@ -392,7 +394,17 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.aggregator.tweet_detection_service = tweet_detection_service_mock
 
         self.assertEqual(self.aggregator.form_plate_lookup_response_parts(
-            data, username), response)
+            borough_data=data['boroughs'],
+            camera_streak_data=data['camera_streak_data'],
+            fine_data=data['fines'],
+            frequency=data['frequency'],
+            plate=data['plate'],
+            plate_types=data['plate_types'],
+            previous_lookup=data['previous_result'],
+            state=data['state'],
+            username=username,
+            violations=data['violations'],
+            year_data=data['years']), response)
 
     def test_form_summary_string(self):
 
@@ -435,13 +447,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         keys = {
             'count': 'count',
-            'continued_format_string': "Violations by year for #{}_{}:, cont'd\n\n",
-            'continued_format_string_args': [state, plate],
+            'continued_format_string': f"Violations by year for #{state}_{plate}:, cont'd\n\n",
             'cur_string': '',
             'description': 'title',
             'default_description': 'No Year Available',
-            'prefix_format_string': 'Violations by year for #{}_{}:\n\n',
-            'prefix_format_string_args': [state, plate],
+            'prefix_format_string': f'Violations by year for #{state}_{plate}:\n\n',
             'result_format_string': '{}| {}\n',
             'username': username
         }
@@ -450,7 +460,14 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             state, plate) + '1 | 2017\n1 | 2018\n']
 
         self.assertEqual(self.aggregator.handle_response_part_formation(
-            collection, keys), result)
+            collection=collection,
+            count='count',
+            continued_format_string=f"Violations by year for #{state}_{plate}:, cont'd\n\n",
+            description='title',
+            default_description='No Year Available',
+            prefix_format_string=f'Violations by year for #{state}_{plate}:\n\n',
+            result_format_string='{}| {}\n',
+            username=username), result)
 
     def test_initiate_reply(self):
         create_response_mock = MagicMock(name='create_response')
@@ -528,13 +545,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertEqual(self.aggregator.perform_campaign_lookup(
             included_campaigns), result)
 
-    def test_perform_plate_lookup(self):
+    @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup')
+    def test_perform_plate_lookup(self, mocked_plate_lookup):
         rand_int = random.randint(10000000000000000000, 20000000000000000000)
         now = datetime.now()
-        previous = now - timedelta(minutes=10)
+        previous_time = now - timedelta(minutes=10)
         utc = pytz.timezone('UTC')
         now_str = utc.localize(now).astimezone(
             timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+
+        previous_message_id = rand_int + 1
+        previous_message_type = 'status'
+        previous_num_tickets = 1
+        previous_username = 'BarackObama'
 
         args = {
             'created_at': now_str,
@@ -543,9 +566,29 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'included_campaigns': [(87, '#BetterPresident')],
             'plate': 'ABCDEFG',
             'plate_types': 'com,pas',
-            'state': 'ny',
+            'state': 'NY',
             'username': 'bdhowald'
         }
+
+        current_lookup = PlateLookup(created_at=now_str,
+            message_id=args['message_id'],
+            message_type=args['message_type'],
+            plate=args['plate'],
+            plate_types=args['plate_types'],
+            state=args['state'],
+            username=args['username'])
+        previous_lookup = PlateLookup(created_at=previous_time,
+              message_id=previous_message_id,
+              message_type=previous_message_type,
+              num_tickets=previous_num_tickets,
+              username=previous_username)
+
+        mocked_plate_lookup.side_effect = [
+          current_lookup,
+          previous_lookup,
+          current_lookup,
+          previous_lookup
+        ]
 
         violations = [
             {
@@ -601,7 +644,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'num_violations': 2,
             'plate': 'ABCDEFG',
             'plate_types': 'com,pas',
-            'previous_result': {},
+            'previous_result': previous_lookup,
             'state': 'NY',
             'violations': [
                 {
@@ -638,7 +681,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         requests_futures.sessions.FuturesSession = session_object_mock
 
         cursor_mock = MagicMock(name='cursor')
-        cursor_mock.cursor = [{'num_tickets': 1, 'created_at': previous}]
+        cursor_mock.cursor = [(previous_time, previous_message_id, previous_message_type,
+            previous_message_type, previous_username)]
+        cursor_mock.keys.return_value = ['created_at', 'message_id', 'message_type', 'num_tickets', 'username']
         cursor_mock.fetchone.return_value = (1,)
 
         execute_mock = MagicMock(name='execute')
@@ -662,7 +707,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertIn('previous_result', result)
         self.assertIn('url', result)
 
-    def test_create_response(self):
+    @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup')
+    def test_create_response(self, mocked_plate_lookup):
         now = datetime.now()
         previous_time = now - timedelta(minutes=10)
         utc = pytz.timezone('UTC')
@@ -691,8 +737,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'frequency': 1,
             'plate': 'HME6483',
             'plate_types': None,
-            'previous_result': {'created_at': previous_time,
-                                'num_tickets': 15},
+            'previous_result': PlateLookup(created_at=previous_time,
+                message_id=123,
+                message_type='direct_message',
+                num_tickets=15,
+                username='BarackObama'),
             'state': 'NY',
             'violations': [{'count': 4, 'title': 'No Standing - Day/Time Limits'},
                            {'count': 3, 'title': 'No Parking - Street Cleaning'},
@@ -792,11 +841,14 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         )
         plate_lookup2 = {
             'fines': [('fined', 1000.0), ('outstanding', 225.0), ('paid', 775.0)],
-            'frequency': 1,
+            'frequency': 2,
             'plate': 'GLF7467',
             'plate_types': None,
-            'previous_result': {'created_at': previous_time,
-                                'num_tickets': 49},
+            'previous_result': PlateLookup(created_at=previous_time,
+                message_id=123,
+                message_type='direct_message',
+                num_tickets=49,
+                username='BarackObama'),
             'state': 'PA',
             'violations': [{'count': 17, 'title': 'No Parking - Street Cleaning'},
                            {'count': 6, 'title': 'Expired Meter'},
@@ -814,7 +866,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                            {'count': 1, 'title': 'Double Parking'}]
         }
 
-        response_parts2 = [['#PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n",
+        response_parts2 = [['#PA_GLF7467 has been queried 2 times.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n",
                             "Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", 'Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
 
         response2 = {

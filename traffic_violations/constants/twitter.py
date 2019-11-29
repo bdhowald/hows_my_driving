@@ -1,0 +1,2 @@
+MAX_TWITTER_STATUS_LENGTH: int = 280
+TWITTER_TIME_FORMAT: str = '%a %b %d %H:%M:%S %z %Y'
