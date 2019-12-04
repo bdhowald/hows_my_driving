@@ -14,5 +14,11 @@ class Base(db.DeclarativeBase):
         return cls.query.filter_by(**kwargs).all()
 
     @classmethod
+    def get_all_in(cls, **kwargs):
+        assert kwargs, 'kwargs can\'t be empty'
+        query_tuples = [getattr(cls, k).in_(v) for k, v in kwargs.items()]
+        return cls.query.filter(*query_tuples).all()
+
+    @classmethod
     def iter_all(cls):
         return cls.query

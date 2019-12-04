@@ -8,12 +8,27 @@ from common.db_service import DbService
 from datetime import datetime, timedelta
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from traffic_violations.constants import L10N, regexps as regexp_constants, twitter as twitter_constants
+from traffic_violations.constants import L10N, regexps as regexp_constants, \
+    twitter as twitter_constants
+
+from traffic_violations.models.lookup_requests import BaseLookupRequest
+from traffic_violations.models.camera_streak_data import CameraStreakData
+from traffic_violations.models.campaign import Campaign
+from traffic_violations.models.fine_data import FineData
 from traffic_violations.models.plate_lookup import PlateLookup
-from traffic_violations.services.open_data_service import OpenDataService
-from traffic_violations.services.tweet_detection_service import TweetDetectionService
+from traffic_violations.models.plate_query import PlateQuery
+from traffic_violations.models.response.open_data_service_plate_lookup \
+    import OpenDataServicePlateLookup
+from traffic_violations.models.response.open_data_service_response \
+    import OpenDataServiceResponse
+from traffic_violations.models.response.traffic_violations_aggregator_response \
+    import TrafficViolationsAggregatorResponse
+from traffic_violations.models.vehicle import Vehicle
+
+from traffic_violations.services.apis.open_data_service import OpenDataService
+from traffic_violations.services.apis.tweet_detection_service import TweetDetectionService
 
 
 class TrafficViolationsAggregator:
@@ -25,21 +40,12 @@ class TrafficViolationsAggregator:
         self.db_service = DbService(logger)
         self.tweet_detection_service = TweetDetectionService(logger=self.logger)
 
-    def detect_campaign_hashtags(self, string_tokens):
-        # Instantiate connection.
-        conn = self.db_service.get_connection()
+    def _detect_campaign_hashtags(self, string_tokens):
+        """ Look for campaign hashtags in the message's text. """
 
-        # Look for campaign hashtags in the message's text.
-        campaigns_present = conn.execute(""" select id, hashtag from campaigns where hashtag in (%s) """ % ','.join(
-            ['%s'] * len(string_tokens)), [regexp_constants.HASHTAG_PATTERN.sub('', string) for string in string_tokens])
-        result = [tuple(i) for i in campaigns_present.cursor]
+        return Campaign.get_all_in(hashtag=tuple([regexp_constants.HASHTAG_PATTERN.sub('', string) for string in string_tokens]))
 
-        # Close the connection
-        conn.close()
-
-        return result
-
-    def detect_plate_types(self, plate_types_input):
+    def detect_plate_types(self, plate_types_input) -> bool:
         plate_types_pattern = re.compile(regexp_constants.REGISTRATION_TYPES_REGEX)
 
         if ',' in plate_types_input:
@@ -48,28 +54,29 @@ class TrafficViolationsAggregator:
         else:
             return plate_types_pattern.search(plate_types_input.upper()) != None
 
-    def detect_state(self, state_input):
+    def detect_state(self, state_input) -> bool:
         # or state_full_pattern.search(state_input.upper()) != None
+        """ Does this input constitute a valid state abbreviation """
         if state_input is not None:
             return regexp_constants.STATE_ABBR_PATTERN.search(state_input.upper()) != None
 
         return False
 
-    def find_potential_vehicles(self, list_of_strings):
+    def find_potential_vehicles(self, list_of_strings: List[str]) -> List[Vehicle]:
 
         # Use new logic of '<state>:<plate>'
-        plate_tuples = [[part.strip() for part in match.split(':')] for match in re.findall(regexp_constants.PLATE_FORMAT_REGEX, ' '.join(
+        plate_tuples: Union[Tuple[str, str, str], Tuple[str, str]] = [[part.strip() for part in match.split(':')] for match in re.findall(regexp_constants.PLATE_FORMAT_REGEX, ' '.join(
             list_of_strings)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
 
         return self.infer_plate_and_state_data(plate_tuples)
 
-    def find_potential_vehicles_using_legacy_logic(self, list_of_strings):
+    def find_potential_vehicles_using_legacy_logic(self, list_of_strings: List[str]) -> List[Vehicle]:
 
         # Find potential plates
 
         # Use old logic of 'state:<state> plate:<plate>'
-        potential_vehicles = []
-        legacy_plate_data = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower(
+        potential_vehicles: List[Vehicle] = []
+        legacy_plate_data: Tuple = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower(
         ) for part in list_of_strings if ('state:' in part.lower() or 'plate:' in part.lower() or 'types:' in part.lower())]])
 
         if legacy_plate_data:
@@ -78,7 +85,12 @@ class TrafficViolationsAggregator:
             else:
                 legacy_plate_data['valid_plate'] = False
 
-            potential_vehicles.append(legacy_plate_data)
+            vehicle: Vehicle = Vehicle(plate=legacy_plate_data.get('plate'),
+              plate_types=legacy_plate_data.get('types'),
+              state=legacy_plate_data.get('state'),
+              valid_plate=legacy_plate_data['valid_plate'])
+
+            potential_vehicles.append(vehicle)
 
         return potential_vehicles
 
@@ -113,17 +125,17 @@ class TrafficViolationsAggregator:
 
     def form_plate_lookup_response_parts(
           self,
+          borough_data:  List[Tuple[str, int]],
           frequency: int,
+          fine_data: FineData,
           plate: str,
           plate_types: List[str],
           state: str,
           username: str,
-          violations: Dict[str, Any],
-          borough_data: Optional[Dict[str, Any]] = None,
-          camera_streak_data: Optional[Dict[str, Any]] = None,
-          fine_data: Optional[Dict[str, Any]] = None,
-          previous_lookup: Optional[Dict[str, Any]] = None,
-          year_data: Optional[Dict[str, Any]] = None):
+          violations: List[Tuple[str, int]],
+          year_data: List[Tuple[str, int]],
+          camera_streak_data: Optional[CameraStreakData] = None,
+          previous_lookup: Optional[PlateLookup] = None):
 
         # response_chunks holds tweet-length-sized parts of the response
         # to be tweeted out or appended into a single direct message.
@@ -187,11 +199,13 @@ class TrafficViolationsAggregator:
                 result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
                 username=username)
 
-        if fine_data and any([k[1] != 0 for k in fine_data]):
+
+        if fine_data and fine_data.fines_assessed():
+        # if fine_data and any([k[1] != 0 for k in fine_data]):
 
             cur_string = f"Known fines for {L10N.VEHICLE_HASHTAG.format(state, plate)}:\n\n"
 
-            max_count_length = len('${:,.2f}'.format(max(t[1] for t in fine_data)))
+            max_count_length = len('${:,.2f}'.format(fine_data.max_amount()))
             spaces_needed = (max_count_length * 2) + 1
 
             for fine_type, amount in fine_data:
@@ -227,15 +241,15 @@ class TrafficViolationsAggregator:
 
         if camera_streak_data:
 
-            if camera_streak_data.get('max_streak') and camera_streak_data['max_streak'] >= 5:
+            if camera_streak_data.max_streak and camera_streak_data.max_streak >= 5:
 
                 # formulate streak string
                 streak_string = (
                     f"Under @bradlander's proposed legislation, "
                     f"this vehicle could have been booted or impounded "
-                    f"due to its {camera_streak_data['max_streak']} camera violations "
-                    f"(>= 5/year) from {camera_streak_data['min_streak_date']}"
-                    f" to {camera_streak_data['max_streak_date']}.\n")
+                    f"due to its {camera_streak_data.max_streak} camera violations "
+                    f"(>= 5/year) from {camera_streak_data.min_streak_date}"
+                    f" to {camera_streak_data.max_streak_date}.\n")
 
                 # add to container
                 response_chunks.append(streak_string)
@@ -243,39 +257,48 @@ class TrafficViolationsAggregator:
         # Send it back!
         return response_chunks
 
-    def form_summary_string(self, summary, username):
+    def _form_summary_string(self, summary: TrafficViolationsAggregatorResponse) -> str:
+        num_vehicles = len(summary.plate_lookups)
+        num_tickets = sum(len(lookup.violations) for lookup in summary.plate_lookups)
+        aggregate_fines: FineData = FineData(**{field: sum(getattr(lookup.fine_data, field) for lookup in summary.plate_lookups) for field in FineData.FINE_FIELDS})
         return [
-            f"The {summary['vehicles']} vehicles you queried have collectively received "
-            f"{summary['tickets']} ticket{L10N.pluralize(summary['tickets'])} with at "
-            f"least {'${:,.2f}'.format(summary['fines']['fined'] - summary['fines']['reduced'])} "
-            f"in fines, of which {'${:,.2f}'.format(summary['fines']['paid'])} has been paid.\n\n"]
+            f"The {num_vehicles} vehicles you queried have collectively received "
+            f"{num_tickets} ticket{L10N.pluralize(num_tickets)} with at "
+            f"least {'${:,.2f}'.format(aggregate_fines.fined - aggregate_fines.reduced)} "
+            f"in fines, of which {'${:,.2f}'.format(aggregate_fines.paid)} has been paid.\n\n"]
 
-    def get_plate_lookup(self, args: List):
-        # Grab plate and plate from args.
+    def _get_plate_query(self, request_object: Type[BaseLookupRequest], vehicle: Vehicle) -> PlateQuery:
 
-        created_at: Optional[str] = datetime.strptime(args['created_at'], twitter_constants.TWITTER_TIME_FORMAT).strftime(self.MYSQL_TIME_FORMAT
-            ) if 'created_at' in args else None
-        message_id: Optional[str] = args['message_id'] if 'message_id' in args else None
-        message_type: str = args['message_type']
+        """Transform a request object into plate query"""
 
-        plate: str = regexp_constants.PLATE_PATTERN.sub('', args['plate'].strip().upper())
-        state: str = args['state'].strip().upper()
+        created_at: str = datetime.strptime(request_object.created_at(),
+            twitter_constants.TWITTER_TIME_FORMAT).strftime(self.MYSQL_TIME_FORMAT)
 
-        plate_types: str = ','.join(sorted([type for type in args['plate_types'].split(
-            ',')])) if args.get('plate_types') is not None else None
+        message_id: Optional[str] = request_object.external_id()
+        message_type: str = request_object.message_type()
 
-        username: str = re.sub('@', '', args['username'])
+        plate: str = regexp_constants.PLATE_PATTERN.sub(
+            '', vehicle.plate.strip().upper())
 
-        self.logger.debug('Listing args... plate: %s, state: %s, message_id: %s, created_at: %s',
-                          plate, state, str(message_id), str(created_at))
+        plate_types: Optional[str] = None
+        if vehicle.plate_types is not None:
+            plate_types = ','.join(sorted([type.strip() for type in vehicle.plate_types.upper().split(',')]))
 
-        return PlateLookup(created_at=created_at,
-          message_id=message_id,
-          message_type=message_type,
-          plate=plate,
-          plate_types=plate_types,
-          state=state,
-          username=username)
+        state: str = vehicle.state.upper()
+
+        username: Optional[str] = re.sub('@', '', request_object.username())
+
+        plate_query: PlateQuery = PlateQuery(created_at=created_at,
+                                      message_id=message_id,
+                                      message_type=message_type,
+                                      plate=plate,
+                                      plate_types=plate_types,
+                                      state=state,
+                                      username=username)
+
+        self.logger.debug(f'plate_query: {plate_query}')
+
+        return plate_query
 
     def handle_response_part_formation(self,
           count: str,
@@ -346,29 +369,33 @@ class TrafficViolationsAggregator:
         # Return parts
         return response_container
 
-    def infer_plate_and_state_data(self, list_of_vehicle_tuples):
-        plate_data = []
+    def infer_plate_and_state_data(self, list_of_vehicle_tuples: Union[Tuple[str, str, str], Tuple[str, str]]) -> List[Vehicle]:
+        potential_vehicles: List[Vehicle] = []
 
         for vehicle_tuple in list_of_vehicle_tuples:
-            this_plate = {'original_string': ':'.join(
-                vehicle_tuple), 'valid_plate': False}
+
+            original_string = ':'.join(vehicle_tuple)
+            plate = None
+            plate_types = None
+            state = None
+            valid_plate = False
 
             if len(vehicle_tuple) in range(2, 4):
-                state_bools = [self.detect_state(
+                state_bools: List[bool] = [self.detect_state(
                     part) for part in vehicle_tuple]
                 try:
                     state_index = state_bools.index(True)
                 except ValueError:
                     state_index = None
 
-                plate_types_bools = [self.detect_plate_types(
+                plate_types_bools: List[bool] = [self.detect_plate_types(
                     part) for part in vehicle_tuple]
                 try:
                     plate_types_index = plate_types_bools.index(True)
                 except ValueError:
                     plate_types_index = None
 
-                have_valid_plate = (len(vehicle_tuple) == 2 and state_index is not None) or (
+                have_valid_plate: bool = (len(vehicle_tuple) == 2 and state_index is not None) or (
                     len(vehicle_tuple) == 3 and None not in [plate_types_index, state_index])
 
                 if have_valid_plate:
@@ -396,20 +423,26 @@ class TrafficViolationsAggregator:
 
                     # Put plate data together
                     if plate_index is not None and vehicle_tuple[plate_index] != '':
-                        this_plate['plate'] = vehicle_tuple[plate_index]
-                        this_plate['state'] = vehicle_tuple[state_index]
+                        plate = vehicle_tuple[plate_index]
+                        state = vehicle_tuple[state_index]
 
                         if plate_types_index is not None:
-                            this_plate['types'] = vehicle_tuple[
+                            plate_types = vehicle_tuple[
                                 plate_types_index]
 
-                        this_plate['valid_plate'] = True
+                        valid_plate = True
 
-            plate_data.append(this_plate)
+            vehicle: Vehicle = Vehicle(original_string=original_string,
+              plate=plate,
+              plate_types=plate_types,
+              state=state,
+              valid_plate=valid_plate)
 
-        return plate_data
+            potential_vehicles.append(vehicle)
 
-    def initiate_reply(self, lookup_request):
+        return potential_vehicles
+
+    def initiate_reply(self, lookup_request: Type[BaseLookupRequest]):
         self.logger.info('\n')
         self.logger.info('Calling initiate_reply')
 
@@ -458,82 +491,68 @@ class TrafficViolationsAggregator:
 
         return result
 
-    def perform_plate_lookup(self, args):
+    def _perform_plate_lookup(self, campaigns: List[Campaign], plate_query: PlateQuery) -> OpenDataServiceResponse:
 
         self.logger.debug('Performing lookup for plate.')
 
-        plate_lookup: PlateLookup = self.get_plate_lookup(args)
+        nyc_open_data_service: OpenDataService = OpenDataService(logger=self.logger)
+        open_data_response: OpenDataServiceResponse = nyc_open_data_service.lookup_vehicle(plate_query=plate_query)
 
-        nyc_open_data_service = OpenDataService(logger=self.logger)
-        result = nyc_open_data_service.lookup_vehicle(plate_lookup=plate_lookup)
-
-        self.logger.debug(f'Violation data: {result}')
-
-        previous_lookup: Optional[PlateLookup] = self.query_for_previous_lookup(plate_lookup=plate_lookup)
-
-        # if we have a previous lookup, add it to the return data.
-        if previous_lookup:
-            result['previous_result'] = previous_lookup
-
-            self.logger.debug('Previous lookups for this vehicle exists: %s', previous_lookup)
+        self.logger.debug(f'Violation data: {open_data_response}')
 
 
-        current_frequency = self.query_for_lookup_frequency(plate_lookup=plate_lookup)
+        if open_data_response.success:
 
-        # how many times have we searched for this plate from a tweet
-        result['frequency'] = current_frequency + 1
+            open_data_plate_lookup: OpenDataServicePlateLookup = open_data_response.data
 
-        self.save_plate_lookup(campaigns=args['included_campaigns'],
-            plate_lookup=plate_lookup, result=result)
+            camera_streak_data: CameraStreakData = open_data_plate_lookup.camera_streak_data
 
-        self.logger.debug('Returned_result: %s', result)
+            # If this came from message, add it to the plate_lookups table.
+            if plate_query.message_type and plate_query.message_id and plate_query.created_at:
+                new_lookup = PlateLookup(
+                  boot_eligible=camera_streak_data.max_streak >= 5 if camera_streak_data else False,
+                  created_at=plate_query.created_at,
+                  message_id=plate_query.message_id,
+                  message_type=plate_query.message_type,
+                  num_tickets=open_data_plate_lookup.num_violations,
+                  plate=plate_query.plate,
+                  plate_types=plate_query.plate_types,
+                  state=plate_query.state,
+                  username=plate_query.username
+                )
 
-        return result
+                # Iterate through included campaigns to tie lookup to each
+                for campaign in campaigns:
+                    # insert join record for campaign lookup
+                    new_lookup.campaigns.append(campaign)
 
-    def query_for_lookup_frequency(self, plate_lookup) -> int:
-        # Instantiate connection.
-        conn = self.db_service.get_connection()
+                # Insert plate lookup
+                PlateLookup.query.session.add(new_lookup)
+                PlateLookup.query.session.commit()
 
-        # Find the number of times we have seen this vehicle before.
-        if plate_lookup.plate_types:
-            current_frequency = conn.execute(
-                """ select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s """, (plate_lookup.plate, plate_lookup.state, plate_lookup.plate_types, True)).fetchone()[0]
         else:
-            current_frequency = conn.execute(
-                """ select count(*) as lookup_frequency from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s """, (plate_lookup.plate, plate_lookup.state, True)).fetchone()[0]
+            self.logger.info(f'open data plate lookup failed')
 
-        conn.close()
+        return open_data_response
 
-        return current_frequency
+    def _proceess_lookup_results(self, plate_query: PlateLookup):
+        pass
 
-    def query_for_previous_lookup(self, plate_lookup) -> Optional[PlateLookup]:
-        # See if we've seen this vehicle before.
+    def _query_for_lookup_frequency(self, plate_query: PlateQuery) -> int:
+        return PlateLookup.query.filter_by(
+            plate=plate_query.plate,
+            plate_types=plate_query.plate_types,
+            state=plate_query.state).count()
 
-        conn = self.db_service.get_connection()
+    def _query_for_previous_lookup(self, plate_query: PlateQuery) -> Optional[PlateLookup]:
 
-        previous_lookup = None
+        """ See if we've seen this vehicle before. """
 
-        if plate_lookup.plate_types:
-            previous_lookup = conn.execute(
-                """ select created_at, external_username as username, lookup_source as message_type, message_id, num_tickets from plate_lookups where plate = %s and state = %s and plate_types = %s and count_towards_frequency = %s order by created_at desc limit 1 """, (plate_lookup.plate, plate_lookup.state, plate_lookup.plate_types, True))
-        else:
-            previous_lookup = conn.execute(
-                """ select created_at, external_username as username, lookup_source as message_type, message_id, num_tickets from plate_lookups where plate = %s and state = %s and plate_types IS NULL and count_towards_frequency = %s order by created_at desc limit 1 """, (plate_lookup.plate, plate_lookup.state, True))
-
-        # Turn data into list of dicts with attribute keys
-        previous_data = [dict(zip(tuple(previous_lookup.keys()), i))
-                         for i in previous_lookup.cursor][0]
-
-        conn.close()
-
-        if previous_data:
-            return PlateLookup(created_at=previous_data['created_at'],
-                message_id=previous_data['message_id'],
-                message_type=previous_data['message_type'],
-                num_tickets=previous_data['num_tickets'],
-                username=previous_data['username'])
-        else:
-            return None
+        return PlateLookup.get_by(
+                plate=plate_query.plate,
+                state=plate_query.state,
+                plate_types=plate_query.plate_types,
+                count_towards_frequency=True)
 
     def save_plate_lookup(self, campaigns, plate_lookup, result) -> None:
         conn = self.db_service.get_connection()
@@ -549,14 +568,28 @@ class TrafficViolationsAggregator:
         # If this came from message, add it to the plate_lookups table.
         if plate_lookup.message_type and plate_lookup.message_id and plate_lookup.created_at:
             # Insert plate lookupresult
-            insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, plate_types, observed, message_id, lookup_source, created_at, external_username, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (
-                plate_lookup.plate, plate_lookup.state, plate_lookup.plate_types, plate_lookup.message_id, plate_lookup.message_type, plate_lookup.created_at, plate_lookup.username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
+            new_lookup = PlateLookup(
+              boot_eligible=camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False,
+              count_towards_frequency=count_towards_frequency,
+              created_at=created_at,
+              message_id=message_id,
+              message_type=message_type,
+              num_tickets=num_tickets,
+              plate=plate,
+              plate_types=plate_types,
+              state=state,
+              username=username
+            )
+            PlateLookup.query.session.add(new_lookup)
+            PlateLookup.query.session.commit()
+            # insert_lookup = conn.execute(""" insert into plate_lookups (plate, state, plate_types, observed, message_id, lookup_source, created_at, external_username, count_towards_frequency, num_tickets, boot_eligible, responded_to) values (%s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, 1) """, (
+            #     plate_lookup.plate, plate_lookup.state, plate_lookup.plate_types, plate_lookup.message_id, plate_lookup.message_type, plate_lookup.created_at, plate_lookup.username, count_towards_frequency, total_violations, camera_streak_data.get('max_streak') >= 5 if camera_streak_data else False))
 
             # Iterate through included campaigns to tie lookup to each
             for campaign in campaigns:
                 # insert join record for campaign lookup
                 conn.execute(""" insert into campaigns_plate_lookups (campaign_id, plate_lookup_id) values (%s, %s) """, (campaign[
-                             0], insert_lookup.lastrowid))
+                             0], new_lookup.id))
 
         conn.close()
 
@@ -615,17 +648,13 @@ class TrafficViolationsAggregator:
 
         return violations_string
 
-    def create_response(self, request_object):
+    def create_response(self, request_object: Type[BaseLookupRequest]):
 
         self.logger.info('\n')
-        self.logger.info("Calling create_response")
+        self.logger.info('Calling create_response')
 
-        # Print args
-        self.logger.info('args:')
-        self.logger.info('request_object: %s', request_object)
-
-        # Grab string parts
-        self.logger.debug('string_tokens: %s', request_object.string_tokens())
+        # Grab tweet details for reply.
+        self.logger.debug(f'request_object: {request_object}')
 
         # Collect response parts here.
         response_parts = []
@@ -634,130 +663,96 @@ class TrafficViolationsAggregator:
 
         # Wrap in try/catch block
         try:
+
             # Find potential plates
-            potential_vehicles = self.find_potential_vehicles(
+            potential_vehicles: List[Vehicle] = self.find_potential_vehicles(
                 request_object.string_tokens())
-            self.logger.debug('potential_vehicles: %s', potential_vehicles)
-
-            # Find included campaign hashtags
-            included_campaigns = self.detect_campaign_hashtags(
-                request_object.string_tokens())
-            self.logger.debug('included_campaigns: %s', included_campaigns)
-
-            # Grab legacy string parts
-            self.logger.debug('legacy_string_tokens: %s',
-                              request_object.legacy_string_tokens())
+            self.logger.debug(f'potential_vehicles: {potential_vehicles}')
 
             potential_vehicles += self.find_potential_vehicles_using_legacy_logic(
                 request_object.legacy_string_tokens())
-            self.logger.debug('potential_vehicles: %s', potential_vehicles)
+            self.logger.debug(f'potential_vehicles: {potential_vehicles}')
 
-            # Grab user info
-            self.logger.debug('username: %s',
-                              request_object.username())
-            self.logger.debug('mentioned_users: %s',
-                              request_object.mentioned_users())
 
-            # Grab tweet details for reply.
-            self.logger.debug("message id: %s",
-                              request_object.external_id())
-            self.logger.debug('message created at: %s',
-                              request_object.created_at())
-            self.logger.debug('message_source: %s',
-                              request_object.message_source())
-            self.logger.debug('message_type: %s',
-                              request_object.message_type())
+            # Find included campaign hashtags
+            included_campaigns = self._detect_campaign_hashtags(
+                request_object.string_tokens())
+            self.logger.debug(f'included_campaigns: {included_campaigns}')
 
-            # Split plate and state strings into key/value pairs.
-            query_info = {
-                'created_at': request_object.created_at(),
-                'included_campaigns': included_campaigns,
-                'message_id': request_object.external_id(),
-                'message_type': request_object.message_type(),
-                'username': request_object.username()
-            }
-
-            self.logger.debug("lookup info: %s", query_info)
 
             # for each vehicle, we need to determine if the supplied information amounts to a valid plate
             # then we need to look up each valid plate
-            # then we need to respond in a single thread in order with the
-            # responses
+            # then we need to respond in a single thread in order with the responses
 
-            summary = {
-                'fines': {
-                    'fined': 0,
-                    'outstanding': 0,
-                    'reduced': 0,
-                    'paid': 0
-                },
-                'tickets': 0,
-                'vehicles': 0
-            }
+            summary: TrafficViolationsAggregatorResponse = TrafficViolationsAggregatorResponse()
 
             for potential_vehicle in potential_vehicles:
 
-                if potential_vehicle.get('valid_plate'):
+                if potential_vehicle.valid_plate:
 
-                    query_info['plate'] = potential_vehicle.get('plate')
-                    query_info['state'] = potential_vehicle.get('state')
-                    query_info['plate_types'] = potential_vehicle.get(
-                        'types').upper() if 'types' in potential_vehicle else None
+                    plate_query: PlateQuery = self._get_plate_query(
+                        vehicle=potential_vehicle,
+                        request_object=request_object)
 
                     # Do the real work!
-                    plate_lookup_response = self.perform_plate_lookup(query_info)
+                    open_data_response: OpenDataServiceResponse = self._perform_plate_lookup(
+                        campaigns=included_campaigns,
+                        plate_query=plate_query)
 
-                    # Increment summary vehicle info
-                    summary['vehicles'] += 1
-
-                    if plate_lookup_response.get('violations'):
-
-                        # Increment summary ticket info
-                        summary['tickets'] += sum(s['count']
-                                                  for s in plate_lookup_response['violations'])
-                        for k, v in {key[0]: key[1] for key in plate_lookup_response['fines']}.items():
-                            summary['fines'][k] += v
+                    if open_data_response.success:
 
                         # Record successful lookup.
                         successful_lookup = True
 
-                        plate_lookup_response_parts: List[Any] = self.form_plate_lookup_response_parts(
-                            borough_data=plate_lookup_response.get('boroughs'),
-                            camera_streak_data=plate_lookup_response.get('camera_streak_data'),
-                            fine_data=plate_lookup_response['fines'],
-                            frequency=plate_lookup_response['frequency'],
-                            plate=plate_lookup_response['plate'],
-                            plate_types=plate_lookup_response['plate_types'],
-                            previous_lookup=plate_lookup_response['previous_result'],
-                            state=plate_lookup_response['state'],
-                            username=request_object.username(),
-                            violations=plate_lookup_response['violations'],
-                            year_data=plate_lookup_response.get('years'))
+                        plate_lookup: OpenDataServicePlateLookup = open_data_response.data
 
-                        response_parts.append(plate_lookup_response_parts)
-                        # [[campaign_stuff], tickets_0, tickets_1, etc.]
+                        # do we have a previous lookup
+                        previous_lookup: Optional[PlateLookup] = self._query_for_previous_lookup(plate_query=plate_query)
+                        self.logger.debug(f'Previous lookup for this vehicle: {previous_lookup}')
 
-                    elif plate_lookup_response.get('error'):
+                        # how many times have we searched for this plate from a tweet
+                        current_frequency: int = self._query_for_lookup_frequency(plate_query)
+
+                        # self._proceess_lookup_results()
+
+                        # Add lookup to summary
+                        summary.plate_lookups.append(plate_lookup)
+
+                        if plate_lookup.violations:
+
+                            plate_lookup_response_parts: List[Any] = self.form_plate_lookup_response_parts(
+                                borough_data=plate_lookup.boroughs,
+                                camera_streak_data=plate_lookup.camera_streak_data,
+                                fine_data=plate_lookup.fines,
+                                frequency=(current_frequency + 1),
+                                plate=plate_lookup.plate,
+                                plate_types=plate_lookup.plate_types,
+                                previous_lookup=previous_lookup,
+                                state=plate_lookup.state,
+                                username=request_object.username(),
+                                violations=plate_lookup.violations,
+                                year_data=plate_lookup.years)
+
+                            response_parts.append(plate_lookup_response_parts)
+                            # [[campaign_stuff], tickets_0, tickets_1, etc.]
+
+                        else:
+                            # Let user know we didn't find anything.
+                            response_parts.append([
+                                f"I couldn't find any tickets for "
+                                f"{plate_query.state}:{plate_query.plate}"
+                                f"{(' (types: ' + plate_query.plate_types + ')') if plate_query.plate_types else ''}."])
+
+                    else:
 
                         # Record lookup error.
                         error_on_lookup = True
 
                         response_parts.append([
                             f"Sorry, I received an error when looking up "
-                            f"{plate_lookup_response.get('state').upper()}:{plate_lookup_response.get('plate').upper()}"
-                            f"{(' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else ''}. "
+                            f"{plate_query.state}:{plate_query.plate}"
+                            f"{(' (types: ' + plate_query.plate_types + ')') if plate_query.plate_types else ''}. "
                             f"Please try again."])
-
-                    else:
-
-                        # Record successful lookup.
-                        successful_lookup = True
-
-                        # Let user know we didn't find anything.
-                        response_parts.append([
-                            f"I couldn't find any tickets for "
-                            f"{potential_vehicle.get('state').upper()}:{potential_vehicle.get('plate').upper()}"
-                            f"{(' (types: ' + potential_vehicle.get('types').upper() + ')') if potential_vehicle.get('types') else ''}."])
 
                 else:
 
@@ -798,9 +793,22 @@ class TrafficViolationsAggregator:
                             ["Sorry, the state appears to be blank."])
 
             # If we have multiple vehicles, prepend a summary.
-            if summary.get('vehicles') > 1 and int(summary.get('fines', {}).get('fined')) > 0:
-                response_parts.insert(0, self.form_summary_string(
-                    summary, request_object.username()))
+            if len(summary.plate_lookups) > 1:
+
+              # # Increment summary ticket info
+              # summary.tickets += sum(s['count']
+              #                           for s in plate_lookup.violations)
+
+              # fine_data: FineData = plate_lookup.fines
+              # for key in ['fined', 'outstanding', 'paid', 'reduced']:
+              #     plate_lookup_fines: float = getattr(plate_lookup.fines, key)
+              #     current_summary_fines: float = getattr(summary.fines, key)
+              #     setattr(summary.fines, key, current_summary_fines + plate_lookup_fines)
+              import pdb
+              pdb.set_trace()
+
+              if int(summary.fines.fined) > 0:
+                response_parts.insert(0, self._form_summary_string(summary))
 
             # Look up campaign hashtags after doing the plate lookups and then
             # prepend to response.
@@ -830,15 +838,9 @@ class TrafficViolationsAggregator:
 
                 self.logger.debug('The data seems to be in the wrong format.')
 
-                state_regex = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NU|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QC|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
-                numbers_regex = r'[0-9]{4}'
-
-                state_pattern = re.compile(state_regex)
-                number_pattern = re.compile(numbers_regex)
-
-                state_matches = [state_pattern.search(
+                state_matches = [regexp_constants.STATE_ABBR_PATTERN.search(
                     s.upper()) != None for s in request_object.string_tokens()]
-                number_matches = [number_pattern.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
+                number_matches = [regexp_constants.NUMBER_PATTERN.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
                     r'\.|@', '', part.lower()) not in set(request_object.mentioned_users()), request_object.string_tokens()))]
 
                 # We have what appears to be a plate and a state abbreviation.
@@ -855,14 +857,10 @@ class TrafficViolationsAggregator:
                     self.logger.debug(
                         'The tweet is missing either state or plate or both.')
 
-                    state_regex_minus_words = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|IA|ID|IL|KS|KY|LA|MA|MB|MD|MH|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NU|NV|NY|PA|PE|PR|PW|QC|RI|SC|SD|SK|STATE|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
-                    state_minus_words_pattern = re.compile(
-                        state_regex_minus_words)
-
-                    state_minus_words_matches = [state_minus_words_pattern.search(
+                    state_minus_words_matches = [regexp_constants.STATE_MINUS_WORDS_PATTERN.search(
                         s.upper()) != None for s in request_object.string_tokens()]
 
-                    number_matches = [number_pattern.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
+                    number_matches = [regexp_constants.NUMBER_PATTERN.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
                         r'\.|@', '', part.lower()) not in set(request_object.mentioned_users()), request_object.string_tokens()))]
 
                     # We have either plate or state.

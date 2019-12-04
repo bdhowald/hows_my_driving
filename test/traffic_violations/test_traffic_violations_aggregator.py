@@ -12,12 +12,28 @@ from datetime import datetime, timezone, timedelta
 from common.db_service import DbService
 from unittest.mock import MagicMock
 
+from traffic_violations.models.camera_streak_data import CameraStreakData
+from traffic_violations.models.campaign import Campaign
+from traffic_violations.models.fine_data import FineData
 from traffic_violations.models.plate_lookup import PlateLookup
+from traffic_violations.models.plate_query import PlateQuery
+from traffic_violations.models.vehicle import Vehicle
+from traffic_violations.models.response.open_data_service_plate_lookup \
+    import OpenDataServicePlateLookup
+from traffic_violations.models.response.open_data_service_response \
+    import OpenDataServiceResponse
+from traffic_violations.models.response.traffic_violations_aggregator_response \
+    import TrafficViolationsAggregatorResponse
+
+from traffic_violations.services.constants.exceptions \
+    import ServiceResponseFailureException
+
 from traffic_violations.reply_argument_builder import HowsMyDrivingAPIRequest
-from traffic_violations.traffic_violations_aggregator import TrafficViolationsAggregator
+from traffic_violations.traffic_violations_aggregator \
+    import TrafficViolationsAggregator
 
 
-def create_error(arg):
+def create_error(*args, **kwargs):
     raise ValueError('generic error')
 
 
@@ -35,26 +51,35 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         db_service = DbService(logger)
         self.aggregator = TrafficViolationsAggregator(logger)
 
-    def test_detect_campaign_hashtags(self):
-        cursor_mock = MagicMock(name='cursor')
-        cursor_mock.cursor = [[6, '#TestCampaign']]
-
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
-
-        connect_mock = MagicMock(name='connect')
-        connect_mock.return_value = execute_mock
-
-        self.aggregator.db_service.get_connection = connect_mock
-
-        self.assertEqual(self.aggregator.detect_campaign_hashtags(
-            ['#TestCampaign'])[0][1], '#TestCampaign')
-        self.assertEqual(self.aggregator.detect_campaign_hashtags(
-            ['#TestCampaign,'])[0][1], '#TestCampaign')
+    @ddt.data(
+        {
+            'campaigns': Campaign.get_all_in(hashtag=('#SaferSkillman',)),
+            'hashtags': ['#SaferSkillman']
+        },
+        {
+            'campaigns': Campaign.get_all_in(hashtag=('#SaferSkillman',)),
+            'hashtags': ['#SaferSkillman,']
+        },
+        {
+            'campaigns': Campaign.get_all_in(
+                hashtag=('#FixQueensBlvd', '#SaferSkillman')),
+            'hashtags': ['#FixQueensBlvd', '#SaferSkillman']
+        }
+    )
+    @ddt.unpack
+    def test_detect_campaign_hashtags(self, campaigns, hashtags):
+        self.assertEqual(self.aggregator._detect_campaign_hashtags(
+            hashtags), campaigns)
 
     def test_detect_plate_types(self):
-        str = 'AGC|AGR|AMB|APP|ARG|ATD|ATV|AYG|BOB|BOT|CBS|CCK|CHC|CLG|CMB|CME|CMH|COM|CSP|DLR|FAR|FPW|GAC|GSM|HAC|HAM|HIR|HIS|HOU|HSM|IRP|ITP|JCA|JCL|JSC|JWV|LMA|LMB|LMC|LOC|LTR|LUA|MCD|MCL|MED|MOT|NLM|NYA|NYC|NYS|OMF|OML|OMO|OMR|OMS|OMT|OMV|ORC|ORG|ORM|PAS|PHS|PPH|PSD|RGC|RGL|SCL|SEM|SNO|SOS|SPC|SPO|SRF|SRN|STA|STG|SUP|THC|TOW|TRA|TRC|TRL|USC|USS|VAS|VPL|WUG'
-        types = str.split('|')
+        plate_types_str = (
+            f'AGC|AGR|AMB|APP|ARG|ATD|ATV|AYG|BOB|BOT|CBS|CCK|CHC|CLG|CMB|CME|'
+            f'CMH|COM|CSP|DLR|FAR|FPW|GAC|GSM|HAC|HAM|HIR|HIS|HOU|HSM|IRP|ITP|'
+            f'JCA|JCL|JSC|JWV|LMA|LMB|LMC|LOC|LTR|LUA|MCD|MCL|MED|MOT|NLM|NYA|'
+            f'NYC|NYS|OMF|OML|OMO|OMR|OMS|OMT|OMV|ORC|ORG|ORM|PAS|PHS|PPH|PSD|'
+            f'RGC|RGL|SCL|SEM|SNO|SOS|SPC|SPO|SRF|SRN|STA|STG|SUP|THC|TOW|TRA|'
+            f'TRC|TRL|USC|USS|VAS|VPL|WUG')
+        types = plate_types_str.split('|')
 
         for type in types:
             self.assertEqual(self.aggregator.detect_plate_types(type), True)
@@ -62,10 +87,14 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 self.aggregator.detect_plate_types(type + 'XX'), False)
 
         self.assertEqual(self.aggregator.detect_plate_types(
-            f'{types[random.randint(0, len(types))]},XXX'), True)
+            f'{types[random.randrange(0, len(types))]},XXX'), True)
 
     def test_detect_state(self):
-        str = '99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QC|RI|SC|SD|SK|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT'
+        str = (
+            f'99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|HI|IA|'
+            f'ID|IL|IN|KS|KY|LA|MA|MB|MD|ME|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|'
+            f'NF|NH|NJ|NM|NS|NT|NV|NY|OH|OK|ON|OR|PA|PE|PR|PW|QC|RI|SC|SD|SK|'
+            f'TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT')
         regions = str.split('|')
 
         for region in regions:
@@ -75,80 +104,98 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         self.assertEqual(self.aggregator.detect_state(None), False)
 
-    def test_find_potential_vehicles(self):
-        string_parts1 = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more',
-                         'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4', '79217:ny:med']
+    @ddt.data(
+        {
+            'potential_vehicle_data': [
+                {'original_string': 'ny:123abcd', 'state': 'ny',
+                 'plate': '123abcd', 'valid_plate': True},
+                {'original_string': 'ca:6vmd948', 'state': 'ca',
+                 'plate': '6vmd948', 'valid_plate': True},
+                {'original_string': 'xx:7kvj935', 'valid_plate': False},
+                {'original_string': '79217:ny:med', 'valid_plate': True,
+                 'plate': '79217', 'state': 'ny', 'plate_types': 'med'},
+                {'original_string': 'ny:med', 'valid_plate': True,
+                 'plate': 'med', 'state': 'ny'}
+            ],
+            'string_parts': ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more',
+                             'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935',
+                             'state:fl', 'plate:d4kdm4', '79217:ny:med']
+        },
+        {
+            'potential_vehicle_data': [
+                {'original_string': 'morning:NY', 'plate': 'morning',
+                 'state': 'NY', 'valid_plate': True},
+                {'original_string': 'NY:HJY3401', 'plate': 'HJY3401',
+                 'state': 'NY', 'valid_plate': True}
+            ],
+            'string_parts': [
+                'The', 'fact', 'that', 'red', 'light', 'camera', 'tickets',
+                'are', 'only', '$50', '(and', 'the', 'fact', 'that,', 'I',
+                'assume,', 'they', 'are', 'relatively', 'sparse', 'throughout',
+                'the', 'city)', 'explains', 'a', 'lot.', 'From', 'this',
+                'morning:', 'NY:HJY3401', '@HowsMyDrivingNY']
+        },
+        {
+            'potential_vehicle_data': [
+                {'original_string': 'NY:HJY3401', 'plate': 'HJY3401',
+                    'state': 'NY', 'valid_plate': True}
+            ],
+            'string_parts': [
+                'The', 'fact', 'that', 'red', 'light', 'camera', 'tickets',
+                'are', 'only', '$50', '(and', 'the', 'fact', 'that,', 'I',
+                'assume,', 'they', 'are', 'relatively', 'sparse', 'throughout',
+                'the', 'city)', 'explains', 'a', 'lot.', 'From', 'this',
+                'morning:', 'check', 'NY:HJY3401', '@HowsMyDrivingNY']
+        },
+        {
+            'potential_vehicle_data': [
+                {'original_string': 'check:ny', 'plate': 'check',
+                    'state': 'ny', 'valid_plate': True},
+                {'original_string': 'ny:123abcd', 'plate': '123abcd',
+                    'state': 'ny', 'valid_plate': True}
+            ],
+            'string_parts': ['@HowsMyDrivingNY', 'check:', 'ny:', '123abcd']
+        }
+    )
+    @ddt.unpack
+    def test_find_potential_vehicles(self,
+                                     potential_vehicle_data, string_parts):
 
-        potential_vehicles1 = [
-            {'original_string': 'ny:123abcd', 'state': 'ny',
-                'plate': '123abcd', 'valid_plate': True},
-            {'original_string': 'ca:6vmd948', 'state': 'ca',
-             'plate': '6vmd948', 'valid_plate': True},
-            {'original_string': 'xx:7kvj935', 'valid_plate': False},
-            {'original_string': '79217:ny:med', 'valid_plate': True,
-                'plate': '79217', 'state': 'ny', 'types': 'med'},
-            {'original_string': 'ny:med', 'valid_plate': True,
-                'plate': 'med', 'state': 'ny'},
-        ]
+        potential_vehicles: List[Vehicle] = [
+            Vehicle(**data) for data in potential_vehicle_data]
 
         self.assertEqual(self.aggregator.find_potential_vehicles(
-            string_parts1), potential_vehicles1)
+            string_parts), potential_vehicles)
 
-        string_parts2 = ['The', 'fact', 'that', 'red', 'light', 'camera', 'tickets', 'are', 'only', '$50',
-                         '(and', 'the', 'fact', 'that,', 'I', 'assume,', 'they', 'are', 'relatively', 'sparse', 'throughout', 'the', 'city)', 'explains', 'a', 'lot.', 'From', 'this', 'morning:', 'NY:HJY3401', '@HowsMyDrivingNY']
-
-        potential_vehicles2 = [
-            {'original_string': 'morning:NY', 'plate': 'morning',
-                'state': 'NY', 'valid_plate': True},
-            {'original_string': 'NY:HJY3401', 'plate': 'HJY3401',
-                'state': 'NY', 'valid_plate': True}
-        ]
-
-        self.assertEqual(self.aggregator.find_potential_vehicles(
-            string_parts2), potential_vehicles2)
-
-        string_parts3 = ['The', 'fact', 'that', 'red', 'light', 'camera', 'tickets', 'are', 'only', '$50',
-                         '(and', 'the', 'fact', 'that,', 'I', 'assume,', 'they', 'are', 'relatively', 'sparse', 'throughout', 'the', 'city)', 'explains', 'a', 'lot.', 'From', 'this', 'morning:', 'check', 'NY:HJY3401', '@HowsMyDrivingNY']
-
-        potential_vehicles3 = [
-            {'original_string': 'NY:HJY3401', 'plate': 'HJY3401',
-                'state': 'NY', 'valid_plate': True}
-        ]
-
-        self.assertEqual(self.aggregator.find_potential_vehicles(
-            string_parts3), potential_vehicles3)
-
-        string_parts4 = ['@HowsMyDrivingNY', 'check:', 'ny:', '123abcd']
-
-        potential_vehicles4 = [
-            {'original_string': 'check:ny', 'plate': 'check',
-                'state': 'ny', 'valid_plate': True},
-            {'original_string': 'ny:123abcd', 'plate': '123abcd',
-                'state': 'ny', 'valid_plate': True}
-
-        ]
-
-        self.assertEqual(self.aggregator.find_potential_vehicles(
-            string_parts4), potential_vehicles4)
-
-    def test_find_potential_vehicles_using_legacy_logic(self):
-        string_parts1 = ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more',
-                         'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
-        string_parts2 = ['@HowsMyDrivingNY',
-                         'I', 'love', 'you', 'very', 'much!']
-        string_parts3 = ['@HowsMyDrivingNY', 'I', 'found', 'some',
-                         'more', 'state:fl', 'plate:d4kdm4', 'types:pas,com']
-        potential_vehicles1 = [
-            {'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True}]
-        potential_vehicles3 = [
-            {'state': 'fl', 'plate': 'd4kdm4', 'valid_plate': True, 'types': 'pas,com'}]
-
-        self.assertEqual(self.aggregator.find_potential_vehicles_using_legacy_logic(
-            string_parts1), potential_vehicles1)
+    @ddt.data(
+        {
+            'potential_vehicles': [
+                Vehicle(state='fl', plate='d4kdm4', valid_plate=True)],
+            'string_parts': [
+                '@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'ny:123abcd',
+                'ca:6vmd948', 'xx:7kvj935', 'state:fl', 'plate:d4kdm4']
+        },
+        {
+            'potential_vehicles': [],
+            'string_parts': ['@HowsMyDrivingNY',
+                             'I', 'love', 'you', 'very', 'much!']
+        },
+        {
+            'potential_vehicles': [
+                Vehicle(state='fl', plate='d4kdm4', valid_plate=True,
+                        plate_types='pas,com')],
+            'string_parts': [
+                '@HowsMyDrivingNY', 'I', 'found', 'some', 'more', 'state:fl',
+                'plate:d4kdm4', 'types:pas,com']
+        }
+    )
+    @ddt.unpack
+    def test_find_potential_vehicles_using_legacy_logic(self,
+                                                        potential_vehicles,
+                                                        string_parts):
         self.assertEqual(
-            self.aggregator.find_potential_vehicles_using_legacy_logic(string_parts2), [])
-        self.assertEqual(self.aggregator.find_potential_vehicles_using_legacy_logic(
-            string_parts3), potential_vehicles3)
+            self.aggregator.find_potential_vehicles_using_legacy_logic(
+                string_parts), potential_vehicles)
 
     @ddt.data(
         {
@@ -162,7 +209,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ]
             },
             'results': [
-                '6 vehicles with a total of 71 tickets have been tagged with #SaferSkillman.\n\n'
+                (f'6 vehicles with a total of 71 tickets have been '
+                 f'tagged with #SaferSkillman.\n\n')
             ],
             'username': '@bdhowald'
         },
@@ -177,7 +225,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ]
             },
             'results': [
-                '1 vehicle with 1 ticket has been tagged with #BetterPresident.\n\n'
+                (f'1 vehicle with 1 ticket has been '
+                 f'tagged with #BetterPresident.\n\n')
             ],
             'username': '@BarackObama'
         },
@@ -192,15 +241,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ]
             },
             'results': [
-                '1 vehicle with 0 tickets has been tagged with #BusTurnaround.\n\n'
+                (f'1 vehicle with 0 tickets has been '
+                 f'tagged with #BusTurnaround.\n\n')
             ],
             'username': '@FixQueensBlvd'
         }
     )
     @ddt.unpack
-    def test_form_campaign_lookup_response_parts(self, data: {}, results: [], username):
-        self.assertEqual(self.aggregator.form_campaign_lookup_response_parts(
-            data, username), results)
+    def test_form_campaign_lookup_response_parts(self,
+                                                 data: {},
+                                                 results: [],
+                                                 username):
+        self.assertEqual(
+            self.aggregator.form_campaign_lookup_response_parts(
+                data, username), results)
 
     @ddt.data(
         {
@@ -212,10 +266,12 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': 'No Standing - Day/Time Limits', 'count': 14},
                     {'title': 'No Parking - Street Cleaning', 'count': 3},
                     {'title': 'Failure To Display Meter Receipt', 'count': 1},
-                    {'title': 'No Violation Description Available', 'count': 1},
+                    {'title': 'No Violation Description Available',
+                        'count': 1},
                     {'title': 'Bus Lane Violation', 'count': 1},
                     {'title': 'Failure To Stop At Red Light', 'count': 1},
-                    {'title': 'No Standing - Commercial Meter Zone', 'count': 1},
+                    {'title': 'No Standing - Commercial Meter Zone',
+                        'count': 1},
                     {'title': 'Expired Meter', 'count': 1},
                     {'title': 'Double Parking', 'count': 1},
                     {'title': 'No Angle Parking', 'count': 1}
@@ -239,36 +295,34 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'count': 2, 'title': 'Queens'},
                     {'count': 13, 'title': 'Staten Island'}
                 ],
-                'fines': [
-                    ('fined', 180,),
-                    ('reduced', 50,),
-                    ('paid', 100,),
-                    ('outstanding', 30,),
-                ],
-                'camera_streak_data': {
-                    'min_streak_date': 'September 18, 2015',
-                    'max_streak': 4,
-                    'max_streak_date': 'November 5, 2015'
-                }
+                'fines': FineData(**{'fined': 180.0, 'reduced': 50.0,
+                                     'paid': 100.0, 'outstanding': 30.0}),
+                'camera_streak_data':
+                    CameraStreakData(**{'min_streak_date': 'September 7, 2015',
+                                        'max_streak': 4,
+                                        'max_streak_date': 'November 5, 2015'})
             },
             'response': [
                 '#NY_HME6483 (types: pas) has been queried 8 times.\n'
                 '\n'
                 'This vehicle was last queried on ' + adjusted_time.strftime(
-                    '%B %-d, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') + '. '
+                    '%B %-d, %Y') + ' at ' +
+                adjusted_time.strftime('%I:%M%p') + '. '
                 'Since then, #NY_HME6483 has received 2 new tickets.\n'
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
                 '\n'
                 '14 | No Standing - Day/Time Limits\n',
-                "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+                'Parking and camera violation tickets for '
+                '#NY_HME6483, cont\'d:\n'
                 '\n'
                 '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
                 '1   | Failure To Stop At Red Light\n',
-                "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+                'Parking and camera violation tickets for '
+                '#NY_HME6483, cont\'d:\n'
                 '\n'
                 '1   | No Standing - Commercial Meter Zone\n'
                 '1   | Expired Meter\n'
@@ -303,10 +357,12 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': 'No Standing - Day/Time Limits', 'count': 14},
                     {'title': 'No Parking - Street Cleaning', 'count': 3},
                     {'title': 'Failure To Display Meter Receipt', 'count': 1},
-                    {'title': 'No Violation Description Available', 'count': 1},
+                    {'title': 'No Violation Description Available',
+                        'count': 1},
                     {'title': 'Bus Lane Violation', 'count': 1},
                     {'title': 'Failure To Stop At Red Light', 'count': 1},
-                    {'title': 'No Standing - Commercial Meter Zone', 'count': 1},
+                    {'title': 'No Standing - Commercial Meter Zone',
+                        'count': 1},
                     {'title': 'Expired Meter', 'count': 1},
                     {'title': 'Double Parking', 'count': 1},
                     {'title': 'No Angle Parking', 'count': 1}
@@ -330,36 +386,34 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'count': 2, 'title': 'Queens'},
                     {'count': 13, 'title': 'Staten Island'}
                 ],
-                'fines': [
-                    ('fined', 0,),
-                    ('reduced', 0,),
-                    ('paid', 0,),
-                    ('outstanding', 0,),
-                ],
-                'camera_streak_data': {
-                    'min_streak_date': 'September 18, 2015',
-                    'max_streak': 5,
-                    'max_streak_date': 'November 5, 2015'
-                }
+                'fines': FineData(**{'fined': 0.0, 'reduced': 0.0,
+                                     'paid': 0.0, 'outstanding': 0.0}),
+                'camera_streak_data':
+                    CameraStreakData(**{'min_streak_date': 'September 7, 2015',
+                                        'max_streak': 5,
+                                        'max_streak_date': 'November 5, 2015'})
             },
             'response': [
                 '#NY_HME6483 has been queried 8 times.\n'
                 '\n'
                 'This vehicle was last queried on ' + adjusted_time.strftime(
                     '%B %-d, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') +
-                    ' by @BarackObama: https://twitter.com/BarackObama/status/12345678901234567890. ' +
+                ' by @BarackObama: '
+                'https://twitter.com/BarackObama/status/12345678901234567890. ' +
                 'Since then, #NY_HME6483 has received 2 new tickets.\n'
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
                 '\n',
-                "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+                'Parking and camera violation tickets for '
+                '#NY_HME6483, cont\'d:\n'
                 '\n'
                 '14 | No Standing - Day/Time Limits\n'
                 '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n',
-                "Parking and camera violation tickets for #NY_HME6483, cont'd:\n"
+                'Parking and camera violation tickets for '
+                '#NY_HME6483, cont\'d:\n'
                 '\n'
                 '1   | Failure To Stop At Red Light\n'
                 '1   | No Standing - Commercial Meter Zone\n'
@@ -377,18 +431,22 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '7   | Brooklyn\n'
                 '2   | Queens\n'
                 '13 | Staten Island\n',
-                "Under @bradlander's proposed legislation, this vehicle could have been booted or impounded due to its 5 camera violations (>= 5/year) from September 18, 2015 to November 5, 2015.\n",
+                "Under @bradlander's proposed legislation, this vehicle could "
+                "have been booted or impounded due to its 5 camera violations "
+                "(>= 5/year) from September 7, 2015 to November 5, 2015.\n",
             ],
             'username': '@bdhowald'
         }
     )
     @ddt.unpack
-    def test_form_plate_lookup_response_parts(self, data: {}, response: [], username):
+    def test_form_plate_lookup_response_parts(self,
+                                              data: {}, response: [], username):
 
         tweet_exists_mock = MagicMock(name='tweet_exists')
         tweet_exists_mock.return_value = True
 
-        tweet_detection_service_mock = MagicMock(name='tweet_detection_service')
+        tweet_detection_service_mock = MagicMock(
+            name='tweet_detection_service')
         tweet_detection_service_mock.tweet_exists = tweet_exists_mock
 
         self.aggregator.tweet_detection_service = tweet_detection_service_mock
@@ -408,31 +466,51 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
     def test_form_summary_string(self):
 
-        username = '@bdhowald'
+        vehicle1_fined = random.randint(10, 20000)
+        vehicle1_reduced = random.randint(0, vehicle1_fined)
+        vehicle1_paid = random.randint(0, vehicle1_fined - vehicle1_reduced)
+        vehicle1_fine_data = FineData(
+            fined=vehicle1_fined,
+            outstanding=(vehicle1_fined - vehicle1_reduced - vehicle1_paid),
+            paid=vehicle1_paid,
+            reduced=vehicle1_reduced
+        )
+        vehicle1_mock = MagicMock(name='vehicle1')
+        vehicle1_mock.fine_data = vehicle1_fine_data
+        vehicle1_mock.violations = [{} for _ in range(random.randint(10, 20))]
 
-        fined = random.randint(10, 20000)
-        reduced = random.randint(0, fined)
-        paid = random.randint(0, fined - reduced)
+        vehicle2_fined = random.randint(10, 20000)
+        vehicle2_reduced = random.randint(0, vehicle2_fined)
+        vehicle2_paid = random.randint(0, vehicle2_fined - vehicle2_reduced)
+        vehicle2_fine_data = FineData(
+            fined=vehicle2_fined,
+            outstanding=(vehicle2_fined - vehicle2_reduced - vehicle2_paid),
+            paid=vehicle2_paid,
+            reduced=vehicle2_reduced
+        )
+        vehicle2_mock = MagicMock(name='vehicle2')
+        vehicle2_mock.fine_data = vehicle2_fine_data
+        vehicle2_mock.Violations = [{} for _ in range(random.randint(10, 20))]
 
-        num_tickets = random.randint(10, 20000)
+        total_fined = vehicle1_fined + vehicle2_fined
+        total_paid = vehicle1_paid + vehicle2_paid
+        total_reduced = vehicle1_reduced + vehicle2_reduced
 
-        num_vehicles = random.randint(2, 5)
+        summary: TrafficViolationsAggregatorResponse = TrafficViolationsAggregatorResponse(
+            plate_lookups=[vehicle1_mock, vehicle2_mock])
 
-        summary = {
-            'fines': {
-                'fined': fined,
-                'outstanding': fined - reduced - paid,
-                'paid': paid,
-                'reduced': reduced
-            },
-            'tickets': num_tickets,
-            'vehicles': num_vehicles
-        }
+        total_tickets = sum(len(lookup.violations)
+                            for lookup in summary.plate_lookups)
 
         self.assertEqual(
-            self.aggregator.form_summary_string(summary, username), [
-                f"The {num_vehicles} vehicles you queried have collectively received {num_tickets} tickets "
-                f"with at least {'${:,.2f}'.format(fined - reduced)} in fines, of which {'${:,.2f}'.format(paid)} has been paid.\n\n"])
+            self.aggregator._form_summary_string(summary), [
+                f"The {len(summary.plate_lookups)} vehicles you queried have "
+                f"collectively received "
+                f"{total_tickets} tickets "
+                f"with at least "
+                f"{'${:,.2f}'.format(total_fined - total_reduced)} in fines, "
+                f"of which {'${:,.2f}'.format(total_paid)} "
+                f"has been paid.\n\n"])
 
     def test_handle_response_part_formation(self):
 
@@ -447,11 +525,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         keys = {
             'count': 'count',
-            'continued_format_string': f"Violations by year for #{state}_{plate}:, cont'd\n\n",
+            'continued_format_string':
+                f"Violations by year for #{state}_{plate}:, cont'd\n\n",
             'cur_string': '',
             'description': 'title',
             'default_description': 'No Year Available',
-            'prefix_format_string': f'Violations by year for #{state}_{plate}:\n\n',
+            'prefix_format_string':
+                f'Violations by year for #{state}_{plate}:\n\n',
             'result_format_string': '{}| {}\n',
             'username': username
         }
@@ -484,37 +564,50 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         create_response_mock.assert_called_once_with(direct_message_mock)
 
-    def test_infer_plate_and_state_data(self):
-        plate_tuples = [['ny', '123abcd'], ['ca', ''], [
-            'xx', 'pxk3819'], ['99', '1234'], ['ny', 't327sd', 'pas,agr'], ['79217', 'ny', 'med'], ['ny', 'med']]
-
-        result = [
-            {'original_string': 'ny:123abcd', 'state': 'ny',
-                'plate': '123abcd', 'valid_plate': True},
-            {'original_string': 'ca:', 'valid_plate': False},
-            {'original_string': 'xx:pxk3819', 'valid_plate': False},
-            {'original_string': '99:1234', 'state': '99',
-             'plate': '1234', 'valid_plate': True},
-            {'original_string': 'ny:t327sd:pas,agr', 'state': 'ny',
-             'plate': 't327sd', 'types': 'pas,agr', 'valid_plate': True},
-            {'original_string': '79217:ny:med', 'state': 'ny',
-             'plate': '79217', 'types': 'med', 'valid_plate': True},
-            {'original_string': 'ny:med', 'state': 'ny',
-             'plate': 'med', 'valid_plate': True},
-        ]
-
+    @ddt.data(
+        {
+            'plate_tuples': [
+                ['ny', '123abcd'], ['ca', ''],
+                ['xx', 'pxk3819'], ['99', '1234'],
+                ['ny', 't327sd', 'pas,agr'], ['79217', 'ny', 'med'],
+                ['ny', 'med']
+            ],
+            'potential_vehicle_data': [
+                {'original_string': 'ny:123abcd', 'state': 'ny',
+                    'plate': '123abcd', 'valid_plate': True},
+                {'original_string': 'ca:', 'valid_plate': False},
+                {'original_string': 'xx:pxk3819', 'valid_plate': False},
+                {'original_string': '99:1234', 'state': '99',
+                    'plate': '1234', 'valid_plate': True},
+                {'original_string': 'ny:t327sd:pas,agr', 'state': 'ny',
+                    'plate': 't327sd', 'plate_types': 'pas,agr', 'valid_plate': True},
+                {'original_string': '79217:ny:med', 'state': 'ny',
+                    'plate': '79217', 'plate_types': 'med', 'valid_plate': True},
+                {'original_string': 'ny:med', 'state': 'ny',
+                    'plate': 'med', 'valid_plate': True},
+            ]
+        },
+        {
+            'plate_tuples': [],
+            'potential_vehicle_data': []
+        },
+        {
+            'plate_tuples': [['ny', 'ny']],
+            'potential_vehicle_data': [
+                {
+                    'original_string': 'ny:ny',
+                    'state': 'ny',
+                    'plate': 'ny',
+                    'valid_plate': True
+                }
+            ]
+        }
+    )
+    @ddt.unpack
+    def test_infer_plate_and_state_data(self, plate_tuples, potential_vehicle_data):
         self.assertEqual(
-            self.aggregator.infer_plate_and_state_data(plate_tuples), result)
-
-        plate_tuples = []
-
-        self.assertEqual(
-            self.aggregator.infer_plate_and_state_data(plate_tuples), [])
-
-        plate_tuples = [['ny', 'ny']]
-
-        self.assertEqual(self.aggregator.infer_plate_and_state_data(plate_tuples), [
-                         {'original_string': 'ny:ny', 'state': 'ny', 'plate': 'ny', 'valid_plate': True}])
+            self.aggregator.infer_plate_and_state_data(plate_tuples),
+            [Vehicle(**data) for data in potential_vehicle_data])
 
     def test_perform_campaign_lookup(self):
         included_campaigns = [
@@ -545,50 +638,48 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertEqual(self.aggregator.perform_campaign_lookup(
             included_campaigns), result)
 
-    @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup')
-    def test_perform_plate_lookup(self, mocked_plate_lookup):
-        rand_int = random.randint(10000000000000000000, 20000000000000000000)
+    @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup.get_by')
+    def test_perform_plate_lookup(self, mocked_plate_lookup_get_by):
+
+        rand_int = random.randint(1000000000000000000, 2000000000000000000)
         now = datetime.now()
         previous_time = now - timedelta(minutes=10)
         utc = pytz.timezone('UTC')
         now_str = utc.localize(now).astimezone(
-            timezone.utc).strftime('%a %b %d %H:%M:%S %z %Y')
+            timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+        plate = 'ABCDEFG'
+        plate_types = 'COM,PAS'
+        state = 'NY'
 
         previous_message_id = rand_int + 1
         previous_message_type = 'status'
         previous_num_tickets = 1
         previous_username = 'BarackObama'
 
-        args = {
-            'created_at': now_str,
-            'message_id': rand_int,
-            'message_type': 'direct_message',
-            'included_campaigns': [(87, '#BetterPresident')],
-            'plate': 'ABCDEFG',
-            'plate_types': 'com,pas',
-            'state': 'NY',
-            'username': 'bdhowald'
-        }
+        campaigns = Campaign.get_all_in(
+            hashtag=('#FixQueensBlvd', '#SaferSkillman',))
 
-        current_lookup = PlateLookup(created_at=now_str,
-            message_id=args['message_id'],
-            message_type=args['message_type'],
-            plate=args['plate'],
-            plate_types=args['plate_types'],
-            state=args['state'],
-            username=args['username'])
-        previous_lookup = PlateLookup(created_at=previous_time,
-              message_id=previous_message_id,
-              message_type=previous_message_type,
-              num_tickets=previous_num_tickets,
-              username=previous_username)
+        plate_query = PlateQuery(
+            created_at=now_str,
+            message_id=rand_int,
+            message_type='direct_message',
+            plate=plate,
+            plate_types=plate_types,
+            state=state,
+            username='@bdhowald')
 
-        mocked_plate_lookup.side_effect = [
-          current_lookup,
-          previous_lookup,
-          current_lookup,
-          previous_lookup
-        ]
+        previous_lookup = PlateLookup(
+            created_at=previous_time,
+            message_id=previous_message_id,
+            message_type=previous_message_type,
+            num_tickets=previous_num_tickets,
+            plate=plate,
+            plate_types=plate_types,
+            state=state,
+            username=previous_username)
+
+        mocked_plate_lookup_get_by.return_value = previous_lookup
 
         violations = [
             {
@@ -605,7 +696,10 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'precinct': '005',
                 'reduction_amount': '0',
                 'state': 'NY',
-                'summons_image': 'http://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=VDBSVmQwNVVaekZOZWxreFQxRTlQUT09&locationName=_____________________',
+                'summons_image': (f'http://nycserv.nyc.gov/NYCServWeb/'
+                                  f'ShowImage?searchID=VDBSVmQwNVVaekZ'
+                                  f'OZWxreFQxRTlQUT09&locationName='
+                                  f'_____________________'),
                 'summons_image_description': 'View Summons',
                 'summons_number': '8505853659',
                 'violation_status': 'HEARING HELD-NOT GUILTY',
@@ -625,7 +719,10 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'precinct': '005',
                 'reduction_amount': '20',
                 'state': 'NY',
-                'summons_image': 'http://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=VDBSVmQwNVVaekZOZWxreFQxRTlQUT09&locationName=_____________________',
+                'summons_image': (f'http://nycserv.nyc.gov/NYCServWeb/'
+                                  f'ShowImage?searchID=VDBSVmQwNVVaekZ'
+                                  f'OZWxreFQxRTlQUT09&locationName='
+                                  f'_____________________'),
                 'summons_image_description': 'View Summons',
                 'summons_number': '8505853660',
                 'violation': 'FAIL TO DSPLY MUNI METER RECPT',
@@ -635,16 +732,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             }
         ]
 
-        result = {
+        lookup_data = {
             'boroughs': [
                 {'count': 2, 'title': 'Manhattan'}
             ],
-            'fines': [('fined', 150.0), ('reduced', 20.0), ('paid', 0), ('outstanding', 0)],
-            'frequency': 2,
+            'fines': FineData(**{'fined': 150.0, 'reduced': 20.0,
+                                 'paid': 0, 'outstanding': 0}),
             'num_violations': 2,
             'plate': 'ABCDEFG',
-            'plate_types': 'com,pas',
-            'previous_result': previous_lookup,
+            'plate_types': 'COM,PAS',
             'state': 'NY',
             'violations': [
                 {
@@ -661,6 +757,12 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 {'title': '2018', 'count': 1}
             ],
         }
+
+        lookup = OpenDataServicePlateLookup(**lookup_data)
+
+        result = OpenDataServiceResponse(
+            data=lookup,
+            success=True)
 
         violations_mock = MagicMock(name='violations')
         violations_mock.json.return_value = violations
@@ -680,35 +782,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         requests_futures.sessions.FuturesSession = session_object_mock
 
-        cursor_mock = MagicMock(name='cursor')
-        cursor_mock.cursor = [(previous_time, previous_message_id, previous_message_type,
-            previous_message_type, previous_username)]
-        cursor_mock.keys.return_value = ['created_at', 'message_id', 'message_type', 'num_tickets', 'username']
-        cursor_mock.fetchone.return_value = (1,)
-
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
-        # tweeter.
-        connect_mock = MagicMock(name='connect')
-        connect_mock.return_value = execute_mock
-
-        self.aggregator.db_service.get_connection = connect_mock
-
-        self.assertEqual(self.aggregator.perform_plate_lookup(args), result)
+        self.assertEqual(self.aggregator._perform_plate_lookup(
+            campaigns=campaigns, plate_query=plate_query), result)
 
         # Try again with a forced error.
 
         violations_mock.status_code = 503
 
-        result = self.aggregator.perform_plate_lookup(args)
+        result = self.aggregator._perform_plate_lookup(
+            campaigns=[], plate_query=plate_query)
 
-        self.assertEqual('server error', result['error'])
-        self.assertIn('frequency', result)
-        self.assertIn('previous_result', result)
-        self.assertIn('url', result)
+        self.assertIsInstance(result, OpenDataServiceResponse)
+        self.assertRegex(str(result.message), 'server error when accessing')
 
-    @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup')
-    def test_create_response(self, mocked_plate_lookup):
+    def test_create_response(self):
         now = datetime.now()
         previous_time = now - timedelta(minutes=10)
         utc = pytz.timezone('UTC')
@@ -732,45 +819,51 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             '@howsmydrivingny', 'ny:hme6483']
         lookup_request_mock.username.return_value = username1
 
-        plate_lookup1 = {
-            'fines': [('fined', 200.0), ('outstanding', 125.0), ('paid', 75.0)],
-            'frequency': 1,
+        plate_lookup_data1 = {
+            'boroughs': [
+                {'count': 1, 'title': 'Bronx'},
+                {'count': 2, 'title': 'Brooklyn'},
+                {'count': 3, 'title': 'Manhattan'},
+                {'count': 4, 'title': 'Queens'},
+                {'count': 5, 'title': 'Staten Island'}
+            ],
+            'fines': FineData(**{'fined': 200.0, 'paid': 75.0,
+                                 'outstanding': 125.0}),
+            'num_violations': 15,
             'plate': 'HME6483',
             'plate_types': None,
-            'previous_result': PlateLookup(created_at=previous_time,
-                message_id=123,
-                message_type='direct_message',
-                num_tickets=15,
-                username='BarackObama'),
             'state': 'NY',
-            'violations': [{'count': 4, 'title': 'No Standing - Day/Time Limits'},
-                           {'count': 3, 'title': 'No Parking - Street Cleaning'},
-                           {'count': 1, 'title': 'Failure To Display Meter Receipt'},
-                           {'count': 1, 'title': 'No Violation Description Available'},
-                           {'count': 1, 'title': 'Bus Lane Violation'},
-                           {'count': 1, 'title': 'Failure To Stop At Red Light'},
-                           {'count': 1, 'title': 'No Standing - Commercial Meter Zone'},
-                           {'count': 1, 'title': 'Expired Meter'},
-                           {'count': 1, 'title': 'Double Parking'},
-                           {'count': 1, 'title': 'No Angle Parking'}
-                           ],
+            'violations': [{'count': 4,
+                            'title': 'No Standing - Day/Time Limits'},
+                           {'count': 3,
+                            'title': 'No Parking - Street Cleaning'},
+                           {'count': 1,
+                            'title': 'Failure To Display Meter Receipt'},
+                           {'count': 1,
+                            'title': 'No Violation Description Available'},
+                           {'count': 1,
+                            'title': 'Bus Lane Violation'},
+                           {'count': 1,
+                            'title': 'Failure To Stop At Red Light'},
+                           {'count': 1,
+                            'title': 'No Standing - Commercial Meter Zone'},
+                           {'count': 1,
+                            'title': 'Expired Meter'},
+                           {'count': 1,
+                            'title': 'Double Parking'},
+                           {'count': 1,
+                            'title': 'No Angle Parking'}],
             'years': [
                 {'title': '2017', 'count': 10},
                 {'title': '2018', 'count': 15}
             ]
         }
 
-        # combined_message = "#NY_HME6483 has been queried 1 time.\n\nTotal
-        # parking and camera violation tickets: 15\n\n4 | No Standing -
-        # Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To
-        # Display Meter Receipt\n1 | No Violation Description Available\n1 |
-        # Bus Lane Violation\n\nParking and camera violation tickets for
-        # #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No
-        # Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double
-        # Parking\n1 | No Angle Parking\n\nViolations by year for
-        # #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\nKnown fines for
-        # #NY_HME6483:\n\n$200.00 | Fined\n$125.00 | Outstanding\n$75.00   |
-        # Paid\n"
+        lookup1 = OpenDataServicePlateLookup(**plate_lookup_data1)
+
+        plate_lookup1 = OpenDataServiceResponse(
+            data=lookup1,
+            success=True)
 
         response1 = {
             'error_on_lookup': False,
@@ -798,11 +891,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     '\n'
                     '10 | 2017\n'
                     '15 | 2018\n',
+                    'Violations by borough for #NY_HME6483:\n'
+                    '\n'
+                    '1 | Bronx\n'
+                    '2 | Brooklyn\n'
+                    '3 | Manhattan\n'
+                    '4 | Queens\n'
+                    '5 | Staten Island\n',
                     'Known fines for #NY_HME6483:\n'
                     '\n'
                     '$200.00 | Fined\n'
-                    '$125.00 | Outstanding\n'
+                    '$0.00     | Reduced\n'
                     '$75.00   | Paid\n'
+                    '$125.00 | Outstanding\n'
                 ]
             ],
             'success': True,
@@ -810,7 +911,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': username1
         }
 
-        plate_lookup_mock = MagicMock(name='plate_lookup')
+        plate_lookup_mock = MagicMock(name='plate_lookup1')
         plate_lookup_mock.return_value = plate_lookup1
 
         send_direct_message_mock = MagicMock('send_direct_message_mock')
@@ -818,11 +919,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.send_direct_message_new = send_direct_message_mock
 
-        self.aggregator.perform_plate_lookup = plate_lookup_mock
+        real_plate_lookup_fn = self.aggregator._perform_plate_lookup
+        self.aggregator._perform_plate_lookup = plate_lookup_mock
         self.aggregator.api = api_mock
 
         self.assertEqual(self.aggregator.create_response(
             lookup_request_mock), response1)
+
+        # reset _perform_plate_lookup
+        self.aggregator._perform_plate_lookup = real_plate_lookup_fn
 
         ##############################
         # Test status and old format #
@@ -839,35 +944,76 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             message_source='api',
             message_type=None
         )
-        plate_lookup2 = {
-            'fines': [('fined', 1000.0), ('outstanding', 225.0), ('paid', 775.0)],
-            'frequency': 2,
+        plate_lookup_data2 = {
+            'boroughs': [],
+            'fines': FineData(**{'fined': 1000.0, 'reduced': 0.0,
+                                 'paid': 775.0, 'outstanding': 225.0}),
+            'num_violations': 44,
             'plate': 'GLF7467',
             'plate_types': None,
-            'previous_result': PlateLookup(created_at=previous_time,
-                message_id=123,
-                message_type='direct_message',
-                num_tickets=49,
-                username='BarackObama'),
             'state': 'PA',
-            'violations': [{'count': 17, 'title': 'No Parking - Street Cleaning'},
-                           {'count': 6, 'title': 'Expired Meter'},
-                           {'count': 5, 'title': 'No Violation Description Available'},
-                           {'count': 3, 'title': 'Fire Hydrant'},
-                           {'count': 3, 'title': 'No Parking - Day/Time Limits'},
-                           {'count': 3, 'title': 'Failure To Display Meter Receipt'},
-                           {'count': 3, 'title': 'School Zone Speed Camera Violation'},
-                           {'count': 2, 'title': 'No Parking - Except Authorized Vehicles'},
-                           {'count': 2, 'title': 'Bus Lane Violation'},
-                           {'count': 1, 'title': 'Failure To Stop At Red Light'},
-                           {'count': 1, 'title': 'No Standing - Day/Time Limits'},
-                           {'count': 1, 'title': 'No Standing - Except Authorized Vehicle'},
-                           {'count': 1, 'title': 'Obstructing Traffic Or Intersection'},
-                           {'count': 1, 'title': 'Double Parking'}]
+            'violations': [{'count': 17,
+                            'title': 'No Parking - Street Cleaning'},
+                           {'count': 6,
+                            'title': 'Expired Meter'},
+                           {'count': 5,
+                            'title': 'No Violation Description Available'},
+                           {'count': 3,
+                            'title': 'Fire Hydrant'},
+                           {'count': 3,
+                            'title': 'No Parking - Day/Time Limits'},
+                           {'count': 3,
+                            'title': 'Failure To Display Meter Receipt'},
+                           {'count': 3,
+                            'title': 'School Zone Speed Camera Violation'},
+                           {'count': 2,
+                            'title': 'No Parking - Except Authorized Vehicles'},
+                           {'count': 2,
+                            'title': 'Bus Lane Violation'},
+                           {'count': 1,
+                            'title': 'Failure To Stop At Red Light'},
+                           {'count': 1,
+                            'title': 'No Standing - Day/Time Limits'},
+                           {'count': 1,
+                            'title': 'No Standing - Except Authorized Vehicle'},
+                           {'count': 1,
+                            'title': 'Obstructing Traffic Or Intersection'},
+                           {'count': 1,
+                            'title': 'Double Parking'}],
+            'years': []
         }
 
-        response_parts2 = [['#PA_GLF7467 has been queried 2 times.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n",
-                            "Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", 'Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
+        lookup2 = OpenDataServicePlateLookup(**plate_lookup_data2)
+
+        plate_lookup2 = OpenDataServiceResponse(
+            data=lookup2,
+            success=True)
+
+        response_parts2 = [['#PA_GLF7467 has been queried 2 times.\n\n'
+                            'Total parking and camera violation tickets: 49\n\n'
+                            '17 | No Parking - Street Cleaning\n'
+                            '6   | Expired Meter\n'
+                            '5   | No Violation Description Available\n'
+                            '3   | Fire Hydrant\n'
+                            '3   | No Parking - Day/Time Limits\n',
+                            'Parking and camera violation tickets for '
+                            '#PA_GLF7467, cont\'d:\n\n'
+                            '3   | Failure To Display Meter Receipt\n'
+                            '3   | School Zone Speed Camera Violation\n'
+                            '2   | No Parking - Except Authorized Vehicles\n'
+                            '2   | Bus Lane Violation\n'
+                            '1   | Failure To Stop At Red Light\n',
+                            'Parking and camera violation tickets for '
+                            '#PA_GLF7467, cont\'d:\n\n'
+                            '1   | No Standing - Day/Time Limits\n'
+                            '1   | No Standing - Except Authorized Vehicle\n'
+                            '1   | Obstructing Traffic Or Intersection\n'
+                            '1   | Double Parking\n',
+                            'Known fines for #PA_GLF7467:\n\n'
+                            '$1,000.00 | Fined\n'
+                            '$0.00         | Reduced\n'
+                            '$775.00     | Paid\n'
+                            '$225.00     | Outstanding\n']]
 
         response2 = {
             'error_on_lookup': False,
@@ -877,11 +1023,24 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'successful_lookup': True,
             'username': lookup_request2.username()
         }
+        frequency_mock = MagicMock(name='frequency')
+        frequency_mock.return_value = 1
 
+        plate_lookup_mock = MagicMock(name='plate_lookup2')
         plate_lookup_mock.return_value = plate_lookup2
+
+        real_plate_lookup_fn = self.aggregator._perform_plate_lookup
+        self.aggregator._perform_plate_lookup = plate_lookup_mock
+
+        real_frequency_fn = self.aggregator._query_for_lookup_frequency
+        self.aggregator._query_for_lookup_frequency = frequency_mock
 
         self.assertEqual(self.aggregator.create_response(
             lookup_request2), response2)
+
+        # reset _perform_plate_lookup and _query_for_lookup_frequency
+        self.aggregator._perform_plate_lookup = real_plate_lookup_fn
+        self.aggregator._query_for_lookup_frequency = real_frequency_fn
 
         #############################
         # Test campaign-only lookup #
@@ -935,7 +1094,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             name='perform_campaign_lookup')
         perform_campaign_lookup_mock.return_value = campaign_result
 
-        self.aggregator.detect_campaign_hashtags = detect_campaign_hashtags_mock
+        self.aggregator._detect_campaign_hashtags = detect_campaign_hashtags_mock
         self.aggregator.perform_campaign_lookup = perform_campaign_lookup_mock
 
         self.assertEqual(self.aggregator.create_response(
@@ -960,7 +1119,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         )
 
         response_parts4 = [
-            ["I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
+            [f"I’d be happy to look that up for you!\n\nJust a reminder, "
+             f"the format is <state|province|territory>:<plate>, "
+             f"e.g. NY:abc1234"]]
 
         response4 = {
             'error_on_lookup': False,
@@ -989,7 +1150,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         )
 
         response_parts5 = [
-            ["I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
+            [f"I think you're trying to look up a plate, but can't be sure.\n\n"
+             f"Just a reminder, the format is "
+             f"<state|province|territory>:<plate>, e.g. NY:abc1234"]]
 
         response5 = {
             'error_on_lookup': False,
@@ -1010,7 +1173,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         response_parts6 = [
             ["Sorry, I encountered an error. Tagging @bdhowald."]]
 
-        self.aggregator.perform_plate_lookup = create_error
+        self.aggregator._perform_plate_lookup = create_error
 
         self.aggregator.create_response(lookup_request2)
 

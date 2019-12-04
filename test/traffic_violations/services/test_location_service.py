@@ -2,7 +2,7 @@ import logging
 import requests
 import unittest
 
-from traffic_violations.services.location_service import LocationService
+from traffic_violations.services.apis.location_service import LocationService
 from unittest.mock import MagicMock
 
 class TestLocationService(unittest.TestCase):
