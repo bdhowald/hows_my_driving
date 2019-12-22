@@ -1,4 +1,3 @@
-import logging
 import unittest
 
 from datetime import datetime
@@ -10,8 +9,7 @@ from traffic_violations.services.apis.open_data_service import OpenDataService
 class TestOpenDataService(unittest.TestCase):
 
     def setUp(self):
-        logger = logging.getLogger('hows_my_driving')
-        self.open_data_service = OpenDataService(logger)
+        self.open_data_service = OpenDataService()
 
     def test_find_max_camera_streak(self):
         list_of_camera_times = [

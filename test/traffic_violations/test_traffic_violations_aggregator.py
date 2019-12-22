@@ -15,6 +15,8 @@ from unittest.mock import MagicMock
 from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.campaign import Campaign
 from traffic_violations.models.fine_data import FineData
+from traffic_violations.models.lookup_requests import \
+    AccountActivityAPIDirectMessage
 from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.models.plate_query import PlateQuery
 from traffic_violations.models.vehicle import Vehicle
@@ -28,7 +30,9 @@ from traffic_violations.models.response.traffic_violations_aggregator_response \
 from traffic_violations.services.constants.exceptions \
     import ServiceResponseFailureException
 
-from traffic_violations.reply_argument_builder import HowsMyDrivingAPIRequest
+from traffic_violations.reply_argument_builder import \
+    AccountActivityAPIStatus, DirectMessageAPIDirectMessage, \
+    HowsMyDrivingAPIRequest, SearchStatus
 from traffic_violations.traffic_violations_aggregator \
     import TrafficViolationsAggregator
 
@@ -47,9 +51,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     adjusted_time = utc.localize(previous_time).astimezone(eastern)
 
     def setUp(self):
-        logger = logging.getLogger('hows_my_driving')
-        db_service = DbService(logger)
-        self.aggregator = TrafficViolationsAggregator(logger)
+        self.aggregator = TrafficViolationsAggregator()
 
     @ddt.data(
         {
@@ -82,11 +84,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         types = plate_types_str.split('|')
 
         for type in types:
-            self.assertEqual(self.aggregator.detect_plate_types(type), True)
+            self.assertEqual(self.aggregator._detect_plate_types(type), True)
             self.assertEqual(
-                self.aggregator.detect_plate_types(type + 'XX'), False)
+                self.aggregator._detect_plate_types(type + 'XX'), False)
 
-        self.assertEqual(self.aggregator.detect_plate_types(
+        self.assertEqual(self.aggregator._detect_plate_types(
             f'{types[random.randrange(0, len(types))]},XXX'), True)
 
     def test_detect_state(self):
@@ -98,11 +100,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         regions = str.split('|')
 
         for region in regions:
-            self.assertEqual(self.aggregator.detect_state(region), True)
+            self.assertEqual(self.aggregator._detect_state(region), True)
             self.assertEqual(
-                self.aggregator.detect_state(region + 'XX'), False)
+                self.aggregator._detect_state(region + 'XX'), False)
 
-        self.assertEqual(self.aggregator.detect_state(None), False)
+        self.assertEqual(self.aggregator._detect_state(None), False)
 
     @ddt.data(
         {
@@ -164,7 +166,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         potential_vehicles: List[Vehicle] = [
             Vehicle(**data) for data in potential_vehicle_data]
 
-        self.assertEqual(self.aggregator.find_potential_vehicles(
+        self.assertEqual(self.aggregator._find_potential_vehicles(
             string_parts), potential_vehicles)
 
     @ddt.data(
@@ -194,20 +196,12 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                                                         potential_vehicles,
                                                         string_parts):
         self.assertEqual(
-            self.aggregator.find_potential_vehicles_using_legacy_logic(
+            self.aggregator._find_potential_vehicles_using_legacy_logic(
                 string_parts), potential_vehicles)
 
     @ddt.data(
         {
-            'data': {
-                'included_campaigns': [
-                    {
-                        'campaign_hashtag': '#SaferSkillman',
-                        'campaign_tickets': 71,
-                        'campaign_vehicles': 6
-                    }
-                ]
-            },
+            'data': [('#SaferSkillman', 6, 71)],
             'results': [
                 (f'6 vehicles with a total of 71 tickets have been '
                  f'tagged with #SaferSkillman.\n\n')
@@ -215,15 +209,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': '@bdhowald'
         },
         {
-            'data': {
-                'included_campaigns': [
-                    {
-                        'campaign_hashtag': '#BetterPresident',
-                        'campaign_tickets': 1,
-                        'campaign_vehicles': 1
-                    }
-                ]
-            },
+            'data': [('#BetterPresident', 1, 1)],
             'results': [
                 (f'1 vehicle with 1 ticket has been '
                  f'tagged with #BetterPresident.\n\n')
@@ -231,15 +217,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': '@BarackObama'
         },
         {
-            'data': {
-                'included_campaigns': [
-                    {
-                        'campaign_hashtag': '#BusTurnaround',
-                        'campaign_tickets': 0,
-                        'campaign_vehicles': 1
-                    }
-                ]
-            },
+            'data': [('#BusTurnaround', 1, 0)],
             'results': [
                 (f'1 vehicle with 0 tickets has been '
                  f'tagged with #BusTurnaround.\n\n')
@@ -253,7 +231,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                                                  results: [],
                                                  username):
         self.assertEqual(
-            self.aggregator.form_campaign_lookup_response_parts(
+            self.aggregator._form_campaign_lookup_response_parts(
                 data, username), results)
 
     @ddt.data(
@@ -346,7 +324,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '$100.00 | Paid\n'
                 '$30.00   | Outstanding\n'
             ],
-            'username': '@bdhowald'
+            'username': 'bdhowald'
         },
         {
             'data': {
@@ -435,7 +413,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 "have been booted or impounded due to its 5 camera violations "
                 "(>= 5/year) from September 7, 2015 to November 5, 2015.\n",
             ],
-            'username': '@bdhowald'
+            'username': 'bdhowald'
         }
     )
     @ddt.unpack
@@ -451,7 +429,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         self.aggregator.tweet_detection_service = tweet_detection_service_mock
 
-        self.assertEqual(self.aggregator.form_plate_lookup_response_parts(
+        self.assertEqual(self.aggregator._form_plate_lookup_response_parts(
             borough_data=data['boroughs'],
             camera_streak_data=data['camera_streak_data'],
             fine_data=data['fines'],
@@ -539,7 +517,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         result = [(keys['prefix_format_string']).format(
             state, plate) + '1 | 2017\n1 | 2018\n']
 
-        self.assertEqual(self.aggregator.handle_response_part_formation(
+        self.assertEqual(self.aggregator._handle_response_part_formation(
             collection=collection,
             count='count',
             continued_format_string=f"Violations by year for #{state}_{plate}:, cont'd\n\n",
@@ -552,7 +530,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     def test_initiate_reply(self):
         create_response_mock = MagicMock(name='create_response')
 
-        self.aggregator.create_response = create_response_mock
+        self.aggregator._create_response = create_response_mock
 
         direct_message_mock = MagicMock(name='direct_message')
 
@@ -606,36 +584,32 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     @ddt.unpack
     def test_infer_plate_and_state_data(self, plate_tuples, potential_vehicle_data):
         self.assertEqual(
-            self.aggregator.infer_plate_and_state_data(plate_tuples),
+            self.aggregator._infer_plate_and_state_data(plate_tuples),
             [Vehicle(**data) for data in potential_vehicle_data])
 
-    def test_perform_campaign_lookup(self):
-        included_campaigns = [
-            (1, '#SaferSkillman')
-        ]
+    @mock.patch('traffic_violations.traffic_violations_aggregator.Campaign')
+    @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup')
+    def test_perform_campaign_lookup(self,
+                                     mocked_plate_lookup_class,
+                                     mocked_campaign_class):
 
-        result = {
-            'included_campaigns': [
-                {
-                    'campaign_hashtag': '#SaferSkillman',
-                    'campaign_tickets': 7167,
-                    'campaign_vehicles': 152
-                }
-            ]
-        }
+        campaign_tuple = (1, '#SaferSkillman')
+        included_campaigns = [campaign_tuple]
 
-        cursor_mock = MagicMock(name='cursor')
-        cursor_mock.fetchone.return_value = (152, 7167)
+        plate_lookups = []
+        for _ in range(random.randint(5, 20)):
+            lookup = MagicMock()
+            lookup.num_tickets = random.randint(1, 200)
+            plate_lookups.append(lookup)
 
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
-        # tweeter.
-        connect_mock = MagicMock(name='connect')
-        connect_mock.return_value = execute_mock
+        mocked_plate_lookup_class.query.join().order_by().all.return_value = plate_lookups
 
-        self.aggregator.db_service.get_connection = connect_mock
+        result = [
+            (campaign_tuple[1],
+             len(plate_lookups),
+             sum(plate_lookup.num_tickets for plate_lookup in plate_lookups))]
 
-        self.assertEqual(self.aggregator.perform_campaign_lookup(
+        self.assertEqual(self.aggregator._perform_campaign_lookup(
             included_campaigns), result)
 
     @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup.get_by')
@@ -795,31 +769,31 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertIsInstance(result, OpenDataServiceResponse)
         self.assertRegex(str(result.message), 'server error when accessing')
 
-    def test_create_response(self):
-        now = datetime.now()
-        previous_time = now - timedelta(minutes=10)
-        utc = pytz.timezone('UTC')
-        utc_time = utc.localize(now).astimezone(timezone.utc)
 
-        ######################################
-        # Test direct message and new format #
-        ######################################
+    def test_create_response_direct_message(self):
+        """ Test direct message and new format """
 
-        username1 = 'bdhowald'
+        username = 'bdhowald'
         message_id = random.randint(1000000000000000000, 2000000000000000000)
 
-        lookup_request_mock = MagicMock(name='lookup_request')
-        lookup_request_mock.created_at.return_value = utc_time.strftime(
-            '%a %b %d %H:%M:%S %z %Y')
-        lookup_request_mock.external_id.return_value = message_id
-        lookup_request_mock.legacy_string_tokens.return_value = [
-            '@howsmydrivingny', 'ny:hme6483']
-        lookup_request_mock.message_type.return_value = 'direct_message'
-        lookup_request_mock.string_tokens.return_value = [
-            '@howsmydrivingny', 'ny:hme6483']
-        lookup_request_mock.username.return_value = username1
+        num_tickets = 15
+        plate = 'HME6483'
+        state = 'NY'
 
-        plate_lookup_data1 = {
+        message = {
+          'created_at': random.randint(1500000000000, 1600000000000),
+          'event_id': message_id,
+          'event_text': f'@howsmydrivingny {state.lower()}:{plate.lower()}',
+          'user_handle': username,
+          'user_id': random.randint(100000000, 1000000000)
+        }
+
+        direct_message_request_object = AccountActivityAPIDirectMessage(
+            message=message,
+            message_source='twitter',
+            message_type='direct_message')
+
+        plate_lookup_data = {
             'boroughs': [
                 {'count': 1, 'title': 'Bronx'},
                 {'count': 2, 'title': 'Brooklyn'},
@@ -829,10 +803,10 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             ],
             'fines': FineData(**{'fined': 200.0, 'paid': 75.0,
                                  'outstanding': 125.0}),
-            'num_violations': 15,
-            'plate': 'HME6483',
+            'num_violations': num_tickets,
+            'plate': plate,
             'plate_types': None,
-            'state': 'NY',
+            'state': state,
             'violations': [{'count': 4,
                             'title': 'No Standing - Day/Time Limits'},
                            {'count': 3,
@@ -859,15 +833,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             ]
         }
 
-        lookup1 = OpenDataServicePlateLookup(**plate_lookup_data1)
+        lookup = OpenDataServicePlateLookup(**plate_lookup_data)
 
-        plate_lookup1 = OpenDataServiceResponse(
-            data=lookup1,
+        plate_lookup = OpenDataServiceResponse(
+            data=lookup,
             success=True)
 
-        response1 = {
+        response = {
             'error_on_lookup': False,
-            'request_object': lookup_request_mock,
+            'request_object': direct_message_request_object,
             'response_parts': [
                 [
                     '#NY_HME6483 has been queried 1 time.\n'
@@ -908,11 +882,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             ],
             'success': True,
             'successful_lookup': True,
-            'username': username1
+            'username': username
         }
 
-        plate_lookup_mock = MagicMock(name='plate_lookup1')
-        plate_lookup_mock.return_value = plate_lookup1
+        plate_lookup_mock = MagicMock(name='plate_lookup')
+        plate_lookup_mock.return_value = plate_lookup
 
         send_direct_message_mock = MagicMock('send_direct_message_mock')
 
@@ -923,28 +897,31 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.aggregator._perform_plate_lookup = plate_lookup_mock
         self.aggregator.api = api_mock
 
-        self.assertEqual(self.aggregator.create_response(
-            lookup_request_mock), response1)
+        self.assertEqual(self.aggregator._create_response(
+            direct_message_request_object), response)
 
         # reset _perform_plate_lookup
-        self.aggregator._perform_plate_lookup = real_plate_lookup_fn
+        # self.aggregator._perform_plate_lookup = real_plate_lookup_fn
 
-        ##############################
-        # Test status and old format #
-        ##############################
 
-        username2 = 'BarackObama'
-        lookup_request2 = HowsMyDrivingAPIRequest(
+    def test_create_response_status_legacy_format(self):
+        """ Test status and old format """
+
+        username = 'BarackObama'
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
+
+        request_object = AccountActivityAPIStatus(
             message={
-                'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
+                'created_at': random.randint(1500000000000, 1600000000000),
                 'event_id': message_id,
                 'event_text': '@howsmydrivingny plate:glf7467 state:pa',
-                'username': username2
+                'user_handle': username,
+                'user_id': random.randint(100000000, 1000000000)
             },
             message_source='api',
             message_type=None
         )
-        plate_lookup_data2 = {
+        plate_lookup_data = {
             'boroughs': [],
             'fines': FineData(**{'fined': 1000.0, 'reduced': 0.0,
                                  'paid': 775.0, 'outstanding': 225.0}),
@@ -983,13 +960,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'years': []
         }
 
-        lookup2 = OpenDataServicePlateLookup(**plate_lookup_data2)
+        lookup = OpenDataServicePlateLookup(**plate_lookup_data)
 
-        plate_lookup2 = OpenDataServiceResponse(
-            data=lookup2,
+        plate_lookup = OpenDataServiceResponse(
+            data=lookup,
             success=True)
 
-        response_parts2 = [['#PA_GLF7467 has been queried 2 times.\n\n'
+        response_parts = [['#PA_GLF7467 has been queried 2 times.\n\n'
                             'Total parking and camera violation tickets: 49\n\n'
                             '17 | No Parking - Street Cleaning\n'
                             '6   | Expired Meter\n'
@@ -1015,19 +992,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                             '$775.00     | Paid\n'
                             '$225.00     | Outstanding\n']]
 
-        response2 = {
+        response = {
             'error_on_lookup': False,
-            'request_object': lookup_request2,
-            'response_parts': response_parts2,
+            'request_object': request_object,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': True,
-            'username': lookup_request2.username()
+            'username': request_object.username()
         }
         frequency_mock = MagicMock(name='frequency')
         frequency_mock.return_value = 1
 
-        plate_lookup_mock = MagicMock(name='plate_lookup2')
-        plate_lookup_mock.return_value = plate_lookup2
+        plate_lookup_mock = MagicMock(name='plate_lookup')
+        plate_lookup_mock.return_value = plate_lookup
 
         real_plate_lookup_fn = self.aggregator._perform_plate_lookup
         self.aggregator._perform_plate_lookup = plate_lookup_mock
@@ -1035,25 +1012,28 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         real_frequency_fn = self.aggregator._query_for_lookup_frequency
         self.aggregator._query_for_lookup_frequency = frequency_mock
 
-        self.assertEqual(self.aggregator.create_response(
-            lookup_request2), response2)
+        self.assertEqual(self.aggregator._create_response(
+            request_object), response)
 
         # reset _perform_plate_lookup and _query_for_lookup_frequency
         self.aggregator._perform_plate_lookup = real_plate_lookup_fn
         self.aggregator._query_for_lookup_frequency = real_frequency_fn
 
-        #############################
-        # Test campaign-only lookup #
-        #############################
 
-        username3 = 'NYCMayorsOffice'
+    def test_create_response_campaign_only_lookup(self):
+        """ Test campaign-only lookup """
+
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
+        username = 'NYCMayorsOffice'
         campaign_hashtag = '#SaferSkillman'
-        lookup_request3 = HowsMyDrivingAPIRequest(
+
+        request_object = AccountActivityAPIStatus(
             message={
-                'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
+                'created_at': random.randint(1500000000000, 1600000000000),
                 'event_id': message_id,
                 'event_text': f'@howsmydrivingny {campaign_hashtag}',
-                'username': username3
+                'user_handle': username,
+                'user_id': random.randint(100000000, 1000000000)
             },
             message_source='api',
             message_type=None
@@ -1062,28 +1042,21 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         campaign_tickets = random.randint(1000, 2000)
         campaign_vehicles = random.randint(100, 200)
 
-        campaign_result = {
-            'included_campaigns': [
-                {
-                    'campaign_hashtag': campaign_hashtag,
-                    'campaign_tickets': campaign_tickets,
-                    'campaign_vehicles': campaign_vehicles
-                }
-            ]
-        }
+        campaign_result = [(
+            campaign_hashtag, campaign_vehicles, campaign_tickets)]
 
         included_campaigns = [(1, campaign_hashtag)]
 
-        response_parts3 = [[str(campaign_vehicles) + ' vehicles with a total of ' + str(
+        response_parts = [[str(campaign_vehicles) + ' vehicles with a total of ' + str(
             campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n\n']]
 
-        response3 = {
+        response = {
             'error_on_lookup': False,
-            'request_object': lookup_request3,
-            'response_parts': response_parts3,
+            'request_object': request_object,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': True,
-            'username': lookup_request3.username()
+            'username': request_object.username()
         }
 
         detect_campaign_hashtags_mock = MagicMock(
@@ -1095,96 +1068,149 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         perform_campaign_lookup_mock.return_value = campaign_result
 
         self.aggregator._detect_campaign_hashtags = detect_campaign_hashtags_mock
-        self.aggregator.perform_campaign_lookup = perform_campaign_lookup_mock
+        self.aggregator._perform_campaign_lookup = perform_campaign_lookup_mock
 
-        self.assertEqual(self.aggregator.create_response(
-            lookup_request3), response3)
+        self.assertEqual(self.aggregator._create_response(
+            request_object), response)
 
         perform_campaign_lookup_mock.assert_called_with(included_campaigns)
 
-        #########################
-        # Test plateless lookup #
-        #########################
 
-        username4 = 'NYC_DOT'
-        lookup_request4 = HowsMyDrivingAPIRequest(
-            message={
-                'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
-                'event_id': message_id,
-                'event_text': '@howsmydrivingny plate dkr9364 state ny',
-                'username': username4
-            },
+    def test_create_response_with_search_status(self):
+        """ Test plateless lookup """
+
+        now = datetime.now()
+
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
+        user_handle = '@NYC_DOT'
+
+        message_object = MagicMock(name='message')
+        message_object.created_at = now
+        message_object.entities = {}
+        message_object.entities['user_mentions'] = [{'screen_name': 'HowsMyDrivingNY'}]
+        message_object.id = message_id
+        message_object.full_text = '@howsmydrivingny plate dkr9364 state ny'
+        message_object.user.screen_name = user_handle
+
+        request_object = SearchStatus(
+            message=message_object,
             message_source='api',
             message_type=None
         )
 
-        response_parts4 = [
+        response_parts = [
             [f"I’d be happy to look that up for you!\n\nJust a reminder, "
              f"the format is <state|province|territory>:<plate>, "
              f"e.g. NY:abc1234"]]
 
-        response4 = {
+        response = {
             'error_on_lookup': False,
-            'request_object': lookup_request4,
-            'response_parts': response_parts4,
+            'request_object': request_object,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': False,
-            'username': lookup_request4.username()
+            'username': request_object.username()
         }
 
+        detect_campaign_hashtags_mock = MagicMock(
+            name='detect_campaign_hashtags')
         detect_campaign_hashtags_mock.return_value = []
 
-        self.assertEqual(self.aggregator.create_response(
-            lookup_request4), response4)
+        self.assertEqual(self.aggregator._create_response(
+            request_object), response)
 
-        username5 = 'NYCDDC'
-        lookup_request5 = HowsMyDrivingAPIRequest(
+
+    def test_create_response_with_direct_message_api_direct_message(self):
+        """ Test plateless lookup """
+
+        now = datetime.now()
+        previous_time = now - timedelta(minutes=10)
+        utc = pytz.timezone('UTC')
+        utc_time = utc.localize(now).astimezone(timezone.utc)
+
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
+        message_text = '@howsmydrivingny plate dkr9364'
+        username = 'NYCDDC'
+
+        recipient = MagicMock(name='recipient')
+        recipient.screen_name = 'HowsMyDrivingNY'
+
+        sender = MagicMock(name='sender')
+        sender.screen_name = username
+        sender.id = random.randint(100000000, 1000000000)
+
+        mock_api = MagicMock(name='api')
+        mock_api.get_user.side_effect = [recipient, sender]
+
+        message_object = MagicMock(name='message')
+        message_object.created_timestamp = random.randint(
+            1500000000000, 1600000000000)
+        message_object.id = message_id
+        message_object.message_create = {}
+        message_object.message_create['message_data'] = {}
+        message_object.message_create['message_data']['text'] = message_text
+        message_object.message_create['sender_id'] = '123'
+        message_object.message_create['target'] = {}
+        message_object.message_create['target']['recipient_id'] = '456'
+
+        request_object = DirectMessageAPIDirectMessage(
+            api=mock_api,
+            message=message_object,
+            message_source='api',
+            message_type=None
+        )
+
+        response_parts = [
+            [f"I think you're trying to look up a plate, but can't be sure.\n\n"
+             f"Just a reminder, the format is "
+             f"<state|province|territory>:<plate>, e.g. NY:abc1234"]]
+
+        response = {
+            'error_on_lookup': False,
+            'request_object': request_object,
+            'response_parts': response_parts,
+            'success': True,
+            'successful_lookup': False,
+            'username': request_object.username()
+        }
+
+        self.assertEqual(self.aggregator._create_response(
+            request_object), response)
+
+
+    def test_create_response_with_error(self):
+        """ Test error handling """
+
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
+        username = 'BarackObama'
+
+        response_parts = [
+            ["Sorry, I encountered an error. Tagging @bdhowald."]]
+
+        self.aggregator._perform_plate_lookup = create_error
+
+        request_object = AccountActivityAPIStatus(
             message={
-                'created_at': utc_time.strftime('%a %b %d %H:%M:%S %z %Y'),
+                'created_at': random.randint(1500000000000, 1600000000000),
                 'event_id': message_id,
-                'event_text': '@howsmydrivingny the state is ny',
-                'username': username5
+                'event_text': '@howsmydrivingny plate:glf7467 state:pa',
+                'user_handle': username,
+                'user_id': random.randint(100000000, 1000000000)
             },
             message_source='api',
             message_type=None
         )
 
-        response_parts5 = [
-            [f"I think you're trying to look up a plate, but can't be sure.\n\n"
-             f"Just a reminder, the format is "
-             f"<state|province|territory>:<plate>, e.g. NY:abc1234"]]
+        self.aggregator._create_response(request_object)
 
-        response5 = {
-            'error_on_lookup': False,
-            'request_object': lookup_request5,
-            'response_parts': response_parts5,
-            'success': True,
-            'successful_lookup': False,
-            'username': lookup_request5.username()
-        }
-
-        self.assertEqual(self.aggregator.create_response(
-            lookup_request5), response5)
-
-        #######################
-        # Test error handling #
-        #######################
-
-        response_parts6 = [
-            ["Sorry, I encountered an error. Tagging @bdhowald."]]
-
-        self.aggregator._perform_plate_lookup = create_error
-
-        self.aggregator.create_response(lookup_request2)
-
-        response6 = {
+        response = {
             'error_on_lookup': True,
-            'request_object': lookup_request2,
-            'response_parts': response_parts6,
+            'request_object': request_object,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': False,
-            'username': lookup_request2.username()
+            'username': request_object.username()
         }
 
-        self.assertEqual(self.aggregator.create_response(
-            lookup_request2), response6)
+        self.assertEqual(self.aggregator._create_response(
+            request_object), response)

@@ -11,6 +11,7 @@ LOOKUP_TICKETS_STRING_CONTD = "Parking and camera violation tickets for {}, cont
 LOOKUP_YEAR_STRING = "Violations by year for {}:\n\n"
 LOOKUP_YEAR_STRING_CONTD = "Violations by year for {}, cont'd:\n\n"
 
+NO_TICKETS_FOUND_STRING = "I couldn't find any tickets for {}:{}{}."
 
 PLATE_TYPES_LOOKUP_STRING = ' (types: {}) '
 

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Table
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 
 from traffic_violations.models.base import Base
@@ -13,11 +13,6 @@ class PlateLookup(Base):
 
     __tablename__ = 'plate_lookups'
 
-    # association_table = Table('campaigns_plate_lookups', Base.metadata,
-    #     Column('campaign_id', Integer, ForeignKey('campaigns.id')),
-    #     Column('plate_lookup_id', Integer, ForeignKey('plate_lookups.id'))
-    # )
-
     # columns
     id = Column(Integer, primary_key=True)
     boot_eligible = Column(Boolean, default=False, nullable=False)
@@ -26,7 +21,7 @@ class PlateLookup(Base):
     message_type = Column('lookup_source', String(255), nullable=False)
     message_id = Column(Integer)
     num_tickets = Column(Integer, default=0, nullable=False)
-    _observed = Column('observed', String(255), default=None, nullable=False)
+    _observed = Column('observed', String(255), default=None, nullable=True)
     plate = Column(String(16), nullable=False)
     plate_types = Column(String(255))
     responded_to = Column(Boolean, default=False, nullable=False)

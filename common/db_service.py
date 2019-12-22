@@ -1,16 +1,16 @@
+import logging
 import os
 
 from sqlalchemy import create_engine
 
+LOG = logging.getLogger(__name__)
+
 
 class DbService:
 
-    def __init__(self, logger):
-        self.logger = logger
-
     def get_connection(self):
         connection = DbService.get_engine().connect()
-        self.logger.debug('engine connecting')
+        LOG.debug('engine connecting')
 
         return connection
 

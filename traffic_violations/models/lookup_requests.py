@@ -3,55 +3,36 @@ import re
 
 from datetime import datetime, timezone
 
+from traffic_violations.constants import regexps as regexp_constants, \
+    twitter as twitter_constants
+
 
 class BaseLookupRequest:
 
-    hmdny_twitter_handle = 'HowsMyDrivingNY'
-    hmdny_twitter_id = 976593574732222465
-    legacy_string_parts_regex = r'(?<!state:|plate:)\s'
-    strftime_format_string = '%a %b %d %H:%M:%S %z %Y'
-
     def __init__(self, message_source, message_type):
-        self.arguments = {
-            'message_source': message_source,
-            'message_type': message_type
-        }
+        self.message_source: str = message_source
+        self.message_type: str = message_type
 
         # need to convert times to utc
         self.utc = pytz.timezone('UTC')
 
-    def created_at(self):
-        return self.arguments.get('created_at')
-
     def external_id(self):
-        return self.arguments.get('id')
+        return self.id
 
     def is_complete_request(self):
-        return all(k in self.arguments for k in ('created_at', 'id', 'legacy_string_parts', 'needs_reply', 'string_parts', 'username'))
+        return all(getattr(self, attr) is not None for attr in ('created_at', 'id', 'legacy_string_parts', 'needs_reply', 'string_parts', 'username'))
 
     def legacy_string_tokens(self):
-        return self.arguments.get('legacy_string_parts')
-
-    def mentioned_users(self):
-        return self.arguments.get('mentioned_users') or []
-
-    def message_source(self):
-        return self.arguments.get('message_source')
-
-    def message_type(self):
-        return self.arguments.get('message_type')
+        return self.legacy_string_parts
 
     def requires_response(self):
-        return self.arguments.get('needs_reply')
+        return self.needs_reply
 
     def string_tokens(self):
-        return self.arguments.get('string_parts')
-
-    def user_id(self):
-        return self.arguments.get('user_id')
+        return self.string_parts
 
     def username(self):
-        return self.arguments.get('username')
+        return re.sub('@', '', self.user_handle)
 
 
 class AccountActivityAPIDirectMessage(BaseLookupRequest):
@@ -61,18 +42,18 @@ class AccountActivityAPIDirectMessage(BaseLookupRequest):
         text = message['event_text']
         modified_string = ' '.join(text.split())
 
-        self.arguments['created_at'] = self.utc.localize(datetime.utcfromtimestamp(
-            (int(message['created_at']) / 1000))).astimezone(timezone.utc).strftime(self.strftime_format_string)
-        self.arguments['id'] = message['event_id']
-        self.arguments['legacy_string_parts'] = re.split(
-            self.legacy_string_parts_regex, modified_string.lower())
-        self.arguments['mentioned_users'] = re.split(
+        self.created_at: datetime.datetime = self.utc.localize(datetime.utcfromtimestamp(
+            (int(message['created_at']) / 1000))).astimezone(timezone.utc).strftime(twitter_constants.TWITTER_TIME_FORMAT)
+        self.id: str = message['event_id']
+        self.legacy_string_parts: List[str] = re.split(
+            regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+        self.mentioned_users: List[str] = re.split(
             ' ', message['user_mentions']) if message.get('user_mentions') else []
-        self.arguments['needs_reply'] = message[
-            'user_handle'] != self.hmdny_twitter_handle
-        self.arguments['string_parts'] = re.split(' ', modified_string.lower())
-        self.arguments['user_id'] = message['user_id']
-        self.arguments['username'] = '@' + message['user_handle']
+        self.needs_reply: bool = message[
+            'user_handle'] != twitter_constants.HMDNY_TWITTER_HANDLE
+        self.string_parts: List[str] = re.split(' ', modified_string.lower())
+        self.user_id: str = message['user_id']
+        self.user_handle: str = '@' + message['user_handle']
 
 
 class AccountActivityAPIStatus(BaseLookupRequest):
@@ -82,18 +63,21 @@ class AccountActivityAPIStatus(BaseLookupRequest):
         text = message['event_text']
         modified_string = ' '.join(text.split())
 
-        self.arguments['created_at'] = self.utc.localize(datetime.utcfromtimestamp(
-            (int(message['created_at']) / 1000))).astimezone(timezone.utc).strftime(self.strftime_format_string)
-        self.arguments['id'] = message['event_id']
-        self.arguments['legacy_string_parts'] = re.split(
-            self.legacy_string_parts_regex, modified_string.lower())
-        self.arguments['mentioned_users'] = re.split(
+        self.created_at: datetime.datetime = self.utc.localize(
+            datetime.utcfromtimestamp((int(message['created_at']) / 1000))
+                ).astimezone(timezone.utc).strftime(
+                    twitter_constants.TWITTER_TIME_FORMAT)
+
+        self.id: str = message['event_id']
+        self.legacy_string_parts: List[str] = re.split(
+            regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+        self.mentioned_users: List[str] = re.split(
             ' ', message['user_mentions']) if message.get('user_mentions') else []
-        self.arguments['needs_reply'] = message[
-            'user_handle'] != self.hmdny_twitter_handle
-        self.arguments['string_parts'] = re.split(' ', modified_string.lower())
-        self.arguments['user_id'] = message['user_id']
-        self.arguments['username'] = '@' + message['user_handle']
+        self.needs_reply: bool = message[
+            'user_handle'] != twitter_constants.HMDNY_TWITTER_HANDLE
+        self.string_parts: List[str] = re.split(' ', modified_string.lower())
+        self.user_id: str = message['user_id']
+        self.user_handle: str = '@' + message['user_handle']
 
 
 class DirectMessageAPIDirectMessage(BaseLookupRequest):
@@ -109,21 +93,24 @@ class DirectMessageAPIDirectMessage(BaseLookupRequest):
         recipient = api.get_user(recipient_id)
         sender = api.get_user(sender_id)
 
-        if recipient.screen_name == self.hmdny_twitter_handle:
+        if recipient.screen_name == twitter_constants.HMDNY_TWITTER_HANDLE:
             text = direct_message.message_create['message_data']['text']
             modified_string = ' '.join(text.split())
 
-            self.arguments['created_at'] = self.utc.localize(datetime.utcfromtimestamp(
-                (int(direct_message.created_timestamp) / 1000))).astimezone(timezone.utc).strftime(self.strftime_format_string)
-            self.arguments['id'] = int(direct_message.id)
-            self.arguments['legacy_string_parts'] = re.split(
-                self.legacy_string_parts_regex, modified_string.lower())
-            self.arguments[
-                'needs_reply'] = sender.screen_name != self.hmdny_twitter_handle
-            self.arguments['string_parts'] = re.split(
+            self.created_at: datetime.datetime = self.utc.localize(
+                datetime.utcfromtimestamp(
+                    (int(direct_message.created_timestamp) / 1000))).astimezone(
+                timezone.utc).strftime(twitter_constants.TWITTER_TIME_FORMAT)
+            self.id: str = int(direct_message.id)
+            self.legacy_string_parts: List[str] = re.split(
+                regexp_constants.LEGACY_STRING_PARTS_REGEX,
+                modified_string.lower())
+            self.mentioned_users = []
+            self.needs_reply: bool = sender.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
+            self.string_parts: List[str] = re.split(
                 ' ', modified_string.lower())
-            self.arguments['user_id'] = sender.id
-            self.arguments['username'] = '@' + sender.screen_name
+            self.user_id: str = sender.id
+            self.user_handle: str = '@' + sender.screen_name
 
 
 class HowsMyDrivingAPIRequest(BaseLookupRequest):
@@ -134,15 +121,15 @@ class HowsMyDrivingAPIRequest(BaseLookupRequest):
         text = message['event_text']
         modified_string = ' '.join(text.split())
 
-        self.arguments['created_at'] = message['created_at']
-        self.arguments['id'] = message['event_id']
-        self.arguments['legacy_string_parts'] = re.split(
-            self.legacy_string_parts_regex, modified_string.lower())
-        self.arguments['mentioned_users'] = []
-        self.arguments['needs_reply'] = True
-        self.arguments['string_parts'] = re.split(
+        self.created_at: datetime.datetime = message['created_at']
+        self.id: str = message['event_id']
+        self.legacy_string_parts: List[str] = re.split(
+            regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+        self.mentioned_users: List[str] = []
+        self.needs_reply: bool = True
+        self.string_parts: List[str] = re.split(
             ' ', modified_string.lower())
-        self.arguments['username'] = message['username']
+        self.user_handle: str = message['username']
 
 
 class SearchStatus(BaseLookupRequest):
@@ -156,26 +143,25 @@ class SearchStatus(BaseLookupRequest):
             array_of_usernames = [v['screen_name']
                                   for v in entities['user_mentions']]
 
-            if self.hmdny_twitter_handle in array_of_usernames:
+            if twitter_constants.HMDNY_TWITTER_HANDLE in array_of_usernames:
                 full_text = message.full_text
                 modified_string = ' '.join(full_text.split())
 
-                self.arguments['created_at'] = self.utc.localize(message.created_at).astimezone(
-                    timezone.utc).strftime(self.strftime_format_string)
-                self.arguments['id'] = message.id
-                self.arguments['is_retweet'] = hasattr(
-                    message, 'retweeted_status')
-                self.arguments['legacy_string_parts'] = re.split(
-                    self.legacy_string_parts_regex, modified_string.lower())
-                self.arguments['mentioned_users'] = [s.lower()
+                self.created_at: datetime.datetime = self.utc.localize(
+                    message.created_at).astimezone(
+                        timezone.utc).strftime(
+                            twitter_constants.TWITTER_TIME_FORMAT)
+                self.id: str = message.id
+                self.is_retweet: bool = hasattr( message, 'retweeted_status')
+                self.legacy_string_parts: List[str] = re.split(
+                    regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+                self.mentioned_users: List[str] = [s.lower()
                                                      for s in array_of_usernames]
-                self.arguments[
-                    'needs_reply'] = message.user.screen_name != self.hmdny_twitter_handle
-                self.arguments['string_parts'] = re.split(
+                self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
+                self.string_parts: List[str] = re.split(
                     ' ', modified_string.lower())
-                self.arguments['user_id'] = message.user.id
-                self.arguments['username'] = '@' + message.user.screen_name
-
+                self.user_id: str = message.user.id
+                self.user_handle: str = '@' + message.user.screen_name
 
 
 class StreamExtendedStatus(BaseLookupRequest):
@@ -193,23 +179,22 @@ class StreamExtendedStatus(BaseLookupRequest):
                 array_of_usernames = [v['screen_name']
                                       for v in entities['user_mentions']]
 
-                if self.hmdny_twitter_handle in array_of_usernames:
+                if twitter_constants.HMDNY_TWITTER_HANDLE in array_of_usernames:
                     full_text = extended_tweet['full_text']
                     modified_string = ' '.join(full_text.split())
 
-                    self.arguments['created_at'] = self.utc.localize(message.created_at).astimezone(
-                        timezone.utc).strftime(self.strftime_format_string)
-                    self.arguments['id'] = message.id
-                    self.arguments['legacy_string_parts'] = re.split(
-                        self.legacy_string_parts_regex, modified_string.lower())
-                    self.arguments['mentioned_users'] = [
+                    self.created_at: datetime.datetime = self.utc.localize(message.created_at).astimezone(
+                        timezone.utc).strftime(twitter_constants.TWITTER_TIME_FORMAT)
+                    self.id: str = message.id
+                    self.legacy_string_parts: List[str] = re.split(
+                        regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+                    self.mentioned_users: List[str] = [
                         s.lower() for s in array_of_usernames]
-                    self.arguments[
-                        'needs_reply'] = message.user.screen_name != self.hmdny_twitter_handle
-                    self.arguments['string_parts'] = re.split(
+                    self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
+                    self.string_parts: List[str] = re.split(
                         ' ', modified_string.lower())
-                    self.arguments['user_id'] = message.user.id
-                    self.arguments['username'] = '@' + message.user.screen_name
+                    self.user_id: str = message.user.id
+                    self.user_handle: str = '@' + message.user.screen_name
 
 
 class StreamingDirectMessage(BaseLookupRequest):
@@ -221,20 +206,21 @@ class StreamingDirectMessage(BaseLookupRequest):
         recipient = direct_message['recipient']
         sender = direct_message['sender']
 
-        if recipient['screen_name'] == self.hmdny_twitter_handle:
+        if recipient['screen_name'] == twitter_constants.HMDNY_TWITTER_HANDLE:
             text = direct_message['text']
             modified_string = ' '.join(text.split())
 
-            self.arguments['created_at'] = direct_message['created_at']
-            self.arguments['id'] = direct_message['id']
-            self.arguments['legacy_string_parts'] = re.split(
-                self.legacy_string_parts_regex, modified_string.lower())
-            self.arguments['needs_reply'] = sender[
-                'screen_name'] != self.hmdny_twitter_handle
-            self.arguments['string_parts'] = re.split(
+            self.created_at: datetime.datetime = direct_message['created_at']
+            self.id: str = direct_message['id']
+            self.legacy_string_parts: List[str] = re.split(
+                regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+            self.mentioned_users = []
+            self.needs_reply: bool = sender[
+                'screen_name'] != twitter_constants.HMDNY_TWITTER_HANDLE
+            self.string_parts: List[str] = re.split(
                 ' ', modified_string.lower())
-            self.arguments['user_id'] = sender['id']
-            self.arguments['username'] = '@' + sender['screen_name']
+            self.user_id: str = sender['id']
+            self.user_handle: str = '@' + sender['screen_name']
 
 
 class StreamingStatus(BaseLookupRequest):
@@ -248,22 +234,21 @@ class StreamingStatus(BaseLookupRequest):
             array_of_usernames = [v['screen_name']
                                   for v in entities['user_mentions']]
 
-            if self.hmdny_twitter_handle in array_of_usernames:
+            if twitter_constants.HMDNY_TWITTER_HANDLE in array_of_usernames:
                 text = message.text
                 modified_string = ' '.join(text.split())
 
-                self.arguments['created_at'] = self.utc.localize(message.created_at).astimezone(
-                    timezone.utc).strftime(self.strftime_format_string)
-                self.arguments['id'] = message.id
-                self.arguments['is_retweet'] = hasattr(
+                self.created_at: datetime.datetime = self.utc.localize(message.created_at).astimezone(
+                    timezone.utc).strftime(twitter_constants.TWITTER_TIME_FORMAT)
+                self.id: str = message.id
+                self.is_retweet: bool = hasattr(
                     message, 'retweeted_status')
-                self.arguments['legacy_string_parts'] = re.split(
-                    self.legacy_string_parts_regex, modified_string.lower())
-                self.arguments['mentioned_users'] = [s.lower()
+                self.legacy_string_parts: List[str] = re.split(
+                    regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+                self.mentioned_users: List[str] = [s.lower()
                                                      for s in array_of_usernames]
-                self.arguments[
-                    'needs_reply'] = message.user.screen_name != self.hmdny_twitter_handle
-                self.arguments['string_parts'] = re.split(
+                self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
+                self.string_parts: List[str] = re.split(
                     ' ', modified_string.lower())
-                self.arguments['user_id'] = message.user.id
-                self.arguments['username'] = '@' + message.user.screen_name
+                self.user_id: str = message.user.id
+                self.user_handle: str = '@' + message.user.screen_name

@@ -1,4 +1,3 @@
-import logging
 import re
 import requests
 import requests_futures.sessions
@@ -8,9 +7,10 @@ from requests.adapters import HTTPAdapter
 
 from typing import Any, Dict
 
+
 class TweetDetectionService:
 
-    def __init__(self, logger):
+    def __init__(self):
         # Set up retry ability
         s_req = requests_futures.sessions.FuturesSession(max_workers=5)
 
@@ -21,8 +21,6 @@ class TweetDetectionService:
 
         s_req.mount('https://', HTTPAdapter(max_retries=retries))
         self.api = s_req
-
-        self.logger = logger
 
 
     def tweet_exists(self, id: int, username: str) -> bool:

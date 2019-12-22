@@ -19,13 +19,12 @@ LOGGING_LEVELS = {'critical': logging.CRITICAL,
                   'info': logging.INFO,
                   'debug': logging.DEBUG}
 
+LOG = logging.getLogger(__name__)
+
 
 class TrafficViolationsTweeter:
 
     def __init__(self):
-
-        # Create a logger
-        self.logger = logging.getLogger('hows_my_driving')
 
         # Set up Twitter auth
         self.auth = tweepy.OAuthHandler(
@@ -38,13 +37,13 @@ class TrafficViolationsTweeter:
                               retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
 
         # get instance of db service
-        self.db_service = DbService(self.logger)
+        self.db_service = DbService()
 
         # create reply argument_builder
         self.reply_argument_builder = ReplyArgumentBuilder(self.api)
 
         # create new aggregator
-        self.aggregator = TrafficViolationsAggregator(self.logger)
+        self.aggregator = TrafficViolationsAggregator()
 
         # Log how many times we've called the apis
         self.direct_messages_iteration = 0
@@ -69,7 +68,7 @@ class TrafficViolationsTweeter:
         interval = 3.0 if self.is_production() else 3000.0
 
         self.events_iteration += 1
-        self.logger.debug(
+        LOG.debug(
             f'Looking up twitter events on iteration {self.events_iteration}')
 
         # start timer
@@ -86,17 +85,17 @@ class TrafficViolationsTweeter:
             events = [dict(zip(tuple(events_query.keys()), i))
                       for i in events_query.cursor]
 
-            self.logger.debug(f'events: {events}')
+            LOG.debug(f'events: {events}')
 
             # Note that we began the response.
             if events:
-                self.logger.debug(f'updating response_begun = 1 for events {",".join([str(event["id"]) for event in events])}')
+                LOG.debug(f'updating response_begun = 1 for events {",".join([str(event["id"]) for event in events])}')
                 conn.execute(
                     """ update twitter_events set response_begun = 1 where id IN (%s) """ % ','.join(['%s'] * len(events)), [event['id'] for event in events])
 
             for event in events:
 
-                self.logger.debug(f'handling event: {event}')
+                LOG.debug(f'handling event: {event}')
 
                 # build request
                 lookup_request = self.reply_argument_builder.build_reply_data(
@@ -122,9 +121,9 @@ class TrafficViolationsTweeter:
 
         except Exception as e:
 
-            self.logger.error(e)
-            self.logger.error(str(e))
-            self.logger.error(e.args)
+            LOG.error(e)
+            LOG.error(str(e))
+            LOG.error(e.args)
             logging.exception("stack trace")
 
         finally:
@@ -336,25 +335,25 @@ class TrafficViolationsTweeter:
     def process_response(self, reply_event_args):
         request_object = reply_event_args.get('request_object')
 
-        message_type = request_object.message_type() if request_object else None
+        message_type = request_object.message_type if request_object else None
         message_id = request_object.external_id() if request_object else None
 
         # Respond to user
         if message_type == 'direct_message':
 
-            self.logger.debug('responding as direct message')
+            LOG.debug('responding as direct message')
 
             combined_message = self.recursively_process_direct_messages(
                 reply_event_args.get('response_parts', {}))
 
-            self.logger.debug('combined_message: %s', combined_message)
+            LOG.debug('combined_message: %s', combined_message)
 
             event = {
                 "event": {
                     "type": "message_create",
                     "message_create": {
                         "target": {
-                            "recipient_id": request_object.user_id() if request_object else None
+                            "recipient_id": request_object.user_id if request_object else None
                         },
                         "message_data": {
                             "text": combined_message
@@ -381,7 +380,7 @@ class TrafficViolationsTweeter:
                     # been favorited
                     pass
 
-            self.logger.debug('responding as status update')
+            LOG.debug('responding as status update')
 
             self.recursively_process_status_updates(reply_event_args.get(
                 'response_parts', {}), message_id, reply_event_args['username'])
@@ -414,9 +413,9 @@ class TrafficViolationsTweeter:
                         '@' + username + ' ' + part, in_reply_to_status_id=message_id)
                     message_id = new_message.id
 
-                    self.logger.debug("message_id: %s", str(message_id))
+                    LOG.debug("message_id: %s", str(message_id))
                 else:
-                    self.logger.debug(
+                    LOG.debug(
                         "This is where 'self.api.update_status(part, in_reply_to_status_id = message_id)' would be called in production.")
 
         return message_id

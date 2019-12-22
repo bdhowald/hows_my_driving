@@ -32,6 +32,8 @@ from traffic_violations.models.response.open_data_service_response \
 from traffic_violations.services.constants.exceptions import ServiceResponseFailureException
 from traffic_violations.services.apis.location_service import LocationService
 
+LOG = logging.getLogger(__name__)
+
 
 class OpenDataService:
 
@@ -46,7 +48,7 @@ class OpenDataService:
 
     OUTPUT_FINE_KEYS = ['fined', 'paid', 'reduced', 'outstanding']
 
-    def __init__(self, logger):
+    def __init__(self):
         # Set up retry ability
         s_req = requests_futures.sessions.FuturesSession(max_workers=9)
 
@@ -59,8 +61,7 @@ class OpenDataService:
 
         self.api = s_req
 
-        self.logger = logger
-        self.location_service = LocationService(logger)
+        self.location_service = LocationService()
 
     def lookup_vehicle(self, plate_query: PlateQuery) -> OpenDataServiceResponse:
         try:
@@ -98,10 +99,10 @@ class OpenDataService:
 
                 except ValueError as ve:
 
-                    self.logger.error('Error parsing value into float')
-                    self.logger.error(e)
-                    self.logger.error(str(e))
-                    self.logger.error(e.args)
+                    LOG.error('Error parsing value into float')
+                    LOG.error(e)
+                    LOG.error(str(e))
+                    LOG.error(e.args)
                     logging.exception("stack trace")
 
                     pass
@@ -159,11 +160,11 @@ class OpenDataService:
 
             for date in list_of_violation_times:
 
-                self.logger.debug("date: %s", date)
+                LOG.debug("date: %s", date)
 
                 year_later = date + \
                     (datetime(date.year + 1, 1, 1) - datetime(date.year, 1, 1))
-                self.logger.debug("year_later: %s", year_later)
+                LOG.debug("year_later: %s", year_later)
 
                 year_long_tickets = [
                     comp_date for comp_date in list_of_violation_times if date <= comp_date < year_later]
@@ -317,7 +318,7 @@ class OpenDataService:
             if fiscal_year_database_response.get('data'):
                 fiscal_year_database_data: List[str, str] = fiscal_year_database_response.get('data')
 
-                self.logger.debug(
+                LOG.debug(
                     f'Fiscal year data for {plate_query.state}:{plate_query.plate}'
                     f'{":" + plate_query.plate_types if plate_query.plate_types else ""} for {year}: '
                     f'{fiscal_year_database_data}')
@@ -361,7 +362,7 @@ class OpenDataService:
             if medallion_response.get('data'):
                 medallion_data: List[str, Any] = medallion_response.get('data')
 
-                self.logger.debug(
+                LOG.debug(
                     f'Medallion data for {plate_query.state}:{plate_query.plate}'
                     f'{medallion_data}')
 
@@ -391,7 +392,7 @@ class OpenDataService:
             open_parking_and_camera_violations_data: List[str, str] = \
                 open_parking_and_camera_violations_response.get('data')
 
-            self.logger.debug(
+            LOG.debug(
                 f'Open Parking and Camera Violations data for {plate_query.state}:{plate_query.plate}'
                 f'{":" + plate_query.plate_types if plate_query.plate_types else ""}: '
                 f'{open_parking_and_camera_violations_data}')
