@@ -85,4 +85,4 @@ class TrafficViolationsStreamListener (tweepy.StreamListener):
         LOG.debug(f'on_error: {status}')
 
     def on_direct_message(self, status):
-        LOG.debug(f'on_direct_message: {status}', )
+        LOG.debug(f'on_direct_message: {status}')

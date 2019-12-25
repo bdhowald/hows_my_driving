@@ -1,11 +1,12 @@
 import json
+import mock
 import unittest
 import tweepy
 
-# from mock import MagicMock
 from unittest.mock import MagicMock
 
-from traffic_violations.traffic_violations_stream_listener import TrafficViolationsStreamListener
+from traffic_violations.traffic_violations_stream_listener import \
+    TrafficViolationsStreamListener
 from twitter_service import TrafficViolationsTweeter
 
 
@@ -14,6 +15,13 @@ class TestTrafficViolationsStreamListener(unittest.TestCase):
     def setUp(self):
         self.listener = TrafficViolationsStreamListener(
             TrafficViolationsTweeter())
+
+        self.log_patcher = mock.patch(
+            'traffic_violations.traffic_violations_stream_listener.LOG')
+        self.mocked_log = self.log_patcher.start()
+
+    def tearDown(self):
+        self.log_patcher.stop()
 
     def test_on_data(self):
         direct_message_data = '{"direct_message": "stuff"}'
@@ -53,56 +61,33 @@ class TestTrafficViolationsStreamListener(unittest.TestCase):
         parse_mock.assert_called_with(
             self.listener.api, json.loads(in_reply_to_status_id_data))
 
+    # @mock.patch('')
     def test_on_direct_message(self):
         status_mock = MagicMock(name='status')
 
-        debug_mock = MagicMock(name='debug')
-        logger_mock = MagicMock(name='logger')
-        logger_mock.debug = debug_mock
-
-        self.listener.logger = logger_mock
-
         self.listener.on_direct_message(status_mock)
 
-        debug_mock.assert_called_with("on_direct_message: %s", status_mock)
+        self.mocked_log.debug.assert_called_with(
+            f'on_direct_message: {status_mock}')
 
     def test_on_error(self):
         status_mock = MagicMock(name='status')
 
-        debug_mock = MagicMock(name='debug')
-        logger_mock = MagicMock(name='logger')
-        logger_mock.debug = debug_mock
-
-        self.listener.logger = logger_mock
-
         self.listener.on_error(status_mock)
 
-        debug_mock.assert_called_with("on_error: %s", status_mock)
+        self.mocked_log.debug.assert_called_with(f'on_error: {status_mock}')
 
     def test_on_event(self):
         status_mock = MagicMock(name='status')
 
-        debug_mock = MagicMock(name='debug')
-        logger_mock = MagicMock(name='logger')
-        logger_mock.debug = debug_mock
-
-        self.listener.logger = logger_mock
-
         self.listener.on_event(status_mock)
 
-        debug_mock.assert_called_with("on_event: %s", status_mock)
+        self.mocked_log.debug.assert_called_with(f'on_event: {status_mock}')
 
     def test_on_status(self):
         status_mock = MagicMock(name='status')
-        status_mock.text = 'Here is some text!'
-
-        debug_mock = MagicMock(name='debug')
-        logger_mock = MagicMock(name='logger')
-        logger_mock.debug = debug_mock
-
-        self.listener.logger = logger_mock
 
         self.listener.on_status(status_mock)
 
-        debug_mock.assert_called_with(
-            "\n\n\non_status: %s\n\n\n", status_mock.text)
+        self.mocked_log.debug.assert_called_with(
+            f'on_status: {status_mock.text}')
