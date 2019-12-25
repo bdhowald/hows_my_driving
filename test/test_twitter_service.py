@@ -1,22 +1,24 @@
-# test_twitter_service.py
-
-# import pytest
-import random
-import unittest
-
-# from mock import MagicMock
-from unittest.mock import call, MagicMock
-
-# import class
-from twitter_service import TrafficViolationsTweeter
-
-# import helper class
-from traffic_violations.reply_argument_builder import AccountActivityAPIDirectMessage, AccountActivityAPIStatus
-
+import mock
 import os
 import pytz
+import random
+import statistics
+import unittest
 
 from datetime import datetime, timezone, time, timedelta
+
+from unittest.mock import call, MagicMock
+
+from twitter_service import TrafficViolationsTweeter
+
+from traffic_violations.models.twitter_event import TwitterEvent
+from traffic_violations.models.repeat_camera_offender import \
+    RepeatCameraOffender
+from traffic_violations.models.repeat_camera_offender import \
+    RepeatCameraOffender
+
+from traffic_violations.reply_argument_builder import \
+    AccountActivityAPIDirectMessage, AccountActivityAPIStatus
 
 
 def inc(part, in_reply_to_status_id):
@@ -33,13 +35,14 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     def test_find_messages_to_respond_to(self):
         twitter_events_mock = MagicMock(
             name='find_and_respond_to_twitter_events')
-        self.tweeter.find_and_respond_to_twitter_events = twitter_events_mock
+        self.tweeter._find_and_respond_to_twitter_events = twitter_events_mock
 
-        self.tweeter.find_messages_to_respond_to()
+        self.tweeter._find_messages_to_respond_to()
 
         twitter_events_mock.assert_called_with()
 
-    def test_find_and_respond_to_twitter_events(self):
+    @mock.patch('twitter_service.TwitterEvent')
+    def test_find_and_respond_to_twitter_events(self, twitter_event_mock):
         db_id = 1
         random_id = random.randint(10000000000000000000, 20000000000000000000)
         event_type = 'status'
@@ -53,21 +56,20 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         responded_to = 0
         user_mentions = '@HowsMyDrivingNY'
 
-        event_obj = {
-            'id': db_id,
-            'created_at': timestamp,
-            'event_id': random_id,
-            'event_text': event_text,
-            'event_type': event_type,
-            'in_reply_to_message_id': in_reply_to_message_id,
-            'location': location,
-            'responded_to': responded_to,
-            'user_handle': user_handle,
-            'user_id': user_id,
-            'user_mentions': user_mentions
-        }
+        twitter_event = TwitterEvent(
+            id=db_id,
+            created_at=timestamp,
+            event_id=random_id,
+            event_text=event_text,
+            event_type=event_type,
+            in_reply_to_message_id=in_reply_to_message_id,
+            location=location,
+            responded_to=responded_to,
+            user_handle=user_handle,
+            user_id=user_id,
+            user_mentions=user_mentions)
 
-        lookup_request1 = AccountActivityAPIDirectMessage(
+        lookup_request = AccountActivityAPIDirectMessage(
             message={
                 'created_at': timestamp,
                 'event_id': random_id,
@@ -79,38 +81,26 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             message_type=None
         )
 
-        cursor_tuple = [tuple(d.values()) for d in [event_obj]]
-
-        events_mock = MagicMock(name='events')
-
-        events_mock.keys.return_value = tuple(event_obj.keys())
-        events_mock.cursor = (cursor_tuple[0],)
-
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = events_mock
-
-        connect_mock = MagicMock(name='connect')
-        connect_mock.return_value = execute_mock
-
-        self.tweeter.db_service.get_connection = connect_mock
+        twitter_event_mock.get_all_by.return_value = [twitter_event]
 
         initiate_reply_mock = MagicMock(name='initiate_reply')
         self.tweeter.aggregator.initiate_reply = initiate_reply_mock
 
         build_reply_data_mock = MagicMock(name='build_reply_data')
-        build_reply_data_mock.return_value = lookup_request1
+        build_reply_data_mock.return_value = lookup_request
         self.tweeter.reply_argument_builder.build_reply_data = build_reply_data_mock
 
-        self.tweeter.find_and_respond_to_twitter_events()
+        self.tweeter._find_and_respond_to_twitter_events()
 
         self.tweeter.aggregator.initiate_reply.assert_called_with(
-            lookup_request1)
+            lookup_request)
 
     def test_is_production(self):
-        self.assertEqual(self.tweeter.is_production(),
+        self.assertEqual(self.tweeter._is_production(),
                          (os.environ.get('ENV') == 'production'))
 
-    def test_print_daily_summary(self):
+    @mock.patch('twitter_service.PlateLookup.query')
+    def test_print_daily_summary(self, mocked_plate_lookup_query):
         utc = pytz.timezone('UTC')
         eastern = pytz.timezone('US/Eastern')
 
@@ -119,40 +109,33 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         midnight_yesterday = (eastern.localize(datetime.combine(
             today, time.min)) - timedelta(days=1)).astimezone(utc)
 
-        num_lookups = random.randint(1, 10000)
-        num_tickets = random.randint(1, 1000000)
-        num_empty_lookups = random.randint(1, 100)
-        num_reckless_drivers = random.randint(1, 250)
-        total_reckless_drivers = random.randint(1, 1000)
-
         message_id = random.randint(10000000000000000000, 20000000000000000000)
 
-        tickets = []
-        for i in range(num_lookups - num_empty_lookups):
-            if (i + 1) < (num_lookups - num_empty_lookups):
-                tickets.append([max(int(random.randint(
-                    1, (num_tickets - sum(x[0] for x in tickets) - (num_lookups - (i + 1)))) / 100), 1)])
-            else:
-                tickets.append([num_tickets - sum(x[0] for x in tickets)])
+        plate_lookups = []
+        for _ in range(random.randint(5, 20)):
+            lookup = MagicMock()
+            lookup.num_tickets = random.randint(1, 200)
+            lookup.boot_eligible = random.random() >= 0.5
+            plate_lookups.append(lookup)
 
-        for i in range(num_empty_lookups):
-            tickets.append([0])
+        num_lookups = len(plate_lookups)
+        ticket_counts = [
+            plate_lookup.num_tickets for plate_lookup in plate_lookups]
+        total_tickets = sum(ticket_counts)
+        num_empty_lookups = len([
+            lookup for lookup in plate_lookups if lookup.num_tickets == 0])
+        num_reckless_drivers = len([
+            lookup for lookup in plate_lookups if lookup.boot_eligible == True])
 
-        sorted_tickets = sorted(tickets)
-        median = sorted_tickets[int(len(sorted_tickets) / 2)][0] if num_lookups % 2 == 1 else ((sorted_tickets[
-            int(len(sorted_tickets) / 2)][0] + sorted_tickets[int((len(sorted_tickets) / 2) - 1)][0]) / 2.0)
+        mocked_plate_lookup_query.join().all.return_value = plate_lookups
 
-        cursor_mock = MagicMock(name='cursor')
-        # cursor_mock.fetchone.return_value = (num_lookups, num_tickets,
-        # num_empty_lookups, num_reckless_drivers)
-        cursor_mock.fetchone.side_effect = [
-            [num_lookups, num_tickets, num_empty_lookups, num_reckless_drivers], [total_reckless_drivers]]
+        total_reckless_drivers = random.randint(10, 10000)
 
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.side_effect = [cursor_mock, tickets, cursor_mock]
-        # tweeter.
-        connect_mock = MagicMock(name='connect')
-        connect_mock.return_value = execute_mock
+        mocked_plate_lookup_query.session.query(
+        ).distinct().filter().count.return_value = total_reckless_drivers
+
+        median = statistics.median(
+            plate_lookup.num_tickets for plate_lookup in plate_lookups)
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
@@ -166,15 +149,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.update_status = update_status_mock
 
-        self.tweeter.db_service.get_connection = connect_mock
-
-        self.tweeter.is_production = is_production_mock
+        self.tweeter._is_production = is_production_mock
         self.tweeter.api = api_mock
 
         lookup_str = (
             f"On {midnight_yesterday.strftime('%A, %B %-d, %Y')}, users requested {num_lookups} lookup{'' if num_lookups == 1 else 's'}. "
-            f"{'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have'} received {'{:,}'.format(num_tickets)} ticket{'' if num_tickets == 1 else 's'} "
-            f"for an average of {round(num_tickets / num_lookups, 2)} ticket{'' if num_tickets == 1 else 's'} "
+            f"{'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have'} received {'{:,}'.format(total_tickets)} ticket{'' if total_tickets == 1 else 's'} "
+            f"for an average of {round(total_tickets / num_lookups, 2)} ticket{'' if total_tickets == 1 else 's'} "
             f"and a median of {median} ticket{'' if median == 1 else 's'} per vehicle. "
             f"{num_empty_lookups} lookup{'' if num_empty_lookups == 1 else 's'} returned no tickets.")
 
@@ -183,15 +164,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             f"eligible to be booted or impounded under @bradlander's proposed legislation "
             f"({total_reckless_drivers} such lookups since June 6, 2018).")
 
-        self.tweeter.print_daily_summary()
+        self.tweeter._print_daily_summary()
 
         calls = [call(lookup_str), call(
             reckless_str, in_reply_to_status_id=message_id)]
 
         update_status_mock.assert_has_calls(calls)
 
-    def test_print_featured_plate(self):
-        rco_id = 123
+    @mock.patch('twitter_service.RepeatCameraOffender.query')
+    def test_print_featured_plate(self, mocked_repeat_camera_offender_query):
         plate = 'ABC1234'
         state = 'NY'
         total_camera_violations = random.randint(1, 100)
@@ -206,17 +187,22 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             max(index - (tied_with if tied_with == 0 else (tied_with - 1)), 1), index)
         nth_place = min_id + tied_with - 1
 
-        cursor_mock = MagicMock(name='cursor')
-        # cursor_mock.fetchone.return_value = (num_lookups, num_tickets,
-        # num_empty_lookups, num_reckless_drivers)
-        cursor_mock.fetchone.side_effect = [[rco_id, plate, state, total_camera_violations,
-                                             red_light_camera_violations, speed_camera_violations, times_featured], [index, tied_with, min_id]]
+        repeat_camera_offender: RepeatCameraOffender = RepeatCameraOffender(
+            plate_id=plate,
+            state=state,
+            total_camera_violations=total_camera_violations,
+            red_light_camera_violations=red_light_camera_violations,
+            speed_camera_violations=speed_camera_violations,
+            times_featured=0)
 
-        execute_mock = MagicMock(name='execute')
-        execute_mock.execute.return_value = cursor_mock
+        mocked_repeat_camera_offender_query.filter(
+        ).order_by().first.return_value = repeat_camera_offender
 
-        connect_mock = MagicMock(name='connect')
-        connect_mock.return_value = execute_mock
+        mocked_repeat_camera_offender_query.filter(
+        ).count.return_value = tied_with
+
+        mocked_repeat_camera_offender_query.session.query().filter(
+        ).one.return_value = [min_id]
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
@@ -230,9 +216,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.update_status = update_status_mock
 
-        self.tweeter.db_service.get_connection = connect_mock
-
-        self.tweeter.is_production = is_production_mock
+        self.tweeter._is_production = is_production_mock
         self.tweeter.api = api_mock
 
         vehicle_hashtag = f'#{state}_{plate}'
@@ -252,29 +236,26 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             f'{str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations)))} | Speed Safety Camera Violations\n\n'
             f'This makes {vehicle_hashtag}{tied_substring} the {worst_substring} camera violator in New York City.')
 
-        self.tweeter.print_featured_plate()
+        self.tweeter._print_featured_plate()
 
         calls = [call(featured_string)]
 
         update_status_mock.assert_has_calls(calls)
 
-    def test_process_response(self):
+    def test_process_response_direct_message(self):
+        """ Test direct message and new format """
 
-        ######################################
-        # Test direct message and new format #
-        ######################################
-
-        username1 = 'bdhowald'
+        username = 'bdhowald'
         message_id = random.randint(1000000000000000000, 2000000000000000000)
 
-        lookup_request1 = AccountActivityAPIDirectMessage(
+        lookup_request = AccountActivityAPIDirectMessage(
             message={
                 'created_at': random.randint(1_000_000_000_000, 2_000_000_000_000),
                 'event_id': message_id,
                 'event_text': '@howsmydrivingny ny:hme6483',
                 'source': 'twitter',
                 'type': 'direct_message',
-                'user_handle': username1,
+                'user_handle': username,
                 'user_id': 30139847
             },
             message_source='twitter',
@@ -283,13 +264,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\n@bdhowald Known fines for #NY_HME6483:\n\n$200.00 | Fined\n$125.00 | Outstanding\n$75.00   | Paid\n"
 
-        reply_event_args1 = {
+        reply_event_args = {
             'error_on_lookup': False,
-            'request_object': lookup_request1,
+            'request_object': lookup_request,
             'response_parts': [[combined_message]],
             'success': True,
             'successful_lookup': True,
-            'username': username1
+            'username': username
         }
 
         is_production_mock = MagicMock(name='is_production')
@@ -300,10 +281,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.send_direct_message_new = send_direct_message_mock
 
-        self.tweeter.is_production = is_production_mock
+        self.tweeter._is_production = is_production_mock
         self.tweeter.api = api_mock
 
-        self.tweeter.process_response(reply_event_args1)
+        self.tweeter._process_response(reply_event_args)
 
         send_direct_message_mock.assert_called_with({
             'event': {
@@ -319,193 +300,225 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             }
         })
 
-        ##############################
-        # Test status and old format #
-        ##############################
+    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    def test_process_response_status_legacy_format(self,
+                                                   recursively_process_status_updates_mock):
+        """ Test status and old format """
 
-        username2 = 'BarackObama'
+        username = 'BarackObama'
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
 
-        response_parts2 = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n",
-                            "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", '@BarackObama Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
+        response_parts = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n",
+                           "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", '@BarackObama Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
 
-        lookup_request2 = AccountActivityAPIStatus(
+        lookup_request = AccountActivityAPIStatus(
             message={
                 'created_at': random.randint(1_000_000_000_000, 2_000_000_000_000),
                 'event_id': message_id,
                 'event_text': '@howsmydrivingny plate:glf7467 state:pa',
                 'source': 'twitter',
                 'type': 'status',
-                'user_handle': username2,
+                'user_handle': username,
                 'user_id': 30139847
             },
             message_source='twitter',
             message_type='status'
         )
 
-        reply_event_args2 = {
+        reply_event_args = {
             'error_on_lookup': False,
-            'request_object': lookup_request2,
-            'response_parts': response_parts2,
+            'request_object': lookup_request,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': True,
-            'username': username2
+            'username': username
         }
+
+        is_production_mock = MagicMock(name='is_production')
+        is_production_mock.return_value = True
 
         create_favorite_mock = MagicMock(name='is_production')
         create_favorite_mock.return_value = True
 
-        recursively_process_status_updates_mock = MagicMock(
-            'recursively_process_status_updates')
-
+        api_mock = MagicMock(name='api')
         api_mock.create_favorite = create_favorite_mock
 
-        self.tweeter.recursively_process_status_updates = recursively_process_status_updates_mock
+        self.tweeter._is_production = is_production_mock
+        self.tweeter.api = api_mock
 
-        reply_event_args2['username'] = username2
+        reply_event_args['username'] = username
 
-        self.tweeter.process_response(reply_event_args2)
+        self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts2, message_id, username2)
+            response_parts, message_id, username)
 
-        #############################
-        # Test campaign-only lookup #
-        #############################
+    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    def test_process_response_campaign_only_lookup(self,
+                                                   recursively_process_status_updates_mock):
+        """ Test campaign-only lookup """
 
-        username3 = 'NYCMayorsOffice'
+        username = 'NYCMayorsOffice'
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
         campaign_hashtag = '#SaferSkillman'
         campaign_tickets = random.randint(1000, 2000)
         campaign_vehicles = random.randint(100, 200)
 
-        response_parts3 = [['@' + username3 + ' ' + str(campaign_vehicles) + ' vehicles with a total of ' + str(
+        response_parts = [['@' + username + ' ' + str(campaign_vehicles) + ' vehicles with a total of ' + str(
             campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n\n']]
 
-        lookup_request3 = AccountActivityAPIStatus(
+        lookup_request = AccountActivityAPIStatus(
             message={
                 'created_at': random.randint(1_000_000_000_000, 2_000_000_000_000),
                 'event_id': message_id,
                 'event_text': f'@howsmydrivingny {campaign_hashtag}',
                 'source': 'twitter',
                 'type': 'status',
-                'user_handle': username3,
+                'user_handle': username,
                 'user_id': 30139847
             },
             message_source='twitter',
             message_type='status'
         )
 
-        reply_event_args3 = {
+        reply_event_args = {
             'error_on_lookup': False,
-            'request_object': lookup_request3,
-            'response_parts': response_parts3,
+            'request_object': lookup_request,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': True,
-            'username': username3
+            'username': username
         }
 
-        reply_event_args3['username'] = username3
+        reply_event_args['username'] = username
 
-        self.tweeter.process_response(reply_event_args3)
+        self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts3, message_id, username3)
+            response_parts, message_id, username)
 
-        #########################
-        # Test plateless lookup #
-        #########################
+    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    def test_process_response_with_search_status(self,
+                                                 recursively_process_status_updates_mock):
+        """ Test plateless lookup """
 
-        username4 = 'NYC_DOT'
+        username = 'NYC_DOT'
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
 
-        response_parts4 = [
-            ['@' + username4 + ' I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234']]
+        response_parts = [
+            ['@' + username + ' I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234']]
 
-        lookup_request4 = AccountActivityAPIStatus(
+        lookup_request = AccountActivityAPIStatus(
             message={
                 'created_at': random.randint(1_000_000_000_000, 2_000_000_000_000),
                 'event_id': message_id,
                 'event_text': '@howsmydrivingny plate dkr9364 state ny',
                 'source': 'twitter',
                 'type': 'status',
-                'user_handle': username4,
+                'user_handle': username,
                 'user_id': 30139847
             },
             message_source='twitter',
             message_type='status'
         )
 
-        reply_event_args4 = {
+        reply_event_args = {
             'error_on_lookup': False,
-            'request_object': lookup_request4,
-            'response_parts': response_parts4,
+            'request_object': lookup_request,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': True,
-            'username': username4
+            'username': username
         }
 
-        reply_event_args4['username'] = username4
+        reply_event_args['username'] = username
 
-        self.tweeter.process_response(reply_event_args4)
+        self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts4, message_id, username4)
+            response_parts, message_id, username)
 
-        username5 = 'NYCDDC'
+    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    def test_process_response_with_direct_message_api_direct_message(self,
+                                                                     recursively_process_status_updates_mock):
+        """ Test plateless lookup """
 
-        response_parts5 = [
-            ['@' + username5 + " I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
+        username = 'NYCDDC'
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
 
-        lookup_request5 = AccountActivityAPIStatus(
+        response_parts = [
+            ['@' + username + " I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"]]
+
+        lookup_request = AccountActivityAPIStatus(
             message={
                 'created_at': random.randint(1_000_000_000_000, 2_000_000_000_000),
                 'event_id': message_id,
                 'event_text': '@howsmydrivingny the state is ny',
                 'source': 'twitter',
                 'type': 'status',
-                'user_handle': username5,
+                'user_handle': username,
                 'user_id': 30139847
             },
             message_source='twitter',
             message_type='status'
         )
 
-        reply_event_args5 = {
+        reply_event_args = {
             'error_on_lookup': False,
-            'request_object': lookup_request5,
-            'response_parts': response_parts5,
+            'request_object': lookup_request,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': True,
-            'username': username5
+            'username': username
         }
 
-        reply_event_args5['username'] = username5
+        reply_event_args['username'] = username
 
-        self.tweeter.process_response(reply_event_args5)
+        self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts5, message_id, username5)
+            response_parts, message_id, username)
 
-        #######################
-        # Test error handling #
-        #######################
+    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    def test_process_response_with_error(self,
+                                         recursively_process_status_updates_mock):
+        """ Test error handling """
 
-        response_parts6 = [
-            ['@' + username2 + " Sorry, I encountered an error. Tagging @bdhowald."]]
+        username = 'BarackObama'
+        message_id = random.randint(1000000000000000000, 2000000000000000000)
 
-        reply_event_args6 = {
+        lookup_request = AccountActivityAPIStatus(
+            message={
+                'created_at': random.randint(1_000_000_000_000, 2_000_000_000_000),
+                'event_id': message_id,
+                'event_text': '@howsmydrivingny plate:glf7467 state:pa',
+                'source': 'twitter',
+                'type': 'status',
+                'user_handle': username,
+                'user_id': 30139847
+            },
+            message_source='twitter',
+            message_type='status'
+        )
+
+        response_parts = [
+            ['@' + username + " Sorry, I encountered an error. Tagging @bdhowald."]]
+
+        reply_event_args = {
             'error_on_lookup': False,
-            'request_object': lookup_request2,
-            'response_parts': response_parts6,
+            'request_object': lookup_request,
+            'response_parts': response_parts,
             'success': True,
             'successful_lookup': True,
-            'username': username2
+            'username': username
         }
 
-        reply_event_args6['username'] = username2
+        reply_event_args['username'] = username
 
-        self.tweeter.process_response(reply_event_args6)
+        self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts6, message_id, username2)
+            response_parts, message_id, username)
 
     def test_recursively_process_direct_messages(self):
         str1 = 'Some stuff\n'
@@ -518,7 +531,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         result_str = "\n".join([str1, str2, str3])
 
-        self.assertEqual(self.tweeter.recursively_process_direct_messages(
+        self.assertEqual(self.tweeter._recursively_process_direct_messages(
             response_parts), result_str)
 
     def test_recursively_process_status_updates(self):
@@ -539,10 +552,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         is_production_mock.return_value = True
 
         self.tweeter.api = api_mock
-        self.tweeter.is_production = is_production_mock
+        self.tweeter._is_production = is_production_mock
 
-        self.assertEqual(self.tweeter.recursively_process_status_updates(
+        self.assertEqual(self.tweeter._recursively_process_status_updates(
             response_parts, original_id, 'BarackObama'), original_id + len(response_parts))
 
-        self.assertEqual(self.tweeter.recursively_process_status_updates(
+        self.assertEqual(self.tweeter._recursively_process_status_updates(
             response_parts, original_id, 'BarackObama'), original_id + len(response_parts))
