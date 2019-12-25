@@ -9,7 +9,6 @@ import unittest
 
 from datetime import datetime, timezone, timedelta
 
-from common.db_service import DbService
 from unittest.mock import MagicMock
 
 from traffic_violations.models.camera_streak_data import CameraStreakData
@@ -760,7 +759,6 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             campaigns=campaigns, plate_query=plate_query), result)
 
         # Try again with a forced error.
-
         violations_mock.status_code = 503
 
         result = self.aggregator._perform_plate_lookup(
@@ -899,9 +897,6 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         self.assertEqual(self.aggregator._create_response(
             direct_message_request_object), response)
-
-        # reset _perform_plate_lookup
-        # self.aggregator._perform_plate_lookup = real_plate_lookup_fn
 
 
     def test_create_response_status_legacy_format(self):

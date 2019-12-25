@@ -17,15 +17,22 @@ PLATE_TYPES_LOOKUP_STRING = ' (types: {}) '
 
 PREVIOUS_LOOKUP_STATUS_STRING = ' by @{}: https://twitter.com/{}/status/{}.'
 
+REPEAT_CAMERA_OFFENDER_STRING = (
+    'Featured #RepeatCameraOffender:\n\n'
+    '{} has received {} camera violations:\n\n'
+    '{} | Red Light Camera Violations\n'
+    '{} | Speed Safety Camera Violations\n\n'
+    'This makes {}{} the {} camera violator in New York City.')
+
 REPEAT_LOOKUP_STRING = ' Since then, {} has received {} new ticket{}.\n\n'
 
 VEHICLE_HASHTAG = '#{}_{}'
 
-def get_plate_types_string(plate_types):
+def get_plate_types_string(plate_types: str) -> str:
     if plate_types:
         return PLATE_TYPES_LOOKUP_STRING.format(plate_types)
     else:
         return ' '
 
-def pluralize(number):
+def pluralize(number: int) -> str:
     return '' if number == 1 else 's'

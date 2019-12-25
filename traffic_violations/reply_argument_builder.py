@@ -3,47 +3,54 @@ import pytz
 import re
 
 from datetime import datetime, timezone
+from typing import Type
+
+from traffic_violations.constants.lookup_sources import LookupSources
+from traffic_violations.constants.twitter import TwitterAPIAttributes, \
+    TwitterMessageTypes
 
 from traffic_violations.models.lookup_requests import BaseLookupRequest, \
-    AccountActivityAPIDirectMessage, AccountActivityAPIStatus, DirectMessageAPIDirectMessage, \
-    HowsMyDrivingAPIRequest, SearchStatus, StreamExtendedStatus, StreamingDirectMessage, StreamingStatus
+    AccountActivityAPIDirectMessage, AccountActivityAPIStatus, \
+    DirectMessageAPIDirectMessage,  HowsMyDrivingAPIRequest, SearchStatus, \
+    StreamExtendedStatus, StreamingDirectMessage, StreamingStatus
+
+LOG = logging.getLogger(__name__)
 
 
 class ReplyArgumentBuilder:
 
     def __init__(self, api):
-        self.logger = logging.getLogger('hows_my_driving')
         self.api = api
 
     def build_reply_data(self, message, message_source, message_type):
 
-        # Print args
-        self.logger.info('args:')
-        self.logger.info('message: %s', message)
-        self.logger.info('message_source: %s', message_source)
-        self.logger.info('message_type: %s', message_type)
+        LOG.info(
+            f'args for reply data:'
+            f'message: {message}'
+            f'message_source: {message_source}'
+            f'message_type: {message_type}')
 
-        lookup_request = None
+        lookup_request: Type[BaseLookupRequest] = None
 
         # why doesn't python have switch statements
-        if message_source == "twitter":
+        if message_source == LookupSources.TWITTER:
 
-            if message_type == 'status':
+            if message_type == TwitterMessageTypes.STATUS:
 
                 # Using old streaming service for a tweet longer than 140
                 # characters
 
-                if hasattr(message, 'extended_tweet'):
-                    self.logger.debug('\n\nWe have an extended tweet\n\n')
+                if hasattr(message, TwitterAPIAttributes.EXTENDED_TWEET.value):
+                    LOG.debug('We have an extended tweet')
 
                     lookup_request = StreamExtendedStatus(
                         message, message_source, message_type)
 
                 # Using tweet api search endpoint
 
-                elif hasattr(message, 'full_text') and (not hasattr(message, 'retweeted_status')):
-                    self.logger.debug(
-                        '\n\nWe have a tweet from the search api endpoint\n\n')
+                elif hasattr(message, TwitterAPIAttributes.FULL_TEXT.value) and (not hasattr(message, TwitterAPIAttributes.RETWEETED_STATUS.value)):
+                    LOG.debug(
+                        'We have a tweet from the search api endpoint')
 
                     lookup_request = SearchStatus(
                         message, message_source, message_type)
@@ -51,67 +58,67 @@ class ReplyArgumentBuilder:
                 # Using old streaming service for a tweet of 140 characters or
                 # fewer
 
-                elif hasattr(message, 'entities') and (not hasattr(message, 'retweeted_status')):
+                elif hasattr(message, TwitterAPIAttributes.ENTITIES.value) and (not hasattr(message, TwitterAPIAttributes.RETWEETED_STATUS.value)):
 
-                    self.logger.debug(
-                        '\n\nWe are dealing with a tweet of 140 characters or fewer\n\n')
+                    LOG.debug(
+                        'We are dealing with a tweet of '
+                        '140 characters or fewer')
 
                     lookup_request = StreamingStatus(
                         message, message_source, message_type)
 
                 # Using new account api service by way of SQL table for events
 
-                elif type(message) == dict and 'event_type' in message:
+                elif type(message) == dict and TwitterAPIAttributes.EVENT_TYPE.value in message:
 
-                    self.logger.debug(
-                        '\n\nWe are dealing with account activity api object\n\n')
+                    LOG.debug(
+                        'We are dealing with account activity api object')
 
                     lookup_request = AccountActivityAPIStatus(
                         message, message_source, message_type)
 
-            elif message_type == 'direct_message':
+            elif message_type == TwitterMessageTypes.DIRECT_MESSAGE:
 
                 # Using old streaming service for a direct message
+                if hasattr(message, TwitterAPIAttributes.DIRECT_MESSAGE.value):
 
-                if hasattr(message, 'direct_message'):
-
-                    self.logger.debug(
-                        '\n\nWe have a direct message from the streaming service\n\n')
+                    LOG.debug(
+                        'We have a direct message from the streaming service')
 
                     lookup_request = StreamingDirectMessage(
                         message, message_source, message_type)
 
                 # Using new direct message api endpoint
 
-                elif hasattr(message, 'message_create'):
+                elif hasattr(message, TwitterAPIAttributes.MESSAGE_CREATE.value):
 
-                    self.logger.debug(
-                        '\n\nWe have a direct message from the direct message api\n\n')
+                    LOG.debug(
+                        'We have a direct message from the direct message api')
 
                     lookup_request = DirectMessageAPIDirectMessage(
                         message, message_source, message_type, self.api)
 
                 # Using account activity api endpoint
 
-                elif 'event_type' in message:
+                elif TwitterAPIAttributes.EVENT_TYPE.value in message:
 
-                    self.logger.debug(
-                        '\n\nWe are dealing with an account activity api object\n\n')
+                    LOG.debug(
+                        'We are dealing with an account activity api object')
 
                     lookup_request = AccountActivityAPIDirectMessage(
                         message, message_source, message_type)
 
-        elif message_source == 'api':
+        elif message_source == LookupSources.API:
 
-            self.logger.debug(
-                '\n\nWe are dealing with a HowsMyDrivingNY API request\n\n')
+            LOG.debug(
+                'We are dealing with a HowsMyDrivingNY API request')
 
             lookup_request = HowsMyDrivingAPIRequest(
                 message, message_source, message_type)
 
         else:
 
-            self.logger.debug('\n\nUnrecognized request type\n\n')
+            LOG.debug('Unrecognized request type')
 
             lookup_request = BaseLookupRequest(None, 'unknown', 'unknown')
 

@@ -10,6 +10,6 @@ class FailedPlateLookup(Base):
 
     # columns
     id = Column(Integer, primary_key=True)
-    message_id = Column(Integer)
+    message_id = Column(Integer, nullable=False)
     responded_to = Column(Boolean, default=True, nullable=False)
     username = Column('external_username', String(32))
