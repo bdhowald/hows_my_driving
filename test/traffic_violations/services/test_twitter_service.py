@@ -9,8 +9,6 @@ from datetime import datetime, timezone, time, timedelta
 
 from unittest.mock import call, MagicMock
 
-from twitter_service import TrafficViolationsTweeter
-
 from traffic_violations.models.twitter_event import TwitterEvent
 from traffic_violations.models.repeat_camera_offender import \
     RepeatCameraOffender
@@ -19,6 +17,9 @@ from traffic_violations.models.repeat_camera_offender import \
 
 from traffic_violations.reply_argument_builder import \
     AccountActivityAPIDirectMessage, AccountActivityAPIStatus
+
+from traffic_violations.services.twitter_service import \
+    TrafficViolationsTweeter
 
 
 def inc(part, in_reply_to_status_id):
@@ -41,7 +42,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         twitter_events_mock.assert_called_with()
 
-    @mock.patch('twitter_service.TwitterEvent')
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TwitterEvent')
     def test_find_and_respond_to_twitter_events(self, twitter_event_mock):
         db_id = 1
         random_id = random.randint(10000000000000000000, 20000000000000000000)
@@ -98,7 +100,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.assertEqual(self.tweeter._is_production(),
                          (os.environ.get('ENV') == 'production'))
 
-    @mock.patch('twitter_service.PlateLookup.query')
+    @mock.patch(
+        'traffic_violations.services.twitter_service.PlateLookup.query')
     def test_print_daily_summary(self, mocked_plate_lookup_query):
         utc = pytz.timezone('UTC')
         eastern = pytz.timezone('US/Eastern')
@@ -170,7 +173,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         update_status_mock.assert_has_calls(calls)
 
-    @mock.patch('twitter_service.RepeatCameraOffender.query')
+    @mock.patch(
+        'traffic_violations.services.twitter_service.RepeatCameraOffender.query')
     def test_print_featured_plate(self, mocked_repeat_camera_offender_query):
         plate = 'ABC1234'
         state = 'NY'
@@ -296,7 +300,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             }
         })
 
-    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
     def test_process_response_status_legacy_format(self,
                                                    recursively_process_status_updates_mock):
         """ Test status and old format """
@@ -346,7 +351,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         recursively_process_status_updates_mock.assert_called_with(
             response_parts, message_id, username)
 
-    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
     def test_process_response_campaign_only_lookup(self,
                                                    recursively_process_status_updates_mock):
         """ Test campaign-only lookup """
@@ -387,7 +393,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         recursively_process_status_updates_mock.assert_called_with(
             response_parts, message_id, username)
 
-    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
     def test_process_response_with_search_status(self,
                                                  recursively_process_status_updates_mock):
         """ Test plateless lookup """
@@ -425,7 +432,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         recursively_process_status_updates_mock.assert_called_with(
             response_parts, message_id, username)
 
-    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
     def test_process_response_with_direct_message_api_direct_message(self,
                                                                      recursively_process_status_updates_mock):
         """ Test plateless lookup """
@@ -463,7 +471,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         recursively_process_status_updates_mock.assert_called_with(
             response_parts, message_id, username)
 
-    @mock.patch('twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
     def test_process_response_with_error(self,
                                          recursively_process_status_updates_mock):
         """ Test error handling """

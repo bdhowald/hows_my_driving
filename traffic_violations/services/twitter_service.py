@@ -1,9 +1,7 @@
 import logging
-import optparse
 import os
 import pytz
 import statistics
-import sys
 import threading
 import tweepy
 
@@ -24,12 +22,6 @@ from traffic_violations.traffic_violations_aggregator import \
     TrafficViolationsAggregator
 
 from traffic_violations.utils import string_utils, twitter_utils
-
-LOGGING_LEVELS = {'critical': logging.CRITICAL,
-                  'error': logging.ERROR,
-                  'warning': logging.WARNING,
-                  'info': logging.INFO,
-                  'debug': logging.DEBUG}
 
 LOG = logging.getLogger(__name__)
 
@@ -58,20 +50,6 @@ class TrafficViolationsTweeter:
         self.direct_messages_iteration = 0
         self.events_iteration = 0
         self.statuses_iteration = 0
-
-    def _run(self):
-        print('Setting up logging')
-        parser = optparse.OptionParser()
-        parser.add_option('-l', '--logging-level', help='Logging level')
-        parser.add_option('-f', '--logging-file', help='Logging file name')
-        (options, args) = parser.parse_args()
-        logging_level = LOGGING_LEVELS.get(
-            options.logging_level, logging.NOTSET)
-        logging.basicConfig(level=logging_level, filename=options.logging_file,
-                            format='%(asctime)s %(levelname)s: %(message)s',
-                            datefmt='%Y-%m-%d %H:%M:%S')
-
-        self._find_messages_to_respond_to()
 
     def _find_and_respond_to_twitter_events(self):
 
@@ -393,13 +371,3 @@ class TrafficViolationsTweeter:
                         "This is where 'self.api.update_status(part, in_reply_to_status_id = message_id)' would be called in production.")
 
         return message_id
-
-if __name__ == '__main__':
-    tweeter = TrafficViolationsTweeter()
-
-    if sys.argv[-1] == 'print_daily_summary':
-        tweeter._print_daily_summary()
-    elif sys.argv[-1] == 'print_featured_plate':
-        tweeter._print_featured_plate()
-    else:
-        tweeter._run()

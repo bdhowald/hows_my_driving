@@ -5,9 +5,11 @@ import tweepy
 
 from unittest.mock import MagicMock
 
+from traffic_violations.services.twitter_service import \
+    TrafficViolationsTweeter
+
 from traffic_violations.traffic_violations_stream_listener import \
     TrafficViolationsStreamListener
-from twitter_service import TrafficViolationsTweeter
 
 
 class TestTrafficViolationsStreamListener(unittest.TestCase):
