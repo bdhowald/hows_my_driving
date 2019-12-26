@@ -416,7 +416,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     )
     @ddt.unpack
     @mock.patch(
-            'traffic_violations.traffic_violations_aggregator.TweetDetectionService.tweet_exists')
+        'traffic_violations.traffic_violations_aggregator.TweetDetectionService.tweet_exists')
     def test_form_plate_lookup_response_parts(self,
                                               mocked_tweet_exists,
                                               data: Dict[str, any],
@@ -447,10 +447,10 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             fined=vehicle1_fined,
             outstanding=(vehicle1_fined - vehicle1_reduced - vehicle1_paid),
             paid=vehicle1_paid,
-            reduced=vehicle1_reduced
-        )
+            reduced=vehicle1_reduced)
+
         vehicle1_mock = MagicMock(name='vehicle1')
-        vehicle1_mock.fine_data = vehicle1_fine_data
+        vehicle1_mock.fines = vehicle1_fine_data
         vehicle1_mock.violations = [{} for _ in range(random.randint(10, 20))]
 
         vehicle2_fined = random.randint(10, 20000)
@@ -460,28 +460,31 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             fined=vehicle2_fined,
             outstanding=(vehicle2_fined - vehicle2_reduced - vehicle2_paid),
             paid=vehicle2_paid,
-            reduced=vehicle2_reduced
-        )
+            reduced=vehicle2_reduced)
         vehicle2_mock = MagicMock(name='vehicle2')
-        vehicle2_mock.fine_data = vehicle2_fine_data
-        vehicle2_mock.Violations = [{} for _ in range(random.randint(10, 20))]
+        vehicle2_mock.fines = vehicle2_fine_data
+        vehicle2_mock.violations = [{} for _ in range(random.randint(10, 20))]
+
+        vehicle3_mock = MagicMock(name='vehicle3')
+        vehicle3_mock.fines = FineData(
+            fined=0, outstanding=0,
+            paid=0, reduced=0)
+        vehicle3_mock.violations = []
 
         total_fined = vehicle1_fined + vehicle2_fined
         total_paid = vehicle1_paid + vehicle2_paid
         total_reduced = vehicle1_reduced + vehicle2_reduced
 
         summary: TrafficViolationsAggregatorResponse = TrafficViolationsAggregatorResponse(
-            plate_lookups=[vehicle1_mock, vehicle2_mock])
+            plate_lookups=[vehicle1_mock, vehicle2_mock, vehicle3_mock])
 
         total_tickets = sum(len(lookup.violations)
                             for lookup in summary.plate_lookups)
 
         self.assertEqual(
             self.aggregator._form_summary_string(summary), [
-                f"The {len(summary.plate_lookups)} vehicles you queried have "
-                f"collectively received "
-                f"{total_tickets} tickets "
-                f"with at least "
+                f"You queried 3 vehicles, of which 2 vehicles have "
+                f"collectively received {total_tickets} tickets with at least "
                 f"{'${:,.2f}'.format(total_fined - total_reduced)} in fines, "
                 f"of which {'${:,.2f}'.format(total_paid)} "
                 f"has been paid.\n\n"])
@@ -764,9 +767,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertRegex(str(result.message), 'server error when accessing')
 
     @mock.patch(
-          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
     @mock.patch(
-          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
     def test_create_response_direct_message(self,
                                             mocked_query_for_lookup_frequency,
                                             mocked_perform_plate_lookup):
@@ -890,11 +893,10 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertEqual(self.aggregator._create_response(
             direct_message_request_object), response)
 
-
     @mock.patch(
-          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
     @mock.patch(
-          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
     def test_create_response_status_legacy_format(self,
                                                   mocked_query_for_lookup_frequency,
                                                   mocked_perform_plate_lookup):
@@ -961,30 +963,30 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             success=True)
 
         response_parts = [['#PA_GLF7467 has been queried 2 times.\n\n'
-                            'Total parking and camera violation tickets: 49\n\n'
-                            '17 | No Parking - Street Cleaning\n'
-                            '6   | Expired Meter\n'
-                            '5   | No Violation Description Available\n'
-                            '3   | Fire Hydrant\n'
-                            '3   | No Parking - Day/Time Limits\n',
-                            'Parking and camera violation tickets for '
-                            '#PA_GLF7467, cont\'d:\n\n'
-                            '3   | Failure To Display Meter Receipt\n'
-                            '3   | School Zone Speed Camera Violation\n'
-                            '2   | No Parking - Except Authorized Vehicles\n'
-                            '2   | Bus Lane Violation\n'
-                            '1   | Failure To Stop At Red Light\n',
-                            'Parking and camera violation tickets for '
-                            '#PA_GLF7467, cont\'d:\n\n'
-                            '1   | No Standing - Day/Time Limits\n'
-                            '1   | No Standing - Except Authorized Vehicle\n'
-                            '1   | Obstructing Traffic Or Intersection\n'
-                            '1   | Double Parking\n',
-                            'Known fines for #PA_GLF7467:\n\n'
-                            '$1,000.00 | Fined\n'
-                            '$0.00         | Reduced\n'
-                            '$775.00     | Paid\n'
-                            '$225.00     | Outstanding\n']]
+                           'Total parking and camera violation tickets: 49\n\n'
+                           '17 | No Parking - Street Cleaning\n'
+                           '6   | Expired Meter\n'
+                           '5   | No Violation Description Available\n'
+                           '3   | Fire Hydrant\n'
+                           '3   | No Parking - Day/Time Limits\n',
+                           'Parking and camera violation tickets for '
+                           '#PA_GLF7467, cont\'d:\n\n'
+                           '3   | Failure To Display Meter Receipt\n'
+                           '3   | School Zone Speed Camera Violation\n'
+                           '2   | No Parking - Except Authorized Vehicles\n'
+                           '2   | Bus Lane Violation\n'
+                           '1   | Failure To Stop At Red Light\n',
+                           'Parking and camera violation tickets for '
+                           '#PA_GLF7467, cont\'d:\n\n'
+                           '1   | No Standing - Day/Time Limits\n'
+                           '1   | No Standing - Except Authorized Vehicle\n'
+                           '1   | Obstructing Traffic Or Intersection\n'
+                           '1   | Double Parking\n',
+                           'Known fines for #PA_GLF7467:\n\n'
+                           '$1,000.00 | Fined\n'
+                           '$0.00         | Reduced\n'
+                           '$775.00     | Paid\n'
+                           '$225.00     | Outstanding\n']]
 
         response = {
             'error_on_lookup': False,
@@ -1002,9 +1004,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             request_object), response)
 
     @mock.patch(
-          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_campaign_lookup')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_campaign_lookup')
     @mock.patch(
-          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaign_hashtags')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaign_hashtags')
     def test_create_response_campaign_only_lookup(self,
                                                   mocked_detect_campaign_hashtags,
                                                   mocked_perform_campaign_lookup):
@@ -1056,7 +1058,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         mocked_perform_campaign_lookup.assert_called_with(included_campaigns)
 
     @mock.patch(
-          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaign_hashtags')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaign_hashtags')
     def test_create_response_with_search_status(self,
                                                 mocked_detect_campaign_hashtags):
         """ Test plateless lookup """
@@ -1069,7 +1071,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         message_object = MagicMock(name='message')
         message_object.created_at = now
         message_object.entities = {}
-        message_object.entities['user_mentions'] = [{'screen_name': 'HowsMyDrivingNY'}]
+        message_object.entities['user_mentions'] = [
+            {'screen_name': 'HowsMyDrivingNY'}]
         message_object.id = message_id
         message_object.full_text = '@howsmydrivingny plate dkr9364 state ny'
         message_object.user.screen_name = user_handle
@@ -1097,7 +1100,6 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         self.assertEqual(self.aggregator._create_response(
             request_object), response)
-
 
     def test_create_response_with_direct_message_api_direct_message(self):
         """ Test plateless lookup """
@@ -1155,9 +1157,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertEqual(self.aggregator._create_response(
             request_object), response)
 
-
     @mock.patch(
-      'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
     def test_create_response_with_error(self,
                                         mocked_perform_plate_lookup):
         """ Test error handling """

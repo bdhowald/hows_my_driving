@@ -578,15 +578,23 @@ class TrafficViolationsAggregator:
     ) -> Optional[str]:
 
         num_vehicles = len(summary.plate_lookups)
-        num_tickets = sum(len(lookup.violations)
-                          for lookup in summary.plate_lookups)
+        vehicle_tickets = [len(lookup.violations)
+                            for lookup in summary.plate_lookups]
+        total_tickets = sum(vehicle_tickets)
+
+        fines_by_vehicle: List[FineData] = [lookup.fines for lookup in summary.plate_lookups]
+
+        vehicles_with_fines: int = len([
+            fine_data for fine_data in fines_by_vehicle if fine_data.fined > 0])
+
         aggregate_fines: FineData = FineData(**{field: sum(getattr(lookup.fines, field) for lookup in summary.plate_lookups) for field in FineData.FINE_FIELDS})
 
         if aggregate_fines.fined > 0:
           return [
-              f"The {num_vehicles} vehicles you queried have collectively received "
-              f"{num_tickets} ticket{L10N.pluralize(num_tickets)} with at "
-              f"least {'${:,.2f}'.format(aggregate_fines.fined - aggregate_fines.reduced)} "
+              f"You queried {num_vehicles} vehicles, of which "
+              f"{vehicles_with_fines} vehicle{L10N.pluralize(vehicles_with_fines)} "
+              f"{'has' if vehicles_with_fines == 1 else 'have collectively'} received {total_tickets} ticket{L10N.pluralize(total_tickets)} "
+              f"with at least {'${:,.2f}'.format(aggregate_fines.fined - aggregate_fines.reduced)} "
               f"in fines, of which {'${:,.2f}'.format(aggregate_fines.paid)} has been paid.\n\n"]
 
     def _get_plate_query(self, request_object: Type[BaseLookupRequest], vehicle: Vehicle) -> PlateQuery:
