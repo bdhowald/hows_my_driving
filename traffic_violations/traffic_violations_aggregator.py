@@ -196,7 +196,7 @@ class TrafficViolationsAggregator:
                         else:
                             # Let user know we didn't find anything.
                             plate_types_string = (
-                                f' (types: {plate_query.plate_types})') if plate_types else ''
+                                f' (types: {plate_query.plate_types})') if plate_lookup.plate_types else ''
                             L10N.NO_TICKETS_FOUND_STRING.format(
                                 plate_query.state,
                                 plate_query.plate,
