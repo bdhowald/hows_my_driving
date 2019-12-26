@@ -245,7 +245,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         update_status_mock.assert_has_calls(calls)
 
-    def test_process_response_direct_message(self):
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TrafficViolationsTweeter._is_production')
+    def test_process_response_direct_message(self, mocked_is_production):
         """ Test direct message and new format """
 
         username = 'bdhowald'
@@ -273,32 +275,20 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             'username': username
         }
 
-        is_production_mock = MagicMock(name='is_production')
-        is_production_mock.return_value = True
+        mocked_is_production.return_value = True
 
         send_direct_message_mock = MagicMock('send_direct_message_mock')
 
         api_mock = MagicMock(name='api')
-        api_mock.send_direct_message_new = send_direct_message_mock
+        api_mock.send_direct_message = send_direct_message_mock
 
-        self.tweeter._is_production = is_production_mock
         self.tweeter.api = api_mock
 
         self.tweeter._process_response(reply_event_args)
 
-        send_direct_message_mock.assert_called_with({
-            'event': {
-                'type': 'message_create',
-                'message_create': {
-                    'target': {
-                        'recipient_id': 30139847
-                    },
-                    'message_data': {
-                        'text': combined_message
-                    }
-                }
-            }
-        })
+        send_direct_message_mock.assert_called_with(
+          recipient_id=30139847,
+          text=combined_message)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')

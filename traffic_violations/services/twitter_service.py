@@ -300,23 +300,9 @@ class TrafficViolationsTweeter:
 
             LOG.debug(f'combined_message: {combined_message}')
 
-            event = {
-                "event": {
-                    "type": "message_create",
-                    "message_create": {
-                        "target": {
-                            "recipient_id": request_object.user_id if request_object else None
-                        },
-                        "message_data": {
-                            "text": combined_message
-                        }
-                    }
-                }
-            }
-
-            # self._is_production() and self.api.send_direct_message(screen_name
-            # = username, text = combined_message)
-            self._is_production() and self.api.send_direct_message_new(event)
+            self._is_production() and self.api.send_direct_message(
+                recipient_id=request_object.user_id if request_object else None,
+                text=combined_message)
 
         else:
             # If we have at least one successful lookup, favorite the status
