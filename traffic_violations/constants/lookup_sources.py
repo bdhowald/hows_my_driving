@@ -1,6 +1,6 @@
 from enum import Enum
 
-class LookupSources(Enum):
+class LookupSource(Enum):
     API = 'api'
     EXTERNAL = 'external'
     TWITTER = 'twitter'

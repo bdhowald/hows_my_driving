@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class NYPDBoroughBureaus(Enum):
+class NYPDBoroughBureau(Enum):
     MANHATTAN_SOUTH = [1, 5, 6, 7, 9, 10, 13, 14, 17, 18]
     MANHATTAN_NORTH = [19, 20, 22, 23, 24, 25, 26, 28, 30, 32, 33, 34]
     BRONX = [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52]
@@ -12,25 +12,25 @@ class NYPDBoroughBureaus(Enum):
     STATEN_ISLAND = [120, 121, 122, 123]
 
 
-class NYPDBoroughs(Enum):
+class NYPDBorough(Enum):
     MANHATTAN = {
-        NYPDBoroughBureaus.MANHATTAN_SOUTH.name: NYPDBoroughBureaus.MANHATTAN_SOUTH.value,
-        NYPDBoroughBureaus.MANHATTAN_NORTH.name: NYPDBoroughBureaus.MANHATTAN_NORTH.value,
+        NYPDBoroughBureau.MANHATTAN_SOUTH.name: NYPDBoroughBureau.MANHATTAN_SOUTH.value,
+        NYPDBoroughBureau.MANHATTAN_NORTH.name: NYPDBoroughBureau.MANHATTAN_NORTH.value,
     }
     BRONX = {
-        NYPDBoroughBureaus.BRONX.name: NYPDBoroughBureaus.BRONX.value,
+        NYPDBoroughBureau.BRONX.name: NYPDBoroughBureau.BRONX.value,
     }
     BROOKLYN = {
-        NYPDBoroughBureaus.BROOKLYN_SOUTH.name: NYPDBoroughBureaus.BROOKLYN_SOUTH.value,
-        NYPDBoroughBureaus.BROOKLYN_SOUTH.name: NYPDBoroughBureaus.BROOKLYN_SOUTH.value,
+        NYPDBoroughBureau.BROOKLYN_SOUTH.name: NYPDBoroughBureau.BROOKLYN_SOUTH.value,
+        NYPDBoroughBureau.BROOKLYN_SOUTH.name: NYPDBoroughBureau.BROOKLYN_SOUTH.value,
     }
     QUEENS = {
-        NYPDBoroughBureaus.QUEENS_SOUTH.name: NYPDBoroughBureaus.QUEENS_SOUTH.value,
-        NYPDBoroughBureaus.QUEENS_NORTH.name: NYPDBoroughBureaus.QUEENS_NORTH.value,
+        NYPDBoroughBureau.QUEENS_SOUTH.name: NYPDBoroughBureau.QUEENS_SOUTH.value,
+        NYPDBoroughBureau.QUEENS_NORTH.name: NYPDBoroughBureau.QUEENS_NORTH.value,
     }
     STATEN_ISLAND = {
-        NYPDBoroughBureaus.STATEN_ISLAND.name: NYPDBoroughBureaus.STATEN_ISLAND.value,
+        NYPDBoroughBureau.STATEN_ISLAND.name: NYPDBoroughBureau.STATEN_ISLAND.value,
     }
 
 PRECINCTS_BY_BOROUGH = {borough.name: [precinct for grouping in [precinct_list for bureau, precinct_list in borough.value.items(
-    )] for precinct in grouping] for borough in NYPDBoroughs}
+    )] for precinct in grouping] for borough in NYPDBorough}

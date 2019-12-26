@@ -16,8 +16,8 @@ from traffic_violations.reply_argument_builder import (
     StreamingStatus
 )
 
-from traffic_violations.constants.lookup_sources import LookupSources
-from traffic_violations.constants.twitter import TwitterMessageTypes
+from traffic_violations.constants.lookup_sources import LookupSource
+from traffic_violations.constants.twitter import TwitterMessageType
 
 from traffic_violations.models.twitter_event import TwitterEvent
 
@@ -62,8 +62,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
             user_mentions=self.HMDNY_TWITTER_HANDLE)
 
         req = self.reply_argument_builder.build_reply_data(account_activity_api_direct_message_twitter_event,
-                                                           LookupSources.TWITTER,
-                                                           TwitterMessageTypes.DIRECT_MESSAGE)
+                                                           LookupSource.TWITTER,
+                                                           TwitterMessageType.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, AccountActivityAPIDirectMessage)
 
@@ -79,8 +79,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
             user_mentions=self.HMDNY_TWITTER_HANDLE)
 
         req = self.reply_argument_builder.build_reply_data(account_activity_api_status_twitter_event,
-                                                           LookupSources.TWITTER,
-                                                           TwitterMessageTypes.STATUS)
+                                                           LookupSource.TWITTER,
+                                                           TwitterMessageType.STATUS)
 
         self.assertIsInstance(req, AccountActivityAPIStatus)
 
@@ -111,8 +111,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(direct_message_api_direct_message,
-                                                           LookupSources.TWITTER,
-                                                           TwitterMessageTypes.DIRECT_MESSAGE)
+                                                           LookupSource.TWITTER,
+                                                           TwitterMessageType.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, DirectMessageAPIDirectMessage)
 
@@ -126,7 +126,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(hows_my_driving_api_request,
-                                                           LookupSources.API,
+                                                           LookupSource.API,
                                                            None)
 
         self.assertIsInstance(req, HowsMyDrivingAPIRequest)
@@ -146,8 +146,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(stream_extended_status,
-                                                           LookupSources.TWITTER,
-                                                           TwitterMessageTypes.STATUS)
+                                                           LookupSource.TWITTER,
+                                                           TwitterMessageType.STATUS)
 
         self.assertIsInstance(req, StreamExtendedStatus)
 
@@ -171,8 +171,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(streaming_direct_message,
-                                                           LookupSources.TWITTER,
-                                                           TwitterMessageTypes.DIRECT_MESSAGE)
+                                                           LookupSource.TWITTER,
+                                                           TwitterMessageType.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, StreamingDirectMessage)
 
@@ -196,8 +196,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         streaming_status.user = user_mock
 
         req = self.reply_argument_builder.build_reply_data(streaming_status,
-                                                           LookupSources.TWITTER,
-                                                           TwitterMessageTypes.STATUS)
+                                                           LookupSource.TWITTER,
+                                                           TwitterMessageType.STATUS)
 
         self.assertIsInstance(req, StreamingStatus)
 
@@ -221,7 +221,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         search_status.user = user_mock
 
         req = self.reply_argument_builder.build_reply_data(search_status,
-                                                           LookupSources.TWITTER,
-                                                           TwitterMessageTypes.STATUS)
+                                                           LookupSource.TWITTER,
+                                                           TwitterMessageType.STATUS)
 
         self.assertIsInstance(req, SearchStatus)
