@@ -9,6 +9,8 @@ import unittest
 
 from datetime import datetime, timezone, timedelta
 
+from typing import Dict, List
+
 from unittest.mock import MagicMock
 
 from traffic_violations.models.camera_streak_data import CameraStreakData
@@ -35,10 +37,6 @@ from traffic_violations.reply_argument_builder import \
     HowsMyDrivingAPIRequest, SearchStatus
 from traffic_violations.traffic_violations_aggregator \
     import TrafficViolationsAggregator
-
-
-def create_error(*args, **kwargs):
-    raise ValueError('generic error')
 
 
 @ddt.ddt
@@ -417,17 +415,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         }
     )
     @ddt.unpack
+    @mock.patch(
+            'traffic_violations.traffic_violations_aggregator.TweetDetectionService.tweet_exists')
     def test_form_plate_lookup_response_parts(self,
-                                              data: {}, response: [], username):
+                                              mocked_tweet_exists,
+                                              data: Dict[str, any],
+                                              response: List[str],
+                                              username: str):
 
-        tweet_exists_mock = MagicMock(name='tweet_exists')
-        tweet_exists_mock.return_value = True
-
-        tweet_detection_service_mock = MagicMock(
-            name='tweet_detection_service')
-        tweet_detection_service_mock.tweet_exists = tweet_exists_mock
-
-        self.aggregator.tweet_detection_service = tweet_detection_service_mock
+        mocked_tweet_exists.return_value = True
 
         self.assertEqual(self.aggregator._form_plate_lookup_response_parts(
             borough_data=data['boroughs'],
@@ -527,20 +523,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             result_format_string='{}| {}\n',
             username=username), result)
 
-    def test_initiate_reply(self):
-        create_response_mock = MagicMock(name='create_response')
-
-        self.aggregator._create_response = create_response_mock
+    @mock.patch('traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._create_response')
+    def test_initiate_reply(self, mocked_create_response):
 
         direct_message_mock = MagicMock(name='direct_message')
-
         direct_message_mock.requires_response.return_value = True
+
         self.aggregator.initiate_reply(direct_message_mock)
 
         direct_message_mock.requires_response.return_value = False
+
         self.aggregator.initiate_reply(direct_message_mock)
 
-        create_response_mock.assert_called_once_with(direct_message_mock)
+        mocked_create_response.assert_called_once_with(direct_message_mock)
 
     @ddt.data(
         {
@@ -768,8 +763,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertIsInstance(result, OpenDataServiceResponse)
         self.assertRegex(str(result.message), 'server error when accessing')
 
-
-    def test_create_response_direct_message(self):
+    @mock.patch(
+          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
+    @mock.patch(
+          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
+    def test_create_response_direct_message(self,
+                                            mocked_query_for_lookup_frequency,
+                                            mocked_perform_plate_lookup):
         """ Test direct message and new format """
 
         username = 'bdhowald'
@@ -884,23 +884,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': username
         }
 
-        plate_lookup_mock = MagicMock(name='plate_lookup')
-        plate_lookup_mock.return_value = plate_lookup
-
-        send_direct_message_mock = MagicMock('send_direct_message_mock')
-
-        api_mock = MagicMock(name='api')
-        api_mock.send_direct_message_new = send_direct_message_mock
-
-        real_plate_lookup_fn = self.aggregator._perform_plate_lookup
-        self.aggregator._perform_plate_lookup = plate_lookup_mock
-        self.aggregator.api = api_mock
+        mocked_perform_plate_lookup.return_value = plate_lookup
+        mocked_query_for_lookup_frequency.return_value = 0
 
         self.assertEqual(self.aggregator._create_response(
             direct_message_request_object), response)
 
 
-    def test_create_response_status_legacy_format(self):
+    @mock.patch(
+          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
+    @mock.patch(
+          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
+    def test_create_response_status_legacy_format(self,
+                                                  mocked_query_for_lookup_frequency,
+                                                  mocked_perform_plate_lookup):
         """ Test status and old format """
 
         username = 'BarackObama'
@@ -997,27 +994,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'successful_lookup': True,
             'username': request_object.username()
         }
-        frequency_mock = MagicMock(name='frequency')
-        frequency_mock.return_value = 1
 
-        plate_lookup_mock = MagicMock(name='plate_lookup')
-        plate_lookup_mock.return_value = plate_lookup
-
-        real_plate_lookup_fn = self.aggregator._perform_plate_lookup
-        self.aggregator._perform_plate_lookup = plate_lookup_mock
-
-        real_frequency_fn = self.aggregator._query_for_lookup_frequency
-        self.aggregator._query_for_lookup_frequency = frequency_mock
+        mocked_perform_plate_lookup.return_value = plate_lookup
+        mocked_query_for_lookup_frequency.return_value = 1
 
         self.assertEqual(self.aggregator._create_response(
             request_object), response)
 
-        # reset _perform_plate_lookup and _query_for_lookup_frequency
-        self.aggregator._perform_plate_lookup = real_plate_lookup_fn
-        self.aggregator._query_for_lookup_frequency = real_frequency_fn
-
-
-    def test_create_response_campaign_only_lookup(self):
+    @mock.patch(
+          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_campaign_lookup')
+    @mock.patch(
+          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaign_hashtags')
+    def test_create_response_campaign_only_lookup(self,
+                                                  mocked_detect_campaign_hashtags,
+                                                  mocked_perform_campaign_lookup):
         """ Test campaign-only lookup """
 
         message_id = random.randint(1000000000000000000, 2000000000000000000)
@@ -1057,24 +1047,18 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': request_object.username()
         }
 
-        detect_campaign_hashtags_mock = MagicMock(
-            name='detect_campaign_hashtags')
-        detect_campaign_hashtags_mock.return_value = included_campaigns
-
-        perform_campaign_lookup_mock = MagicMock(
-            name='perform_campaign_lookup')
-        perform_campaign_lookup_mock.return_value = campaign_result
-
-        self.aggregator._detect_campaign_hashtags = detect_campaign_hashtags_mock
-        self.aggregator._perform_campaign_lookup = perform_campaign_lookup_mock
+        mocked_detect_campaign_hashtags.return_value = included_campaigns
+        mocked_perform_campaign_lookup.return_value = campaign_result
 
         self.assertEqual(self.aggregator._create_response(
             request_object), response)
 
-        perform_campaign_lookup_mock.assert_called_with(included_campaigns)
+        mocked_perform_campaign_lookup.assert_called_with(included_campaigns)
 
-
-    def test_create_response_with_search_status(self):
+    @mock.patch(
+          'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaign_hashtags')
+    def test_create_response_with_search_status(self,
+                                                mocked_detect_campaign_hashtags):
         """ Test plateless lookup """
 
         now = datetime.now()
@@ -1109,9 +1093,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': request_object.username()
         }
 
-        detect_campaign_hashtags_mock = MagicMock(
-            name='detect_campaign_hashtags')
-        detect_campaign_hashtags_mock.return_value = []
+        mocked_detect_campaign_hashtags.return_value = []
 
         self.assertEqual(self.aggregator._create_response(
             request_object), response)
@@ -1174,7 +1156,10 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             request_object), response)
 
 
-    def test_create_response_with_error(self):
+    @mock.patch(
+      'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
+    def test_create_response_with_error(self,
+                                        mocked_perform_plate_lookup):
         """ Test error handling """
 
         message_id = random.randint(1000000000000000000, 2000000000000000000)
@@ -1183,7 +1168,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         response_parts = [
             ["Sorry, I encountered an error. Tagging @bdhowald."]]
 
-        self.aggregator._perform_plate_lookup = create_error
+        # mock an error
+        mocked_perform_plate_lookup.side_effect = ValueError('generic error')
 
         request_object = AccountActivityAPIStatus(
             message=TwitterEvent(
