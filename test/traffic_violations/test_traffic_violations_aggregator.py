@@ -786,8 +786,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             event_text=f'@howsmydrivingny {state.lower()}:{plate.lower()}',
             event_type='direct_message',
             user_handle=username,
-            user_id=random.randint(100000000, 1000000000)
-        )
+            user_id=random.randint(100000000, 1000000000))
 
         direct_message_request_object = AccountActivityAPIDirectMessage(
             message=twitter_event,

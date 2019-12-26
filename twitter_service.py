@@ -125,6 +125,7 @@ class TrafficViolationsTweeter:
                             event.error_on_lookup = True
 
                     TwitterEvent.query.session.commit()
+
                 except ValueError as e:
                     LOG.error(
                         f'Encountered unknown event type. '
@@ -137,7 +138,11 @@ class TrafficViolationsTweeter:
             LOG.error(e.args)
             logging.exception("stack trace")
 
+        finally:
+            TwitterEvent.query.session.close()
+
     def _find_messages_to_respond_to(self):
+
         self._find_and_respond_to_twitter_events()
 
     def _is_production(self):
