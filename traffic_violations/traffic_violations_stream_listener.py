@@ -4,6 +4,8 @@ import tweepy
 
 from typing import Dict
 
+from traffic_violations.constants.lookup_sources import LookupSource
+
 LOG = logging.getLogger(__name__)
 
 
@@ -42,7 +44,7 @@ class TrafficViolationsStreamListener (tweepy.StreamListener):
 
             message = tweepy.Status.parse(self.api, data_dict)
 
-            self.tweeter.aggregator.initiate_reply(message, 'direct_message')
+            self.tweeter.aggregator.initiate_reply(message, LookupSource.DIRECT_MESSAGE)
 
         elif 'friends' in data_dict:
             LOG.debug(
@@ -73,7 +75,7 @@ class TrafficViolationsStreamListener (tweepy.StreamListener):
 
             status = tweepy.Status.parse(self.api, data_dict)
 
-            self.tweeter.aggregator.initiate_reply(status, 'status')
+            self.tweeter.aggregator.initiate_reply(status, LookupSource.STATUS)
 
         else:
             LOG.error("Unknown message type: " + str(data))

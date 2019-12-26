@@ -313,7 +313,7 @@ class TrafficViolationsTweeter:
         message_id = request_object.external_id() if request_object else None
 
         # Respond to user
-        if message_source == 'direct_message':
+        if message_source == LookupSource.DIRECT_MESSAGE:
 
             LOG.debug('responding as direct message')
 
