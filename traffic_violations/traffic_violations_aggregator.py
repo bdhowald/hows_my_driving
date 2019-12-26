@@ -230,24 +230,24 @@ class TrafficViolationsAggregator:
                     FailedPlateLookup.query.session.commit()
 
                     # Legacy data where state is not a valid abbreviation.
-                    if potential_vehicle.get('state'):
+                    if potential_vehicle.state:
                         LOG.debug("We have a state, but it's invalid.")
 
                         response_parts.append([
-                            f"The state should be two characters, but you supplied '{potential_vehicle.get('state')}'. "
+                            f"The state should be two characters, but you supplied '{potential_vehicle.state}'. "
                             f"Please try again."])
 
                     # '<state>:<plate>' format, but no valid state could be detected.
-                    elif potential_vehicle.get('original_string'):
+                    elif potential_vehicle.original_string:
                         LOG.debug(
                             "We don't have a state, but we have an attempted lookup with the new format.")
 
                         response_parts.append([
                             f"Sorry, a plate and state could not be inferred from "
-                            f"{potential_vehicle.get('original_string')}."])
+                            f"{potential_vehicle.original_string}."])
 
                     # If we have a plate, but no state.
-                    elif potential_vehicle.get('plate'):
+                    elif potential_vehicle.plate:
                         LOG.debug("We have a plate, but no state")
 
                         response_parts.append(
@@ -256,19 +256,11 @@ class TrafficViolationsAggregator:
             # If we have multiple vehicles, prepend a summary.
             if len(summary.plate_lookups) > 1:
 
-                # # Increment summary ticket info
-                # summary.tickets += sum(s['count']
-                #                           for s in plate_lookup.violations)
+                summary_string: Optional[str] = self._form_summary_string(summary)
 
-                # fine_data: FineData = plate_lookup.fines
-                # for key in ['fined', 'outstanding', 'paid', 'reduced']:
-                #     plate_lookup_fines: float = getattr(plate_lookup.fines, key)
-                #     current_summary_fines: float = getattr(summary.fines, key)
-                #     setattr(summary.fines, key, current_summary_fines + plate_lookup_fines)
-
-                if int(summary.fines.fined) > 0:
+                if summary_string:
                     response_parts.insert(
-                        0, self._form_summary_string(summary))
+                        0, summary_string)
 
             # Look up campaign hashtags after doing the plate lookups and then
             # prepend to response.
@@ -526,7 +518,6 @@ class TrafficViolationsAggregator:
                 username=username)
 
         if fine_data and fine_data.fines_assessed():
-            # if fine_data and any([k[1] != 0 for k in fine_data]):
 
             cur_string = f"Known fines for {L10N.VEHICLE_HASHTAG.format(state, plate)}:\n\n"
 
@@ -582,16 +573,21 @@ class TrafficViolationsAggregator:
         # Send it back!
         return response_chunks
 
-    def _form_summary_string(self, summary: TrafficViolationsAggregatorResponse) -> str:
+    def _form_summary_string(self,
+                             summary: TrafficViolationsAggregatorResponse
+    ) -> Optional[str]:
+
         num_vehicles = len(summary.plate_lookups)
         num_tickets = sum(len(lookup.violations)
                           for lookup in summary.plate_lookups)
-        aggregate_fines: FineData = FineData(**{field: sum(getattr(lookup.fine_data, field) for lookup in summary.plate_lookups) for field in FineData.FINE_FIELDS})
-        return [
-            f"The {num_vehicles} vehicles you queried have collectively received "
-            f"{num_tickets} ticket{L10N.pluralize(num_tickets)} with at "
-            f"least {'${:,.2f}'.format(aggregate_fines.fined - aggregate_fines.reduced)} "
-            f"in fines, of which {'${:,.2f}'.format(aggregate_fines.paid)} has been paid.\n\n"]
+        aggregate_fines: FineData = FineData(**{field: sum(getattr(lookup.fines, field) for lookup in summary.plate_lookups) for field in FineData.FINE_FIELDS})
+
+        if aggregate_fines.fined > 0:
+          return [
+              f"The {num_vehicles} vehicles you queried have collectively received "
+              f"{num_tickets} ticket{L10N.pluralize(num_tickets)} with at "
+              f"least {'${:,.2f}'.format(aggregate_fines.fined - aggregate_fines.reduced)} "
+              f"in fines, of which {'${:,.2f}'.format(aggregate_fines.paid)} has been paid.\n\n"]
 
     def _get_plate_query(self, request_object: Type[BaseLookupRequest], vehicle: Vehicle) -> PlateQuery:
         """Transform a request object into plate query"""
