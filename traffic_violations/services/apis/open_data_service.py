@@ -124,13 +124,13 @@ class OpenDataService:
                             for v in violations.values() if v.get('outstanding'))
         )
 
-        tickets: List[Tuple[str, int]] = Counter([v['violation'] for v in violations.values(
+        tickets: List[Tuple[str, int]] = Counter([v['violation'].title() for v in violations.values(
         ) if v.get('violation')]).most_common()
 
         years: List[Tuple[str, int]] = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get(
             'has_date') else 'No Year Available' for v in violations.values()]).most_common()
 
-        boroughs: List[Tuple[str, int]] = Counter([v['borough'] for v in violations.values(
+        boroughs: List[Tuple[str, int]] = Counter([v['borough'].title() for v in violations.values(
         ) if v.get('borough')]).most_common()
 
         camera_streak_data: Optional[CameraStreakData] = self._find_max_camera_violations_streak(
@@ -160,11 +160,11 @@ class OpenDataService:
 
             for date in list_of_violation_times:
 
-                LOG.debug("date: %s", date)
+                LOG.debug(f'date: {date}')
 
                 year_later = date + \
                     (datetime(date.year + 1, 1, 1) - datetime(date.year, 1, 1))
-                LOG.debug("year_later: %s", year_later)
+                LOG.debug(f'year_later: {year_later}')
 
                 year_long_tickets = [
                     comp_date for comp_date in list_of_violation_times if date <= comp_date < year_later]
@@ -336,14 +336,6 @@ class OpenDataService:
                         # Merge records together, treating fiscal year data as
                         # authoritative.
                         return_record = violations[record['summons_number']] = {**violations.get(record['summons_number']), **new_data}
-
-                        # If we still don't have a violation (description) after merging records,
-                        # record it as blank
-                        if return_record.get('violation') is None:
-                            return_record[
-                                'violation'] = "No Violation Description Available"
-                        if return_record.get('borough') is None:
-                            record['borough'] = 'No Borough Available'
 
         return {'success': True}
 
