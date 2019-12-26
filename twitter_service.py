@@ -97,27 +97,36 @@ class TrafficViolationsTweeter:
 
                 event.response_begun = True
 
-                # build request
-                lookup_request = self.reply_argument_builder.build_reply_data(
-                    event, LookupSources.TWITTER, event.event_type)
+                try:
+                    message_type = TwitterMessageTypes(event.event_type)
 
-                # Reply to the event.
-                reply_event = self.aggregator.initiate_reply(lookup_request)
-                success = reply_event.get('success', False)
+                    # build request
+                    lookup_request: Type[BaseLookupRequest] = self.reply_argument_builder.build_reply_data(
+                        message=event,
+                        message_source=LookupSources.TWITTER,
+                        message_type=message_type)
 
-                if success:
-                    # Need username for statuses
-                    reply_event['username'] = event.user_handle
+                    # Reply to the event.
+                    reply_event = self.aggregator.initiate_reply(lookup_request)
+                    success = reply_event.get('success', False)
 
-                    self._process_response(reply_event)
+                    if success:
+                        # Need username for statuses
+                        reply_event['username'] = event.user_handle
 
-                    # We've responded!
-                    event.responded_to = 1
+                        self._process_response(reply_event)
 
-                    if reply_event.get('error_on_lookup'):
-                        event.error_on_lookup = True
+                        # We've responded!
+                        event.responded_to = 1
 
-                TwitterEvent.query.session.commit()
+                        if reply_event.get('error_on_lookup'):
+                            event.error_on_lookup = True
+
+                    TwitterEvent.query.session.commit()
+                except ValueError as e:
+                    LOG.error(
+                        f'Encountered unknown event type. '
+                        f'Response is not possible.')
 
         except Exception as e:
 

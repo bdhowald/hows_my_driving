@@ -48,7 +48,6 @@ class TrafficViolationsAggregator:
         self.utc = pytz.timezone('UTC')
 
     def initiate_reply(self, lookup_request: Type[BaseLookupRequest]):
-        LOG.info('\n')
         LOG.info('Calling initiate_reply')
 
         if lookup_request.requires_response():

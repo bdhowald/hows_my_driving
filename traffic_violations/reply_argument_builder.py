@@ -25,10 +25,10 @@ class ReplyArgumentBuilder:
     def build_reply_data(self, message, message_source, message_type):
 
         LOG.info(
-            f'args for reply data:'
-            f'message: {message}'
-            f'message_source: {message_source}'
-            f'message_type: {message_type}')
+            f'args for reply data:\n'
+            f'message: {message}\n'
+            f'message_source: {message_source}\n'
+            f'message_type: {message_type}\n')
 
         lookup_request: Type[BaseLookupRequest] = None
 
@@ -116,10 +116,11 @@ class ReplyArgumentBuilder:
             lookup_request = HowsMyDrivingAPIRequest(
                 message, message_source, message_type)
 
-        else:
+
+        if not lookup_request:
 
             LOG.debug('Unrecognized request type')
 
-            lookup_request = BaseLookupRequest(None, 'unknown', 'unknown')
+            lookup_request = BaseLookupRequest('unknown', 'unknown')
 
         return lookup_request
