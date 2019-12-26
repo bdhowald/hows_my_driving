@@ -466,7 +466,7 @@ class TrafficViolationsAggregator:
         # Get total violations
         total_violations: int = sum([s['count']
                                      for s in violations])
-        LOG.debug("total_violations: %s", total_violations)
+        LOG.debug(f'total_violations: {total_violations}')
 
         # Append to initially blank string to build tweet.
         violations_string += L10N.LOOKUP_SUMMARY_STRING.format(

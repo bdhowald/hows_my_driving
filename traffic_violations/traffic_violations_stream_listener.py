@@ -44,7 +44,7 @@ class TrafficViolationsStreamListener (tweepy.StreamListener):
 
             message = tweepy.Status.parse(self.api, data_dict)
 
-            self.tweeter.aggregator.initiate_reply(message, LookupSource.DIRECT_MESSAGE)
+            self.tweeter.aggregator.initiate_reply(message, LookupSource.DIRECT_MESSAGE.value)
 
         elif 'friends' in data_dict:
             LOG.debug(
@@ -52,7 +52,7 @@ class TrafficViolationsStreamListener (tweepy.StreamListener):
 
         elif 'limit' in data_dict:
             LOG.debug(
-                f"data_dict['limit']: %s", data_dict['limit'])
+                f"data_dict['limit']: {data_dict['limit']}")
 
         elif 'disconnect' in data_dict:
             LOG.debug(
@@ -75,7 +75,7 @@ class TrafficViolationsStreamListener (tweepy.StreamListener):
 
             status = tweepy.Status.parse(self.api, data_dict)
 
-            self.tweeter.aggregator.initiate_reply(status, LookupSource.STATUS)
+            self.tweeter.aggregator.initiate_reply(status, LookupSource.STATUS.value)
 
         else:
             LOG.error("Unknown message type: " + str(data))

@@ -313,14 +313,14 @@ class TrafficViolationsTweeter:
         message_id = request_object.external_id() if request_object else None
 
         # Respond to user
-        if message_source == LookupSource.DIRECT_MESSAGE:
+        if message_source == LookupSource.DIRECT_MESSAGE.value:
 
             LOG.debug('responding as direct message')
 
             combined_message = self._recursively_process_direct_messages(
                 reply_event_args.get('response_parts', {}))
 
-            LOG.debug('combined_message: %s', combined_message)
+            LOG.debug(f'combined_message: {combined_message}')
 
             event = {
                 "event": {
@@ -387,7 +387,7 @@ class TrafficViolationsTweeter:
                         '@' + username + ' ' + part, in_reply_to_status_id=message_id)
                     message_id = new_message.id
 
-                    LOG.debug("message_id: %s", str(message_id))
+                    LOG.debug(f'message_id: {message_id}')
                 else:
                     LOG.debug(
                         "This is where 'self.api.update_status(part, in_reply_to_status_id = message_id)' would be called in production.")
