@@ -1,17 +1,18 @@
-import logging
 import unittest
 
 from datetime import datetime
-from traffic_violations.services.open_data_service import OpenDataService
+
+from traffic_violations.models.camera_streak_data import CameraStreakData
+
+from traffic_violations.services.apis.open_data_service import OpenDataService
 
 class TestOpenDataService(unittest.TestCase):
 
     def setUp(self):
-        logger = logging.getLogger('hows_my_driving')
-        self.open_data_service = OpenDataService(logger)
+        self.open_data_service = OpenDataService()
 
     def test_find_max_camera_streak(self):
-        list_of_camera_times1 = [
+        list_of_camera_times = [
             datetime(2015, 9, 18, 0, 0),
             datetime(2015, 10, 16, 0, 0),
             datetime(2015, 11, 2, 0, 0),
@@ -38,11 +39,10 @@ class TestOpenDataService(unittest.TestCase):
             datetime(2018, 1, 28, 0, 0)
         ]
 
-        result1 = {
-            'min_streak_date': 'September 8, 2016',
-            'max_streak': 13,
-            'max_streak_date': 'June 27, 2017'
-        }
+        result = CameraStreakData(
+            min_streak_date='September 8, 2016',
+            max_streak=13,
+            max_streak_date='June 27, 2017')
 
         self.assertEqual(self.open_data_service._find_max_camera_violations_streak(
-            list_of_camera_times1), result1)
+            list_of_camera_times), result)

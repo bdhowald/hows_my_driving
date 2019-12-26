@@ -1,15 +1,13 @@
-import logging
 import requests
 import unittest
 
-from traffic_violations.services.location_service import LocationService
+from traffic_violations.services.apis.location_service import LocationService
 from unittest.mock import MagicMock
 
 class TestLocationService(unittest.TestCase):
 
     def setUp(self):
-        logger = logging.getLogger('hows_my_driving')
-        self.location_service = LocationService(logger)
+        self.location_service = LocationService()
 
     def test_get_borough_from_location_strings(self):
         bronx_comp = {

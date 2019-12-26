@@ -2,6 +2,7 @@ import random
 import unittest
 
 from datetime import datetime
+from unittest.mock import MagicMock
 
 from traffic_violations.reply_argument_builder import (
     AccountActivityAPIDirectMessage,
@@ -14,7 +15,11 @@ from traffic_violations.reply_argument_builder import (
     StreamingDirectMessage,
     StreamingStatus
 )
-from unittest.mock import MagicMock
+
+from traffic_violations.constants.lookup_sources import LookupSources
+from traffic_violations.constants.twitter import TwitterMessageTypes
+
+from traffic_violations.models.twitter_event import TwitterEvent
 
 
 class TestReplyArgumentBuilder(unittest.TestCase):
@@ -46,38 +51,36 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         self.reply_argument_builder = ReplyArgumentBuilder(api)
 
     def test_build_account_activity_api_direct_message(self):
-        account_activity_api_direct_message = {
-            'created_at': random.randint(self.CREATED_AT_MIN, self.CREATED_AT_MAX),
-            'event_id': random.randint(self.EVENT_ID_MIN, self.EVENT_ID_MAX),
-            'event_text': 'hi there',
-            'event_type': 'direct_message',
-            'full_text': 'abc',
-            'user_handle': self.OTHER_TWITTER_HANDLE,
-            'user_id': random.randint(self.USER_ID_MIN, self.USER_ID_MAX),
-            'user_mentions': self.HMDNY_TWITTER_HANDLE
-        }
+        account_activity_api_direct_message_twitter_event = TwitterEvent(
+            id=1,
+            created_at=random.randint(self.CREATED_AT_MIN, self.CREATED_AT_MAX),
+            event_id=random.randint(self.EVENT_ID_MIN, self.EVENT_ID_MAX),
+            event_text='hi there',
+            event_type='direct_message',
+            user_handle=self.OTHER_TWITTER_HANDLE,
+            user_id=random.randint(self.USER_ID_MIN, self.USER_ID_MAX),
+            user_mentions=self.HMDNY_TWITTER_HANDLE)
 
-        req = self.reply_argument_builder.build_reply_data(account_activity_api_direct_message,
-                                                           'twitter',
-                                                           'direct_message')
+        req = self.reply_argument_builder.build_reply_data(account_activity_api_direct_message_twitter_event,
+                                                           LookupSources.TWITTER,
+                                                           TwitterMessageTypes.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, AccountActivityAPIDirectMessage)
 
     def test_build_account_activity_api_status(self):
-        account_activity_api_status = {
-            'created_at': random.randint(self.CREATED_AT_MIN, self.CREATED_AT_MAX),
-            'event_id': random.randint(self.EVENT_ID_MIN, self.EVENT_ID_MAX),
-            'event_text': 'hi there',
-            'event_type': 'status',
-            'full_text': 'abc',
-            'user_handle': self.OTHER_TWITTER_HANDLE,
-            'user_id': random.randint(self.USER_ID_MIN, self.USER_ID_MAX),
-            'user_mentions': self.HMDNY_TWITTER_HANDLE
-        }
+        account_activity_api_status_twitter_event = TwitterEvent(
+            id=1,
+            created_at=random.randint(self.CREATED_AT_MIN, self.CREATED_AT_MAX),
+            event_id=random.randint(self.EVENT_ID_MIN, self.EVENT_ID_MAX),
+            event_text='hi there',
+            event_type='status',
+            user_handle=self.OTHER_TWITTER_HANDLE,
+            user_id=random.randint(self.USER_ID_MIN, self.USER_ID_MAX),
+            user_mentions=self.HMDNY_TWITTER_HANDLE)
 
-        req = self.reply_argument_builder.build_reply_data(account_activity_api_status,
-                                                           'twitter',
-                                                           'status')
+        req = self.reply_argument_builder.build_reply_data(account_activity_api_status_twitter_event,
+                                                           LookupSources.TWITTER,
+                                                           TwitterMessageTypes.STATUS)
 
         self.assertIsInstance(req, AccountActivityAPIStatus)
 
@@ -108,8 +111,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(direct_message_api_direct_message,
-                                                           'twitter',
-                                                           'direct_message')
+                                                           LookupSources.TWITTER,
+                                                           TwitterMessageTypes.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, DirectMessageAPIDirectMessage)
 
@@ -123,7 +126,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(hows_my_driving_api_request,
-                                                           'api',
+                                                           LookupSources.API,
                                                            None)
 
         self.assertIsInstance(req, HowsMyDrivingAPIRequest)
@@ -143,8 +146,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(stream_extended_status,
-                                                           'twitter',
-                                                           'status')
+                                                           LookupSources.TWITTER,
+                                                           TwitterMessageTypes.STATUS)
 
         self.assertIsInstance(req, StreamExtendedStatus)
 
@@ -168,8 +171,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(streaming_direct_message,
-                                                           'twitter',
-                                                           'direct_message')
+                                                           LookupSources.TWITTER,
+                                                           TwitterMessageTypes.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, StreamingDirectMessage)
 
@@ -193,8 +196,8 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         streaming_status.user = user_mock
 
         req = self.reply_argument_builder.build_reply_data(streaming_status,
-                                                           'twitter',
-                                                           'status')
+                                                           LookupSources.TWITTER,
+                                                           TwitterMessageTypes.STATUS)
 
         self.assertIsInstance(req, StreamingStatus)
 
@@ -218,7 +221,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         search_status.user = user_mock
 
         req = self.reply_argument_builder.build_reply_data(search_status,
-                                                           'twitter',
-                                                           'status')
+                                                           LookupSources.TWITTER,
+                                                           TwitterMessageTypes.STATUS)
 
         self.assertIsInstance(req, SearchStatus)
