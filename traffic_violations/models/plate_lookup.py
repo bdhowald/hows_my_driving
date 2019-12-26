@@ -18,7 +18,7 @@ class PlateLookup(Base):
     boot_eligible = Column(Boolean, default=False, nullable=False)
     count_towards_frequency = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    message_type = Column('lookup_source', String(255), nullable=False)
+    message_source = Column('lookup_source', String(255), nullable=False)
     message_id = Column(Integer)
     num_tickets = Column(Integer, default=0, nullable=False)
     _observed = Column('observed', String(255), default=None, nullable=True)

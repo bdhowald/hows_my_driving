@@ -262,7 +262,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'previous_result': PlateLookup(
                     created_at=previous_time,
                     message_id=12345678901234567890,
-                    message_type='direct_message',
+                    message_source='direct_message',
                     num_tickets=23,
                     username='BarackObama'
                 ),
@@ -353,7 +353,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'previous_result': PlateLookup(
                     created_at=previous_time,
                     message_id=12345678901234567890,
-                    message_type='status',
+                    message_source='status',
                     num_tickets=23,
                     username='BarackObama'
                 ),
@@ -627,7 +627,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         state = 'NY'
 
         previous_message_id = rand_int + 1
-        previous_message_type = 'status'
+        previous_message_source = 'status'
         previous_num_tickets = 1
         previous_username = 'BarackObama'
 
@@ -637,7 +637,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         plate_query = PlateQuery(
             created_at=now_str,
             message_id=rand_int,
-            message_type='direct_message',
+            message_source='direct_message',
             plate=plate,
             plate_types=plate_types,
             state=state,
@@ -646,7 +646,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         previous_lookup = PlateLookup(
             created_at=previous_time,
             message_id=previous_message_id,
-            message_type=previous_message_type,
+            message_source=previous_message_source,
             num_tickets=previous_num_tickets,
             plate=plate,
             plate_types=plate_types,
@@ -786,13 +786,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             event_text=f'@howsmydrivingny {state.lower()}:{plate.lower()}',
             event_type='direct_message',
             user_handle=username,
-            user_id=random.randint(100000000, 1000000000)
-        )
+            user_id=random.randint(100000000, 1000000000))
 
         direct_message_request_object = AccountActivityAPIDirectMessage(
             message=twitter_event,
-            message_source='twitter',
-            message_type='direct_message')
+            message_source='direct_message')
 
         plate_lookup_data = {
             'boroughs': [
@@ -918,8 +916,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 user_handle=username,
                 user_id=random.randint(100000000, 1000000000)
             ),
-            message_source='twitter',
-            message_type='status'
+            message_source='status'
         )
         plate_lookup_data = {
             'boroughs': [],
@@ -1037,8 +1034,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 user_handle=username,
                 user_id=random.randint(100000000, 1000000000)
             ),
-            message_source='twitter',
-            message_type='status'
+            message_source='status'
         )
 
         campaign_tickets = random.randint(1000, 2000)
@@ -1096,8 +1092,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         request_object = SearchStatus(
             message=message_object,
-            message_source='twitter',
-            message_type='status'
+            message_source='status'
         )
 
         response_parts = [
@@ -1158,8 +1153,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         request_object = DirectMessageAPIDirectMessage(
             api=mock_api,
             message=message_object,
-            message_source='twitter',
-            message_type='direct_message'
+            message_source='direct_message'
         )
 
         response_parts = [
@@ -1201,8 +1195,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 user_handle=username,
                 user_id=random.randint(100000000, 1000000000)
             ),
-            message_source='status',
-            message_type='status'
+            message_source='status'
         )
 
         self.aggregator._create_response(request_object)

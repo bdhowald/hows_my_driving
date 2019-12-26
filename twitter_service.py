@@ -13,9 +13,7 @@ from sqlalchemy.sql.expression import func
 from typing import List, Optional
 
 from traffic_violations.constants import L10N
-from traffic_violations.constants.lookup_sources import LookupSources
-from traffic_violations.constants.twitter import TwitterAPIAttributes, \
-    TwitterMessageTypes
+from traffic_violations.constants.lookup_sources import LookupSource
 
 from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.models.repeat_camera_offender import \
@@ -100,13 +98,12 @@ class TrafficViolationsTweeter:
                 event.response_begun = True
 
                 try:
-                    message_type = TwitterMessageTypes(event.event_type)
+                    message_source = LookupSource(event.event_type)
 
                     # build request
                     lookup_request: Type[BaseLookupRequest] = self.reply_argument_builder.build_reply_data(
                         message=event,
-                        message_source=LookupSources.TWITTER,
-                        message_type=message_type)
+                        message_source=message_source)
 
                     # Reply to the event.
                     reply_event = self.aggregator.initiate_reply(lookup_request)
@@ -125,6 +122,7 @@ class TrafficViolationsTweeter:
                             event.error_on_lookup = True
 
                     TwitterEvent.query.session.commit()
+
                 except ValueError as e:
                     LOG.error(
                         f'Encountered unknown event type. '
@@ -137,7 +135,11 @@ class TrafficViolationsTweeter:
             LOG.error(e.args)
             logging.exception("stack trace")
 
+        finally:
+            TwitterEvent.query.session.close()
+
     def _find_messages_to_respond_to(self):
+
         self._find_and_respond_to_twitter_events()
 
     def _is_production(self):
@@ -307,11 +309,11 @@ class TrafficViolationsTweeter:
     def _process_response(self, reply_event_args):
         request_object = reply_event_args.get('request_object')
 
-        message_type = request_object.message_type if request_object else None
+        message_source = request_object.message_source if request_object else None
         message_id = request_object.external_id() if request_object else None
 
         # Respond to user
-        if message_type == 'direct_message':
+        if message_source == 'direct_message':
 
             LOG.debug('responding as direct message')
 

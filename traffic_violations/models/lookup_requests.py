@@ -9,9 +9,8 @@ from traffic_violations.constants import regexps as regexp_constants, \
 
 class BaseLookupRequest:
 
-    def __init__(self, message_source, message_type):
+    def __init__(self, message_source):
         self.message_source: str = message_source
-        self.message_type: str = message_type
 
         # need to convert times to utc
         self.utc = pytz.timezone('UTC')
@@ -36,8 +35,8 @@ class BaseLookupRequest:
 
 
 class AccountActivityAPIDirectMessage(BaseLookupRequest):
-    def __init__(self, message, message_source, message_type):
-        BaseLookupRequest.__init__(self, message_source, message_type)
+    def __init__(self, message, message_source):
+        BaseLookupRequest.__init__(self, message_source)
 
         text = message.event_text
         modified_string = ' '.join(text.split())
@@ -56,8 +55,8 @@ class AccountActivityAPIDirectMessage(BaseLookupRequest):
 
 
 class AccountActivityAPIStatus(BaseLookupRequest):
-    def __init__(self, message, message_source, message_type):
-        BaseLookupRequest.__init__(self, message_source, message_type)
+    def __init__(self, message, message_source):
+        BaseLookupRequest.__init__(self, message_source)
 
         text = message.event_text
         modified_string = ' '.join(text.split())
@@ -79,8 +78,8 @@ class AccountActivityAPIStatus(BaseLookupRequest):
 
 
 class DirectMessageAPIDirectMessage(BaseLookupRequest):
-    def __init__(self, message, message_source, message_type, api):
-        BaseLookupRequest.__init__(self, message_source, message_type)
+    def __init__(self, message, message_source, api):
+        BaseLookupRequest.__init__(self, message_source)
 
         direct_message = message
 
@@ -113,8 +112,8 @@ class DirectMessageAPIDirectMessage(BaseLookupRequest):
 
 class HowsMyDrivingAPIRequest(BaseLookupRequest):
 
-    def __init__(self, message, message_source, message_type):
-        BaseLookupRequest.__init__(self, message_source, message_type)
+    def __init__(self, message, message_source):
+        BaseLookupRequest.__init__(self, message_source)
 
         text = message['event_text']
         modified_string = ' '.join(text.split())
@@ -132,8 +131,8 @@ class HowsMyDrivingAPIRequest(BaseLookupRequest):
 
 class SearchStatus(BaseLookupRequest):
 
-    def __init__(self, message, message_source, message_type):
-        BaseLookupRequest.__init__(self, message_source, message_type)
+    def __init__(self, message, message_source):
+        BaseLookupRequest.__init__(self, message_source)
 
         entities = message.entities
 
@@ -164,8 +163,8 @@ class SearchStatus(BaseLookupRequest):
 
 class StreamExtendedStatus(BaseLookupRequest):
 
-    def __init__(self, message, message_source, message_type):
-        BaseLookupRequest.__init__(self, message_source, message_type)
+    def __init__(self, message, message_source):
+        BaseLookupRequest.__init__(self, message_source)
 
         extended_tweet = message.extended_tweet
 
@@ -197,8 +196,8 @@ class StreamExtendedStatus(BaseLookupRequest):
 
 class StreamingDirectMessage(BaseLookupRequest):
 
-    def __init__(self, message, message_source, message_type):
-        BaseLookupRequest.__init__(self, message_source, message_type)
+    def __init__(self, message, message_source):
+        BaseLookupRequest.__init__(self, message_source)
 
         direct_message = message.direct_message
         recipient = direct_message['recipient']
@@ -223,8 +222,8 @@ class StreamingDirectMessage(BaseLookupRequest):
 
 class StreamingStatus(BaseLookupRequest):
 
-    def __init__(self, message, message_source, message_type):
-        BaseLookupRequest.__init__(self, message_source, message_type)
+    def __init__(self, message, message_source):
+        BaseLookupRequest.__init__(self, message_source)
 
         entities = message.entities
 
