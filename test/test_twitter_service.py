@@ -78,9 +78,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_type='direct_message',
                 user_handle=user_handle,
                 user_id=30139847),
-            message_source='api',
-            message_type=None
-        )
+            message_source='api')
 
         twitter_event_mock.get_all_by.return_value = [twitter_event]
 
@@ -258,9 +256,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_type='direct_message',
                 user_handle=username,
                 user_id=30139847),
-            message_source='twitter',
-            message_type='direct_message'
-        )
+            message_source='direct_message')
 
         combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\n@bdhowald Known fines for #NY_HME6483:\n\n$200.00 | Fined\n$125.00 | Outstanding\n$75.00   | Paid\n"
 
@@ -320,9 +316,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_type='status',
                 user_handle=username,
                 user_id=30139847),
-            message_source='twitter',
-            message_type='status'
-        )
+            message_source='status')
 
         reply_event_args = {
             'error_on_lookup': False,
@@ -375,9 +369,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_type='status',
                 user_handle=username,
                 user_id=30139847),
-            message_source='twitter',
-            message_type='status'
-        )
+            message_source='status')
 
         reply_event_args = {
             'error_on_lookup': False,
@@ -415,9 +407,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_type='status',
                 user_handle=username,
                 user_id=30139847),
-            message_source='twitter',
-            message_type='status'
-        )
+            message_source='status')
 
         reply_event_args = {
             'error_on_lookup': False,
@@ -455,9 +445,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_type='status',
                 user_handle=username,
                 user_id=30139847),
-            message_source='twitter',
-            message_type='status'
-        )
+            message_source='status')
 
         reply_event_args = {
             'error_on_lookup': False,
@@ -492,8 +480,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_type='status',
                 user_handle=username,
                 user_id=30139847),
-            message_source='twitter',
-            message_type='status'
+            message_source='status'
         )
 
         response_parts = [

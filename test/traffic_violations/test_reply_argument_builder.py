@@ -62,8 +62,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
             user_mentions=self.HMDNY_TWITTER_HANDLE)
 
         req = self.reply_argument_builder.build_reply_data(account_activity_api_direct_message_twitter_event,
-                                                           LookupSource.TWITTER,
-                                                           TwitterMessageType.DIRECT_MESSAGE)
+                                                           LookupSource.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, AccountActivityAPIDirectMessage)
 
@@ -79,8 +78,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
             user_mentions=self.HMDNY_TWITTER_HANDLE)
 
         req = self.reply_argument_builder.build_reply_data(account_activity_api_status_twitter_event,
-                                                           LookupSource.TWITTER,
-                                                           TwitterMessageType.STATUS)
+                                                           LookupSource.STATUS)
 
         self.assertIsInstance(req, AccountActivityAPIStatus)
 
@@ -111,8 +109,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(direct_message_api_direct_message,
-                                                           LookupSource.TWITTER,
-                                                           TwitterMessageType.DIRECT_MESSAGE)
+                                                           LookupSource.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, DirectMessageAPIDirectMessage)
 
@@ -126,8 +123,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(hows_my_driving_api_request,
-                                                           LookupSource.API,
-                                                           None)
+                                                           LookupSource.API)
 
         self.assertIsInstance(req, HowsMyDrivingAPIRequest)
 
@@ -146,8 +142,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(stream_extended_status,
-                                                           LookupSource.TWITTER,
-                                                           TwitterMessageType.STATUS)
+                                                           LookupSource.STATUS)
 
         self.assertIsInstance(req, StreamExtendedStatus)
 
@@ -171,8 +166,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         }
 
         req = self.reply_argument_builder.build_reply_data(streaming_direct_message,
-                                                           LookupSource.TWITTER,
-                                                           TwitterMessageType.DIRECT_MESSAGE)
+                                                           LookupSource.DIRECT_MESSAGE)
 
         self.assertIsInstance(req, StreamingDirectMessage)
 
@@ -196,8 +190,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         streaming_status.user = user_mock
 
         req = self.reply_argument_builder.build_reply_data(streaming_status,
-                                                           LookupSource.TWITTER,
-                                                           TwitterMessageType.STATUS)
+                                                           LookupSource.STATUS)
 
         self.assertIsInstance(req, StreamingStatus)
 
@@ -221,7 +214,6 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         search_status.user = user_mock
 
         req = self.reply_argument_builder.build_reply_data(search_status,
-                                                           LookupSource.TWITTER,
-                                                           TwitterMessageType.STATUS)
+                                                           LookupSource.STATUS)
 
         self.assertIsInstance(req, SearchStatus)

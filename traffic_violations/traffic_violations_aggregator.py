@@ -11,15 +11,15 @@ from sqlalchemy import func
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from traffic_violations.constants import L10N, regexps as regexp_constants, \
-    twitter as twitter_constants
+    lookup_sources, twitter as twitter_constants
 
-from traffic_violations.models.lookup_requests import BaseLookupRequest
 from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.campaign import Campaign
 from traffic_violations.models.failed_plate_lookup import FailedPlateLookup
 from traffic_violations.models.fine_data import FineData
 from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.models.plate_query import PlateQuery
+from traffic_violations.models.lookup_requests import BaseLookupRequest
 from traffic_violations.models.response.open_data_service_plate_lookup \
     import OpenDataServicePlateLookup
 from traffic_violations.models.response.open_data_service_response \
@@ -69,7 +69,7 @@ class TrafficViolationsAggregator:
             can_link_tweet = False
 
             # Where did this come from?
-            if previous_lookup.message_type == twitter_constants.TwitterMessageTypes.STATUS.value:
+            if previous_lookup.message_source == lookup_sources.LookupSource.STATUS.value:
                 # Determine if tweet is still visible:
                 if self.tweet_detection_service.tweet_exists(id=previous_lookup.message_id,
                                                              username=username):
@@ -600,7 +600,7 @@ class TrafficViolationsAggregator:
                                             twitter_constants.TWITTER_TIME_FORMAT).strftime(self.MYSQL_TIME_FORMAT)
 
         message_id: Optional[str] = request_object.external_id()
-        message_type: str = request_object.message_type
+        message_source: str = request_object.message_source
 
         plate: str = regexp_constants.PLATE_PATTERN.sub(
             '', vehicle.plate.strip().upper())
@@ -616,7 +616,7 @@ class TrafficViolationsAggregator:
 
         plate_query: PlateQuery = PlateQuery(created_at=created_at,
                                              message_id=message_id,
-                                             message_type=message_type,
+                                             message_source=message_source,
                                              plate=plate,
                                              plate_types=plate_types,
                                              state=state,
@@ -825,12 +825,12 @@ class TrafficViolationsAggregator:
             camera_streak_data: CameraStreakData = open_data_plate_lookup.camera_streak_data
 
             # If this came from message, add it to the plate_lookups table.
-            if plate_query.message_type and plate_query.message_id and plate_query.created_at:
+            if plate_query.message_source and plate_query.message_id and plate_query.created_at:
                 new_lookup = PlateLookup(
                     boot_eligible=camera_streak_data.max_streak >= 5 if camera_streak_data else False,
                     created_at=plate_query.created_at,
                     message_id=plate_query.message_id,
-                    message_type=plate_query.message_type,
+                    message_source=plate_query.message_source,
                     num_tickets=open_data_plate_lookup.num_violations,
                     plate=plate_query.plate,
                     plate_types=plate_query.plate_types,
