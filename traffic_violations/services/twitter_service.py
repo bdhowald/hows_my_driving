@@ -193,8 +193,9 @@ class TrafficViolationsTweeter:
                     part, message_id, username)
             else:
                 if self._is_production():
+                    text: str = f'@{username} {part}' if username else part
                     new_message = self.api.update_status(
-                        '@' + username + ' ' + part, in_reply_to_status_id=message_id)
+                        text, in_reply_to_status_id=message_id)
                     message_id = new_message.id
 
                     LOG.debug(f'message_id: {message_id}')
