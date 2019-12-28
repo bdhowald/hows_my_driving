@@ -132,6 +132,9 @@ class TrafficViolationsAggregator:
                 request_object.legacy_string_tokens())
             LOG.debug(f'potential_vehicles: {potential_vehicles}')
 
+            potential_vehicles = self._ensure_unique_plates(
+                vehicles=potential_vehicles)
+
             # Find included campaign hashtags
             included_campaigns = self._detect_campaign_hashtags(
                 request_object.string_tokens())
@@ -370,6 +373,25 @@ class TrafficViolationsAggregator:
 
         return False
 
+    def _ensure_unique_plates(self,
+                              vehicles: List[Vehicle]
+                              ) -> List[Vehicle]:
+
+        vehicle_dict: Dict[str, Vehicle] = {}
+        unique_vehicles: List[Vehicle] = []
+
+        for vehicle in vehicles:
+            lookup_string = (
+                f'{vehicle.state}:'
+                f'{vehicle.plate}'
+                f"{(':' + vehicle.plate_types) if vehicle.plate_types else ''}")
+
+            if vehicle_dict.get(lookup_string) is None:
+                vehicle_dict[lookup_string] = vehicle
+                unique_vehicles.append(vehicle)
+
+        return unique_vehicles
+
     def _find_potential_vehicles(self, list_of_strings: List[str]) -> List[Vehicle]:
 
         # Use new logic of '<state>:<plate>'
@@ -575,11 +597,11 @@ class TrafficViolationsAggregator:
 
     def _form_summary_string(self,
                              summary: TrafficViolationsAggregatorResponse
-    ) -> Optional[str]:
+                             ) -> Optional[str]:
 
         num_vehicles = len(summary.plate_lookups)
         vehicle_tickets = [len(lookup.violations)
-                            for lookup in summary.plate_lookups]
+                           for lookup in summary.plate_lookups]
         total_tickets = sum(vehicle_tickets)
 
         fines_by_vehicle: List[FineData] = [lookup.fines for lookup in summary.plate_lookups]
@@ -590,12 +612,12 @@ class TrafficViolationsAggregator:
         aggregate_fines: FineData = FineData(**{field: sum(getattr(lookup.fines, field) for lookup in summary.plate_lookups) for field in FineData.FINE_FIELDS})
 
         if aggregate_fines.fined > 0:
-          return [
-              f"You queried {num_vehicles} vehicles, of which "
-              f"{vehicles_with_fines} vehicle{L10N.pluralize(vehicles_with_fines)} "
-              f"{'has' if vehicles_with_fines == 1 else 'have collectively'} received {total_tickets} ticket{L10N.pluralize(total_tickets)} "
-              f"with at least {'${:,.2f}'.format(aggregate_fines.fined - aggregate_fines.reduced)} "
-              f"in fines, of which {'${:,.2f}'.format(aggregate_fines.paid)} has been paid.\n\n"]
+            return [
+                f"You queried {num_vehicles} vehicles, of which "
+                f"{vehicles_with_fines} vehicle{L10N.pluralize(vehicles_with_fines)} "
+                f"{'has' if vehicles_with_fines == 1 else 'have collectively'} received {total_tickets} ticket{L10N.pluralize(total_tickets)} "
+                f"with at least {'${:,.2f}'.format(aggregate_fines.fined - aggregate_fines.reduced)} "
+                f"in fines, of which {'${:,.2f}'.format(aggregate_fines.paid)} has been paid.\n\n"]
 
     def _get_plate_query(self, request_object: Type[BaseLookupRequest], vehicle: Vehicle) -> PlateQuery:
         """Transform a request object into plate query"""

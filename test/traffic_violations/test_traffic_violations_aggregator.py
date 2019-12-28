@@ -102,6 +102,94 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertEqual(self.aggregator._detect_state(None), False)
 
     @ddt.data(
+      {
+          'vehicles': [
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types=None,
+                  state='NY'),
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types=None,
+                  state='NY')
+          ],
+          'result': [
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types=None,
+                  state='NY')
+          ]
+      },
+      {
+          'vehicles': [
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types=None,
+                  state='NY'),
+              Vehicle(
+                  valid_plate=True,
+                  original_string='NY:ABC1234',
+                  plate='ABC1234',
+                  plate_types=None,
+                  state='NY')
+          ],
+          'result': [
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types=None,
+                  state='NY')
+          ]
+      },
+      {
+          'vehicles': [
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types=None,
+                  state='NY'),
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types='COM',
+                  state='NY')
+          ],
+          'result': [
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types=None,
+                  state='NY'),
+              Vehicle(
+                  valid_plate=True,
+                  original_string='ABC1234:NY',
+                  plate='ABC1234',
+                  plate_types='COM',
+                  state='NY')
+          ]
+      }
+    )
+    @ddt.unpack
+    def test_ensure_unique_plates(self,
+                                       vehicles,
+                                       result):
+
+        self.assertEqual(self.aggregator._ensure_unique_plates(
+            vehicles), result)
+
+    @ddt.data(
         {
             'potential_vehicle_data': [
                 {'original_string': 'ny:123abcd', 'state': 'ny',
