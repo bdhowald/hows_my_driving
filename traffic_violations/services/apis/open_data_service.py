@@ -11,10 +11,12 @@ from requests.adapters import HTTPAdapter
 from typing import Any, Dict, List, Optional, Tuple
 
 from traffic_violations.constants.borough_codes import BOROUGH_CODES
-from traffic_violations.constants.open_data.endpoints import FISCAL_YEAR_DATABASE_ENDPOINTS, \
-    MEDALLION_ENDPOINT, OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT
+from traffic_violations.constants.open_data.endpoints import \
+    FISCAL_YEAR_DATABASE_ENDPOINTS, MEDALLION_ENDPOINT, \
+    OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT
 from traffic_violations.constants.open_data.needed_fields import \
-    FISCAL_YEAR_DATABASE_NEEDED_FIELDS, OPEN_PARKING_AND_CAMERA_VIOLATIONS_NEEDED_FIELDS, \
+    FISCAL_YEAR_DATABASE_NEEDED_FIELDS, \
+    OPEN_PARKING_AND_CAMERA_VIOLATIONS_NEEDED_FIELDS, \
     OPEN_PARKING_AND_CAMERA_VIOLATIONS_FINE_KEYS
 from traffic_violations.constants.open_data.violations import \
     HUMANIZED_NAMES_FOR_OPEN_PARKING_AND_CAMERA_VIOLATIONS, \
@@ -29,7 +31,8 @@ from traffic_violations.models.response.open_data_service_plate_lookup \
 from traffic_violations.models.response.open_data_service_response \
     import OpenDataServiceResponse
 
-from traffic_violations.services.constants.exceptions import ServiceResponseFailureException
+from traffic_violations.services.constants.exceptions import \
+    APIFailureException
 from traffic_violations.services.apis.location_service import LocationService
 
 LOG = logging.getLogger(__name__)
@@ -43,6 +46,7 @@ class OpenDataService:
     MAX_RESULTS = 10_000
 
     MEDALLION_PATTERN = re.compile(r'^[0-9][A-Z][0-9]{2}$')
+    MEDALLION_PLATE_KEY = 'dmv_license_plate_number'
 
     OPEN_DATA_TOKEN = os.environ['NYC_OPEN_DATA_TOKEN']
 
@@ -70,11 +74,13 @@ class OpenDataService:
             return OpenDataServiceResponse(
                 data=lookup_result,
                 success=True)
-        except ServiceResponseFailureException as exc:
+
+        except APIFailureException as exc:
+            LOG.error(str(exc))
+
             return OpenDataServiceResponse(
                 message=str(exc),
                 success=False)
-
 
     def _add_fine_data_for_open_parking_and_camera_violations_summons(self, summons) -> Dict[str, Any]:
         for output_key in self.OUTPUT_FINE_KEYS:
@@ -183,6 +189,24 @@ class OpenDataService:
 
         return None
 
+    def _merge_violations(self,
+                          original_dict: Dict[str, Any],
+                          overwrite_dict: Dict[str, Any]) -> Dict[str, Any]:
+
+        merged_dict: Dict[str, Any] = {**original_dict, **overwrite_dict}
+
+        for key, value in merged_dict.items():
+            if key in original_dict and key in overwrite_dict:
+                merged_dict[key] = {**original_dict[key], **overwrite_dict[key]}
+
+                if merged_dict[key].get('violation') is None:
+                    merged_dict[key]['violation'] = "No Violation Description Available"
+
+                if merged_dict[key].get('borough') is None:
+                    merged_dict[key]['borough'] = 'No Borough Available'
+
+        return merged_dict
+
     def _normalize_fiscal_year_database_summons(self, summons) -> Dict[str, Any]:
         # get human readable ticket type name
         if summons.get('violation_description') is None:
@@ -267,38 +291,25 @@ class OpenDataService:
         return summons
 
     def _perform_all_queries(self, plate_query: PlateQuery) -> OpenDataServicePlateLookup:
-        # set up return data structure
-        violations = {}
+        if self.MEDALLION_PATTERN.search(plate_query.plate) is not None:
+            plate_query = self._perform_medallion_query(
+                plate_query=plate_query)
 
-        result: Dict[str, bool] = self._perform_medallion_query(plate_query=plate_query)
+        opacv_result: Dict[str, Any] = self._perform_open_parking_and_camera_violations_query(
+            plate_query=plate_query)
+        fiscal_year_result: Dict[str, Any] = self._perform_fiscal_year_database_queries(
+            plate_query=plate_query)
 
-        if result.get('error'):
-            return result
-
-        result = self._perform_open_parking_and_camera_violations_query(
-            plate_query=plate_query, violations=violations)
-
-        if result.get('error'):
-            return result
-
-        result = self._perform_fiscal_year_database_queries(
-            plate_query=plate_query, violations=violations)
-
-        if result.get('error'):
-            return result
-
-        for record in violations.values():
-            if record.get('violation') is None:
-                record['violation'] = "No Violation Description Available"
-
-            if record.get('borough') is None:
-                record['borough'] = 'No Borough Available'
+        violations: Dict[str, Any] = self._merge_violations(opacv_result, fiscal_year_result)
 
         return self._calculate_aggregate_data(plate_query=plate_query,
                                               violations=violations)
 
-    def _perform_fiscal_year_database_queries(self, plate_query: PlateQuery, violations) -> Dict[str, bool]:
+
+    def _perform_fiscal_year_database_queries(self, plate_query: PlateQuery) -> Dict[str, Any]:
         """Grab data from each of the fiscal year violation datasets"""
+
+        violations: Dict[str, Any] = {}
 
         # iterate through the endpoints
         for year, endpoint in FISCAL_YEAR_DATABASE_ENDPOINTS.items():
@@ -312,60 +323,62 @@ class OpenDataService:
             fiscal_year_database_response: Dict[str, Any] = self._perform_query(
                 query_string=fiscal_year_database_query_string)
 
-            if fiscal_year_database_response.get('error'):
-                return fiscal_year_database_response
+            fiscal_year_database_data: Dict[str, str] = \
+                fiscal_year_database_response['data']
 
-            if fiscal_year_database_response.get('data'):
-                fiscal_year_database_data: List[str, str] = fiscal_year_database_response.get('data')
+            LOG.debug(
+                f'Fiscal year data for {plate_query.state}:{plate_query.plate}'
+                f'{":" + plate_query.plate_types if plate_query.plate_types else ""} for {year}: '
+                f'{fiscal_year_database_data}')
 
-                LOG.debug(
-                    f'Fiscal year data for {plate_query.state}:{plate_query.plate}'
-                    f'{":" + plate_query.plate_types if plate_query.plate_types else ""} for {year}: '
-                    f'{fiscal_year_database_data}')
+            for record in fiscal_year_database_data:
+                record = self._normalize_fiscal_year_database_summons(
+                    summons=record)
 
-                for record in fiscal_year_database_data:
-                    record = self._normalize_fiscal_year_database_summons(
-                        summons=record)
+                # structure response and only use the data we need
+                new_data: Dict[str, Any] = {
+                    needed_field: record.get(needed_field) for needed_field in FISCAL_YEAR_DATABASE_NEEDED_FIELDS}
 
-                    # structure response and only use the data we need
-                    new_data: Dict[str, Any] = {needed_field: record.get(needed_field) for needed_field in FISCAL_YEAR_DATABASE_NEEDED_FIELDS}
+                violations[record['summons_number']] = new_data
 
-                    if violations.get(record['summons_number']) is None:
-                        violations[record['summons_number']] = new_data
-                    else:
-                        # Merge records together, treating fiscal year data as
-                        # authoritative.
-                        return_record = violations[record['summons_number']] = {**violations.get(record['summons_number']), **new_data}
+        return violations
 
-        return {'success': True}
+    def _perform_medallion_query(self, plate_query: PlateQuery
+                                 ) -> PlateQuery:
+        medallion_query_string: str = (
+            f'{MEDALLION_ENDPOINT}?'
+            f'license_number={plate_query.plate}')
 
-    def _perform_medallion_query(self, plate_query: PlateQuery) -> Dict[str, bool]:
-        if self.MEDALLION_PATTERN.search(plate_query.plate) != None:
+        LOG.debug(
+            f'Querying medallion data from {medallion_query_string}')
 
-            medallion_query_string: str = (
-                f'{MEDALLION_ENDPOINT}?'
-                f'license_number={plate_query.plate}')
+        medallion_response: Dict[str, Dict[str, Any]] = self._perform_query(query_string=medallion_query_string)
 
-            medallion_response: Dict[str, Any] = self._perform_query(query_string=medallion_query_string)
+        medallion_data: Dict[str, Any] = medallion_response['data']
 
-            if medallion_response.get('error'):
-                return medallion_response
+        LOG.debug(
+            f'Medallion data for {plate_query.state}:{plate_query.plate} – '
+            f'{medallion_data}')
 
-            if medallion_response.get('data'):
-                medallion_data: List[str, Any] = medallion_response.get('data')
+        if medallion_data:
+            sorted_list: Dict[str, Any] = sorted(
+                set([res[self.MEDALLION_PLATE_KEY] for res in medallion_data]))
 
-                LOG.debug(
-                    f'Medallion data for {plate_query.state}:{plate_query.plate}'
-                    f'{medallion_data}')
+            return PlateQuery(
+                created_at=plate_query.created_at,
+                message_source=plate_query.message_source,
+                message_id=plate_query.message_id,
+                plate=sorted_list[-1],
+                plate_types=plate_query.plate_types,
+                state=plate_query.state,
+                username=plate_query.username)
 
-                sorted_list: Dict[str, Any] = sorted(
-                    set([res['dmv_license_plate_number'] for res in medallion_data]))
-                plate_query.plate = sorted_list[-1] if sorted_list else plate_query.plate
+        return plate_query
 
-        return {'success': True}
-
-    def _perform_open_parking_and_camera_violations_query(self, plate_query: PlateQuery, violations) -> Dict[str, bool]:
+    def _perform_open_parking_and_camera_violations_query(self, plate_query: PlateQuery) -> Dict[str, Any]:
         """Grab data from 'Open Parking and Camera Violations'"""
+
+        violations: Dict[str, Any] = {}
 
         # response from city open data portal
         open_parking_and_camera_violations_query_string: str = (
@@ -377,31 +390,27 @@ class OpenDataService:
         open_parking_and_camera_violations_response: Dict[str, Any] = self._perform_query(
             query_string=open_parking_and_camera_violations_query_string)
 
-        if open_parking_and_camera_violations_response.get('error'):
-            return open_parking_and_camera_violations_response
+        open_parking_and_camera_violations_data: Dict[str, Any] = \
+            open_parking_and_camera_violations_response['data']
 
-        if open_parking_and_camera_violations_response.get('data'):
-            open_parking_and_camera_violations_data: List[str, str] = \
-                open_parking_and_camera_violations_response.get('data')
+        LOG.debug(
+            f'Open Parking and Camera Violations data for {plate_query.state}:{plate_query.plate}'
+            f'{":" + plate_query.plate_types if plate_query.plate_types else ""}: '
+            f'{open_parking_and_camera_violations_data}')
 
-            LOG.debug(
-                f'Open Parking and Camera Violations data for {plate_query.state}:{plate_query.plate}'
-                f'{":" + plate_query.plate_types if plate_query.plate_types else ""}: '
-                f'{open_parking_and_camera_violations_data}')
+        # only data we're looking for
+        opacv_desired_keys = OPEN_PARKING_AND_CAMERA_VIOLATIONS_NEEDED_FIELDS
 
-            # only data we're looking for
-            opacv_desired_keys = OPEN_PARKING_AND_CAMERA_VIOLATIONS_NEEDED_FIELDS
+        # add violation if it's missing
+        for record in open_parking_and_camera_violations_data:
 
-            # add violation if it's missing
-            for record in open_parking_and_camera_violations_data:
+            record = self._normalize_open_parking_and_camera_violations_summons(
+                summons=record)
 
-                record = self._normalize_open_parking_and_camera_violations_summons(
-                    summons=record)
+            violations[record['summons_number']] = {
+                needed_field: record.get(needed_field) for needed_field in opacv_desired_keys}
 
-                violations[record['summons_number']] = {
-                    needed_field: record.get(needed_field) for needed_field in opacv_desired_keys}
-
-        return {'success': True}
+        return violations
 
     def _perform_query(self, query_string: str) -> Dict[str, Any]:
         full_url: str = f'{self._add_query_limit_and_token(query_string)}'
@@ -413,14 +422,14 @@ class OpenDataService:
             # Only attempt to read json on a successful response.
             return {'data': result.json()}
         elif result.status_code in range(300, 400):
-            raise ServiceResponseFailureException(
+            raise APIFailureException(
                 f'redirect error when accessing {query_string}')
         elif result.status_code in range(400, 500):
-            raise ServiceResponseFailureException(
+            raise APIFailureException(
                 f'user error when accessing {query_string}')
         elif result.status_code in range(500, 600):
-            raise ServiceResponseFailureException(
+            raise APIFailureException(
                 f'server error when accessing {query_string}')
         else:
-            raise ServiceResponseFailureException(
+            raise APIFailureException(
                 f'unknown error when accessing {query_string}')

@@ -66,47 +66,82 @@ class TrafficViolationsTweeter:
             interval, self._find_and_respond_to_twitter_events).start()
 
         try:
-            events: Optional[List[TwitterEvent]] = TwitterEvent.get_all_by(
-                responded_to=0, response_begun=0)
+            new_events: [List[TwitterEvent]] = TwitterEvent.get_all_by(
+                is_duplicate=False,
+                responded_to=False,
+                response_in_progress=False)
 
-            LOG.debug(f'events: {events}')
+            LOG.debug(f'new events: {new_events}')
 
-            for event in events:
+            failed_events: [List[TwitterEvent]] = TwitterEvent.get_all_by(
+                is_duplicate=False,
+                error_on_lookup=True,
+                responded_to=True,
+                response_in_progress=False)
+
+            LOG.debug(f'failed events: {failed_events}')
+
+            events_to_respond_to: [List[TwitterEvent]] = new_events + failed_events
+
+            LOG.debug(f'events to respond to: {events_to_respond_to}')
+
+            for event in events_to_respond_to:
 
                 LOG.debug(f'Beginning response for event: {event.id}')
 
-                event.response_begun = True
+                # search for duplicates
+                is_event_duplicate: bool = TwitterEvent.query.filter_by(
+                    event_type=event.event_type,
+                    event_id=event.event_id,
+                    user_handle=event.user_handle,
+                    responded_to=True
+                ).filter(
+                    TwitterEvent.id != event.id).count() > 0
 
-                try:
-                    message_source = LookupSource(event.event_type)
-
-                    # build request
-                    lookup_request: Type[BaseLookupRequest] = self.reply_argument_builder.build_reply_data(
-                        message=event,
-                        message_source=message_source)
-
-                    # Reply to the event.
-                    reply_event = self.aggregator.initiate_reply(lookup_request)
-                    success = reply_event.get('success', False)
-
-                    if success:
-                        # Need username for statuses
-                        reply_event['username'] = event.user_handle
-
-                        self._process_response(reply_event)
-
-                        # We've responded!
-                        event.responded_to = 1
-
-                        if reply_event.get('error_on_lookup'):
-                            event.error_on_lookup = True
+                if is_event_duplicate:
+                    event.is_duplicate = True
 
                     TwitterEvent.query.session.commit()
 
-                except ValueError as e:
-                    LOG.error(
-                        f'Encountered unknown event type. '
-                        f'Response is not possible.')
+                    LOG.info(f'Event {event.id} is a duplicate, skipping.')
+
+                else:
+
+                    event.response_in_progress = True
+                    TwitterEvent.query.session.commit()
+
+                    try:
+                        message_source = LookupSource(event.event_type)
+
+                        # build request
+                        lookup_request: Type[BaseLookupRequest] = self.reply_argument_builder.build_reply_data(
+                            message=event,
+                            message_source=message_source)
+
+                        # Reply to the event.
+                        reply_event = self.aggregator.initiate_reply(
+                            lookup_request)
+                        success = reply_event.get('success', False)
+
+                        if success:
+                            # Need username for statuses
+                            reply_event['username'] = event.user_handle
+
+                            self._process_response(reply_event)
+
+                            # We've responded!
+                            event.response_in_progress = False
+                            event.responded_to = True
+
+                            if reply_event.get('error_on_lookup'):
+                                event.error_on_lookup = True
+
+                        TwitterEvent.query.session.commit()
+
+                    except ValueError as e:
+                        LOG.error(
+                            f'Encountered unknown event type. '
+                            f'Response is not possible.')
 
         except Exception as e:
 

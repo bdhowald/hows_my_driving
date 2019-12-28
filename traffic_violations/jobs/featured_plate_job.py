@@ -23,10 +23,9 @@ LOG = logging.getLogger(__name__)
 
 
 class FeaturedPlateJob(BaseJob):
+    """ Tweet out a particular reckless driver. """
 
     def perform(self, *args, **kwargs):
-        """ Tweet out daily summary of yesterday's lookups """
-
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
         tweeter = TrafficViolationsTweeter()

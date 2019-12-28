@@ -13,7 +13,6 @@ from traffic_violations.constants import L10N
 
 from traffic_violations.jobs.base_job import BaseJob
 
-from traffic_violations.models.campaign import Campaign
 from traffic_violations.models.plate_lookup import PlateLookup
 
 from traffic_violations.services.twitter_service import \

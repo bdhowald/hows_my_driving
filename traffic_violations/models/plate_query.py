@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-@dataclass
+@dataclass(frozen=True)
 class PlateQuery:
     """ Represents a plate query to be submitted to the open data apis """
     created_at: str
