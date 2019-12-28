@@ -91,7 +91,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._find_and_respond_to_twitter_events()
 
         self.tweeter.aggregator.initiate_reply.assert_called_with(
-            lookup_request)
+            lookup_request=lookup_request)
 
     def test_is_production(self):
         self.assertEqual(self.tweeter._is_production(),

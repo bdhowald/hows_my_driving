@@ -120,19 +120,24 @@ class TrafficViolationsTweeter:
 
                         # Reply to the event.
                         reply_event = self.aggregator.initiate_reply(
-                            lookup_request)
+                            lookup_request=lookup_request)
                         success = reply_event.get('success', False)
 
                         if success:
                             # Need username for statuses
                             reply_event['username'] = event.user_handle
 
-                            self._process_response(reply_event)
+                            # There's need to tell people that there was an error more than once
+                            if not (reply_event.get(
+                                    'error_on_lookup') and event.error_on_lookup):
+
+                                self._process_response(reply_event)
 
                             # We've responded!
                             event.response_in_progress = False
                             event.responded_to = True
 
+                            # Update error status
                             if reply_event.get('error_on_lookup'):
                                 event.error_on_lookup = True
                             else:
