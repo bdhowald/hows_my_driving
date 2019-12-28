@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-@dataclass(frozen=True)
+@dataclass
 class PlateQuery:
     """ Represents a plate query to be submitted to the open data apis """
     created_at: str
-    message_id: Optional[int]
     message_source: str
     plate: str
-    plate_types: Optional[List[str]]
     state: str
-    username: Optional[str]
+    message_id: Optional[int] = None
+    plate_types: Optional[List[str]] = None
+    username: Optional[str] = None
 
