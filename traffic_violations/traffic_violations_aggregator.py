@@ -181,7 +181,7 @@ class TrafficViolationsAggregator:
                                 borough_data=plate_lookup.boroughs,
                                 camera_streak_data=plate_lookup.camera_streak_data,
                                 fine_data=plate_lookup.fines,
-                                frequency=(current_frequency + 1),
+                                frequency=current_frequency,
                                 plate=plate_lookup.plate,
                                 plate_types=plate_lookup.plate_types,
                                 previous_lookup=previous_lookup,

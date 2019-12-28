@@ -885,7 +885,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         }
 
         mocked_perform_plate_lookup.return_value = plate_lookup
-        mocked_query_for_lookup_frequency.return_value = 0
+        mocked_query_for_lookup_frequency.return_value = 1
 
         self.assertEqual(self.aggregator._create_response(
             direct_message_request_object), response)
@@ -995,7 +995,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         }
 
         mocked_perform_plate_lookup.return_value = plate_lookup
-        mocked_query_for_lookup_frequency.return_value = 1
+        mocked_query_for_lookup_frequency.return_value = 2
 
         self.assertEqual(self.aggregator._create_response(
             request_object), response)
