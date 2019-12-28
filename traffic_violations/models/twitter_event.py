@@ -20,6 +20,7 @@ class TwitterEvent(Base):
     in_reply_to_message_id = Column(BIGINT, nullable=True)
     location = Column(String(100), nullable=True)
     user_mentions = Column(String(560), nullable=True)
-    response_begun = Column(Boolean, default=False, nullable=False)
+    response_in_progress = Column(Boolean, default=False, nullable=False)
     responded_to = Column(Boolean, default=False, nullable=False)
     error_on_lookup = Column(Boolean, default=False, nullable=False)
+    is_duplicate = Column(Boolean, default=False, nullable=False)

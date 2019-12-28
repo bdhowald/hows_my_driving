@@ -839,8 +839,7 @@ class TrafficViolationsAggregator:
                     plate=plate_query.plate,
                     plate_types=plate_query.plate_types,
                     state=plate_query.state,
-                    username=plate_query.username
-                )
+                    username=plate_query.username)
 
                 # Iterate through included campaigns to tie lookup to each
                 for campaign in campaigns:

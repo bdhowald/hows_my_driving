@@ -29,9 +29,6 @@ from traffic_violations.models.response.traffic_violations_aggregator_response \
     import TrafficViolationsAggregatorResponse
 from traffic_violations.models.twitter_event import TwitterEvent
 
-from traffic_violations.services.constants.exceptions \
-    import ServiceResponseFailureException
-
 from traffic_violations.reply_argument_builder import \
     AccountActivityAPIStatus, DirectMessageAPIDirectMessage, \
     HowsMyDrivingAPIRequest, SearchStatus

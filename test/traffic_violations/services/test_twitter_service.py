@@ -10,10 +10,6 @@ from datetime import datetime, timezone, time, timedelta
 from unittest.mock import call, MagicMock
 
 from traffic_violations.models.twitter_event import TwitterEvent
-from traffic_violations.models.repeat_camera_offender import \
-    RepeatCameraOffender
-from traffic_violations.models.repeat_camera_offender import \
-    RepeatCameraOffender
 
 from traffic_violations.reply_argument_builder import \
     AccountActivityAPIDirectMessage, AccountActivityAPIStatus
@@ -83,6 +79,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             message_source='api')
 
         twitter_event_mock.get_all_by.return_value = [twitter_event]
+        twitter_event_mock.query.filter_by().filter().count.return_value = 0
 
         initiate_reply_mock = MagicMock(name='initiate_reply')
         self.tweeter.aggregator.initiate_reply = initiate_reply_mock
@@ -99,151 +96,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     def test_is_production(self):
         self.assertEqual(self.tweeter._is_production(),
                          (os.environ.get('ENV') == 'production'))
-
-    @mock.patch(
-        'traffic_violations.services.twitter_service.PlateLookup.query')
-    def test_print_daily_summary(self, mocked_plate_lookup_query):
-        utc = pytz.timezone('UTC')
-        eastern = pytz.timezone('US/Eastern')
-
-        today = datetime.now(eastern).date()
-
-        midnight_yesterday = (eastern.localize(datetime.combine(
-            today, time.min)) - timedelta(days=1)).astimezone(utc)
-
-        message_id = random.randint(10000000000000000000, 20000000000000000000)
-
-        plate_lookups = []
-        for _ in range(random.randint(5, 20)):
-            lookup = MagicMock()
-            lookup.num_tickets = random.randint(1, 200)
-            lookup.boot_eligible = random.random() >= 0.5
-            plate_lookups.append(lookup)
-
-        num_lookups = len(plate_lookups)
-        ticket_counts = [
-            plate_lookup.num_tickets for plate_lookup in plate_lookups]
-        total_tickets = sum(ticket_counts)
-        num_empty_lookups = len([
-            lookup for lookup in plate_lookups if lookup.num_tickets == 0])
-        num_reckless_drivers = len([
-            lookup for lookup in plate_lookups if lookup.boot_eligible == True])
-
-        mocked_plate_lookup_query.join().all.return_value = plate_lookups
-
-        total_reckless_drivers = random.randint(10, 10000)
-
-        mocked_plate_lookup_query.session.query(
-        ).distinct().filter().count.return_value = total_reckless_drivers
-
-        median = statistics.median(
-            plate_lookup.num_tickets for plate_lookup in plate_lookups)
-
-        is_production_mock = MagicMock(name='is_production')
-        is_production_mock.return_value = True
-
-        message_mock = MagicMock(name='message')
-        message_mock.id = message_id
-
-        update_status_mock = MagicMock(name='update_status')
-        update_status_mock.return_value = message_mock
-
-        api_mock = MagicMock(name='api')
-        api_mock.update_status = update_status_mock
-
-        self.tweeter._is_production = is_production_mock
-        self.tweeter.api = api_mock
-
-        lookup_str = (
-            f"On {midnight_yesterday.strftime('%A, %B %-d, %Y')}, users requested {num_lookups} lookup{'' if num_lookups == 1 else 's'}. "
-            f"{'That vehicle has' if num_lookups == 1 else 'Collectively, those vehicles have'} received {'{:,}'.format(total_tickets)} ticket{'' if total_tickets == 1 else 's'} "
-            f"for an average of {round(total_tickets / num_lookups, 2)} ticket{'' if total_tickets == 1 else 's'} "
-            f"and a median of {median} ticket{'' if median == 1 else 's'} per vehicle. "
-            f"{num_empty_lookups} lookup{'' if num_empty_lookups == 1 else 's'} returned no tickets.")
-
-        reckless_str = (
-            f"{num_reckless_drivers} {'vehicle was' if num_reckless_drivers == 1 else 'vehicles were'} "
-            f"eligible to be booted or impounded under @bradlander's proposed legislation "
-            f"({total_reckless_drivers} such lookups since June 6, 2018).")
-
-        self.tweeter._print_daily_summary()
-
-        calls = [call(lookup_str), call(
-            reckless_str, in_reply_to_status_id=message_id)]
-
-        update_status_mock.assert_has_calls(calls)
-
-    @mock.patch(
-        'traffic_violations.services.twitter_service.RepeatCameraOffender.query')
-    def test_print_featured_plate(self, mocked_repeat_camera_offender_query):
-        plate = 'ABC1234'
-        state = 'NY'
-        total_camera_violations = random.randint(1, 100)
-        red_light_camera_violations = total_camera_violations - \
-            random.randint(1, total_camera_violations)
-        speed_camera_violations = total_camera_violations - red_light_camera_violations
-        times_featured = 0
-
-        index = random.randint(1, 3000)
-        tied_with = random.randint(0, 3)
-        min_id = random.randint(
-            max(index - (tied_with if tied_with == 0 else (tied_with - 1)), 1), index)
-        nth_place = min_id + tied_with - 1
-
-        repeat_camera_offender: RepeatCameraOffender = RepeatCameraOffender(
-            plate_id=plate,
-            state=state,
-            total_camera_violations=total_camera_violations,
-            red_light_camera_violations=red_light_camera_violations,
-            speed_camera_violations=speed_camera_violations,
-            times_featured=0)
-
-        mocked_repeat_camera_offender_query.filter(
-        ).order_by().first.return_value = repeat_camera_offender
-
-        mocked_repeat_camera_offender_query.filter(
-        ).count.return_value = tied_with
-
-        mocked_repeat_camera_offender_query.session.query().filter(
-        ).one.return_value = [min_id]
-
-        is_production_mock = MagicMock(name='is_production')
-        is_production_mock.return_value = True
-
-        message_mock = MagicMock(name='message')
-        # message_mock.id = message_id
-
-        update_status_mock = MagicMock(name='update_status')
-        update_status_mock.return_value = message_mock
-
-        api_mock = MagicMock(name='api')
-        api_mock.update_status = update_status_mock
-
-        self.tweeter._is_production = is_production_mock
-        self.tweeter.api = api_mock
-
-        vehicle_hashtag = f'#{state}_{plate}'
-        suffix = 'st' if (nth_place % 10 == 1 and nth_place % 100 != 11) else ('nd' if (
-            nth_place % 10 == 2 and nth_place % 100 != 12) else ('rd' if (nth_place % 10 == 3 and nth_place % 100 != 13) else 'th'))
-        worst_substring = f'{nth_place}{suffix}-worst' if nth_place > 1 else "worst"
-        tied_substring = ' tied for' if tied_with != 1 else ''
-
-        max_count_length = len(
-            str(max(red_light_camera_violations, speed_camera_violations)))
-        spaces_needed = (max_count_length * 2) + 1
-
-        featured_string = (
-            f'Featured #RepeatCameraOffender:\n\n'
-            f'{vehicle_hashtag} has received {total_camera_violations} camera violations:\n\n'
-            f'{str(red_light_camera_violations).ljust(spaces_needed - len(str(red_light_camera_violations)))} | Red Light Camera Violations\n'
-            f'{str(speed_camera_violations).ljust(spaces_needed - len(str(speed_camera_violations)))} | Speed Safety Camera Violations\n\n'
-            f'This makes {vehicle_hashtag}{tied_substring} the {worst_substring} camera violator in New York City.')
-
-        self.tweeter._print_featured_plate()
-
-        calls = [call(featured_string)]
-
-        update_status_mock.assert_has_calls(calls)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._is_production')
