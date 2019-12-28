@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from traffic_violations.constants.borough_codes import BOROUGH_CODES
 from traffic_violations.constants.open_data.endpoints import FISCAL_YEAR_DATABASE_ENDPOINTS, \
-    OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT
+    MEDALLION_ENDPOINT, OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT
 from traffic_violations.constants.open_data.needed_fields import \
     FISCAL_YEAR_DATABASE_NEEDED_FIELDS, OPEN_PARKING_AND_CAMERA_VIOLATIONS_NEEDED_FIELDS, \
     OPEN_PARKING_AND_CAMERA_VIOLATIONS_FINE_KEYS
@@ -343,7 +343,7 @@ class OpenDataService:
         if self.MEDALLION_PATTERN.search(plate_query.plate) != None:
 
             medallion_query_string: str = (
-                f'{self.MEDALLION_ENDPOINT}?'
+                f'{MEDALLION_ENDPOINT}?'
                 f'license_number={plate_query.plate}')
 
             medallion_response: Dict[str, Any] = self._perform_query(query_string=medallion_query_string)
