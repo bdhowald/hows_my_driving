@@ -135,6 +135,8 @@ class TrafficViolationsTweeter:
 
                             if reply_event.get('error_on_lookup'):
                                 event.error_on_lookup = True
+                            else:
+                                event.error_on_lookup = False
 
                         TwitterEvent.query.session.commit()
 
