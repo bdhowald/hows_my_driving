@@ -121,17 +121,17 @@ class OpenDataService:
     def _calculate_aggregate_data(self, plate_query: PlateQuery, violations) -> OpenDataServicePlateLookup:
         # Marshal all ticket data into form.
         fines: FineData = FineData(
-            fined=sum(v['fined']
-                      for v in violations.values() if v.get('fined')),
-            reduced=sum(v['reduced']
-                        for v in violations.values() if v.get('reduced')),
-            paid=sum(v['paid'] for v in violations.values() if v.get('paid')),
-            outstanding=sum(v['outstanding']
-                            for v in violations.values() if v.get('outstanding'))
+            fined=round(sum(v['fined']
+                      for v in violations.values() if v.get('fined')), 2),
+            reduced=round(sum(v['reduced']
+                        for v in violations.values() if v.get('reduced')), 2),
+            paid=round(sum(v['paid'] for v in violations.values() if v.get('paid')), 2),
+            outstanding=round(sum(v['outstanding']
+                            for v in violations.values() if v.get('outstanding')), 2)
         )
 
         tickets: List[Tuple[str, int]] = Counter([v['violation'].title() for v in violations.values(
-        ) if v.get('violation')]).most_common()
+        ) if v.get('violation') is not None]).most_common()
 
         years: List[Tuple[str, int]] = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get(
             'has_date') else 'No Year Available' for v in violations.values()]).most_common()
@@ -231,19 +231,19 @@ class OpenDataService:
             except ValueError as ve:
                 summons['has_date'] = False
 
-        if summons.get('violation_precinct'):
+        if summons.get('violation_precinct') is not None:
             boros = [boro for boro, precincts in PRECINCTS_BY_BOROUGH.items() if int(
                 summons['violation_precinct']) in precincts]
             if boros:
                 summons['borough'] = boros[0]
             else:
-                if summons.get('violation_county'):
+                if summons.get('violation_county') is not None:
                     boros = [name.replace(" ", "_") for name, codes in BOROUGH_CODES.items(
                     ) if summons.get('violation_county') in codes]
                     if boros:
                         summons['borough'] = boros[0]
                 else:
-                    if summons.get('street_name'):
+                    if summons.get('street_name') is not None:
                         street_name = summons.get('street_name')
                         intersecting_street = summons.get(
                             'intersecting_street') or ''
@@ -257,7 +257,7 @@ class OpenDataService:
 
     def _normalize_open_parking_and_camera_violations_summons(self, summons) -> Dict[str, Any]:
         # get human readable ticket type name
-        if summons.get('violation'):
+        if summons.get('violation') is not None:
             summons['violation'] = HUMANIZED_NAMES_FOR_OPEN_PARKING_AND_CAMERA_VIOLATIONS[
                 summons['violation']]
 
@@ -273,13 +273,13 @@ class OpenDataService:
             except ValueError as ve:
                 summons['has_date'] = False
 
-        if summons.get('precinct'):
+        if summons.get('precinct') is not None:
             boros = [boro for boro, precincts in PRECINCTS_BY_BOROUGH.items() if int(
                 summons['precinct']) in precincts]
             if boros:
                 summons['borough'] = boros[0]
             else:
-                if summons.get('county'):
+                if summons.get('county') is not None:
                     boros = [name for name, codes in BOROUGH_CODES.items(
                     ) if summons.get('county') in codes]
                     if boros:
@@ -390,7 +390,7 @@ class OpenDataService:
         open_parking_and_camera_violations_response: Dict[str, Any] = self._perform_query(
             query_string=open_parking_and_camera_violations_query_string)
 
-        open_parking_and_camera_violations_data: Dict[str, Any] = \
+        open_parking_and_camera_violations_data: List[Dict[str, Any]] = \
             open_parking_and_camera_violations_response['data']
 
         LOG.debug(
@@ -403,7 +403,6 @@ class OpenDataService:
 
         # add violation if it's missing
         for record in open_parking_and_camera_violations_data:
-
             record = self._normalize_open_parking_and_camera_violations_summons(
                 summons=record)
 

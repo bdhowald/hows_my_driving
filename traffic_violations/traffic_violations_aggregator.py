@@ -290,7 +290,7 @@ class TrafficViolationsAggregator:
 
                 LOG.debug('The data seems to be in the wrong format.')
 
-                state_matches = [regexp_constants.STATE_ABBR_PATTERN.search(
+                state_matches = [regexp_constants.STATE_ABBREVIATIONS_PATTERN.search(
                     s.upper()) != None for s in request_object.string_tokens()]
                 number_matches = [regexp_constants.NUMBER_PATTERN.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
                     r'\.|@', '', part.lower()) not in set(request_object.mentioned_users), request_object.string_tokens()))]
@@ -356,20 +356,17 @@ class TrafficViolationsAggregator:
         return Campaign.get_all_in(hashtag=tuple([regexp_constants.HASHTAG_PATTERN.sub('', string) for string in string_tokens]))
 
     def _detect_plate_types(self, plate_types_input) -> bool:
-        plate_types_pattern = re.compile(
-            regexp_constants.REGISTRATION_TYPES_REGEX)
-
         if ',' in plate_types_input:
             parts = plate_types_input.upper().split(',')
-            return any([plate_types_pattern.search(part) != None for part in parts])
+            return any([regexp_constants.PLATE_TYPES_PATTERN.search(part) != None for part in parts])
         else:
-            return plate_types_pattern.search(plate_types_input.upper()) != None
+            return regexp_constants.PLATE_TYPES_PATTERN.search(plate_types_input.upper()) != None
 
     def _detect_state(self, state_input) -> bool:
         # or state_full_pattern.search(state_input.upper()) != None
         """ Does this input constitute a valid state abbreviation """
         if state_input is not None:
-            return regexp_constants.STATE_ABBR_PATTERN.search(state_input.upper()) != None
+            return regexp_constants.STATE_ABBREVIATIONS_PATTERN.search(state_input.upper()) != None
 
         return False
 
