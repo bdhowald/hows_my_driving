@@ -740,7 +740,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         violations = [
             {
-                'amount_due': '0',
+                'amount_due': '100',
                 'county': 'NY',
                 'fine_amount': '100',
                 'interest_amount': '0',
@@ -763,7 +763,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'violation_time': '08:39P'
             },
             {
-                'amount_due': '0',
+                'amount_due': '30',
                 'county': 'NY',
                 'fine_amount': '50',
                 'interest_amount': '0',
@@ -786,16 +786,66 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'violation_description': 'FAIL TO DSPLY MUNI METER RECPT',
                 'violation_status': 'HEARING HELD-NOT GUILTY',
                 'violation_time': '08:40P'
+            },
+            {
+                'amount_due': '50',
+                'county': 'MN',
+                'fine_amount': '50',
+                'interest_amount': '0',
+                'issue_date': '01/27/2018',
+                'issuing_agency': 'DEPARTMENT OF TRANSPORTATION',
+                'license_type': 'SRF',
+                'payment_amount': '50',
+                'penalty_amount': '0',
+                'plate': 'HME6483',
+                'precinct': '0',
+                'reduction_amount': '0',
+                'state': 'NY',
+                'summons_image': (f'http://nycserv.nyc.gov/NYCServWeb/'
+                                  f'ShowImage?searchID=VDBSVmQwNVVaekZ'
+                                  f'OZWxreFQxRTlQUT09&locationName='
+                                  f'_____________________'),
+                'summons_image_description': 'View Summons',
+                'summons_number': '23958567421',
+                'violation': 'PHTO SCHOOL ZN SPEED VIOLATION',
+                'violation_time': '07:33P'
+            },
+            {
+                'amount_due': '0',
+                'county': 'MN',
+                'fine_amount': '50',
+                'interest_amount': '0',
+                'issue_date': '01/27/2018',
+                'issuing_agency': 'DEPARTMENT OF TRANSPORTATION',
+                'license_type': 'SRF',
+                'payment_amount': '75',
+                'penalty_amount': '25',
+                'plate': 'HME6483',
+                'precinct': '0',
+                'reduction_amount': '0',
+                'state': 'NY',
+                'summons_image': (f'http://nycserv.nyc.gov/NYCServWeb/'
+                                  f'ShowImage?searchID=VDBSVmQwNVVaekZ'
+                                  f'OZWxreFQxRTlQUT09&locationName='
+                                  f'_____________________'),
+                'summons_image_description': 'View Summons',
+                'summons_number': '2398572382',
+                'violation': 'FAILURE TO STOP AT RED LIGHT',
+                'violation_time': '10:25A'
             }
         ]
 
         lookup_data = {
             'boroughs': [
-                {'count': 2, 'title': 'Manhattan'}
+                {'count': 4, 'title': 'Manhattan'}
             ],
-            'fines': FineData(**{'fined': 150.0, 'reduced': 20.0,
-                                 'paid': 0, 'outstanding': 0}),
-            'num_violations': 2,
+            'camera_streak_data': CameraStreakData(
+                **{'max_streak': 2,
+                   'min_streak_date': 'January 27, 2018',
+                   'max_streak_date': 'January 27, 2018'}),
+            'fines': FineData(**{'fined': 275.0, 'reduced': 20.0,
+                                 'paid': 125.0, 'outstanding': 180.0}),
+            'num_violations': 4,
             'plate': 'ABCDEFG',
             'plate_types': 'COM,PAS',
             'state': 'NY',
@@ -807,11 +857,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 {
                     'count': 1,
                     'title': 'Fail To Dsply Muni Meter Recpt'
+                },
+                {
+                    'count': 1,
+                    'title': 'School Zone Speed Camera Violation'
+                },
+                {
+                    'count': 1,
+                    'title': 'Failure To Stop At Red Light'
                 }
             ],
             'years': [
-                {'title': '2017', 'count': 1},
-                {'title': '2018', 'count': 1}
+                {'count': 1, 'title': '2017'},
+                {'count': 3, 'title': '2018'}
             ],
         }
 
