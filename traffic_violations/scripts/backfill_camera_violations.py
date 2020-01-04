@@ -29,7 +29,7 @@ from traffic_violations.utils import string_utils, twitter_utils
 LOG = logging.getLogger(__name__)
 
 
-class RecklessDriverRetrospectiveJob(BaseJob):
+class BackfillCameraViolationsJob(BaseJob):
     """ Tweet out a previously-repored reckless driver. """
 
     CAMERA_VIOLATIONS = ['Bus Lane Violation',
@@ -37,16 +37,21 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                          'School Zone Speed Camera Violation']
 
     def perform(self, *args, **kwargs):
+        all_vehicles: bool = kwargs.get('all_vehicles') or False
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
         new_tickets_rates: List[Tuple[int, int]] = []
 
-        plate_lookups = PlateLookup.get_all_by(
-            boot_eligible=True,
-            count_towards_frequency=True)
+        if all_vehicles:
+            plate_lookups = PlateLookup.get_all_by(
+                count_towards_frequency=True)
+        else:
+            plate_lookups = PlateLookup.get_all_by(
+                boot_eligible=True,
+                count_towards_frequency=True)
 
         threads = []
-        num_threads = 10
+        num_threads = 100
         chunk_length = math.ceil(len(plate_lookups)/num_threads)
 
         for n in range(0, num_threads):
@@ -105,30 +110,16 @@ class RecklessDriverRetrospectiveJob(BaseJob):
             print(f'updating lookup {previous_lookup.id}')
 
 
-            # camera_streak_data: CameraStreakData = open_data_plate_lookup.camera_streak_data
-
-            # new_lookup = PlateLookup(
-            #     boot_eligible=camera_streak_data.max_streak >= 5 if camera_streak_data else False,
-            #     created_at=plate_query.created_at,
-            #     message_id=plate_query.message_id,
-            #     message_source=plate_query.message_source,
-            #     num_tickets=open_data_plate_lookup.num_violations,
-            #     plate=plate_query.plate,
-            #     plate_types=plate_query.plate_types,
-            #     state=plate_query.state,
-            #     username=plate_query.username)
-
-            # tickets_since: int = new_lookup.num_tickets - previous_lookup.num_tickets
-            # days_since: int = (now - previous_lookup.created_at).days
-
-            # new_tickets_rates.append((tickets_since, days_since,))
-
-            # print((tickets_since, days_since,))
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Perform lookups to collect yesterday\'s statistics.')
+        description='Job that backfills camera violations for old lookups.')
+
+    parser.add_argument(
+        '--all-vehicles',
+        '-a',
+        action='store_true',
+        help="Backfill all valid lookups.")
 
     parser.add_argument(
         '--dry-run',
@@ -141,5 +132,7 @@ def parse_args():
 if __name__ == '__main__':
     arguments = parse_args()
 
-    job = RecklessDriverRetrospectiveJob()
-    job.run(is_dry_run=arguments.dry_run)
+    job = BackfillCameraViolationsJob()
+    job.run(
+        all_vehicles=arguments.all_vehicles,
+        is_dry_run=arguments.dry_run)
