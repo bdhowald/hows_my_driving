@@ -52,6 +52,8 @@ class OpenDataService:
 
     OUTPUT_FINE_KEYS = ['fined', 'paid', 'reduced', 'outstanding']
 
+    TIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%f'
+
     def __init__(self):
         # Set up retry ability
         s_req = requests_futures.sessions.FuturesSession(max_workers=9)
@@ -67,9 +69,15 @@ class OpenDataService:
 
         self.location_service = LocationService()
 
-    def lookup_vehicle(self, plate_query: PlateQuery) -> OpenDataServiceResponse:
+    def lookup_vehicle(self,
+                       plate_query: PlateQuery,
+                       since: datetime = None,
+                       until: datetime = None) -> OpenDataServiceResponse:
         try:
-            lookup_result: OpenDataServicePlateLookup = self._perform_all_queries(plate_query=plate_query)
+            lookup_result: OpenDataServicePlateLookup = self._perform_all_queries(
+                plate_query=plate_query,
+                since=since,
+                until=until)
 
             return OpenDataServiceResponse(
                 data=lookup_result,
@@ -133,14 +141,14 @@ class OpenDataService:
         tickets: List[Tuple[str, int]] = Counter([v['violation'].title() for v in violations.values(
         ) if v.get('violation') is not None]).most_common()
 
-        years: List[Tuple[str, int]] = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get(
+        years: List[Tuple[str, int]] = Counter([datetime.strptime(v['issue_date'], self.TIME_FORMAT).strftime('%Y') if v.get(
             'has_date') else 'No Year Available' for v in violations.values()]).most_common()
 
         boroughs: List[Tuple[str, int]] = Counter([v['borough'].title() for v in violations.values(
         ) if v.get('borough')]).most_common()
 
         camera_streak_data: Optional[CameraStreakData] = self._find_max_camera_violations_streak(
-            sorted([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f') for v in violations.values(
+            sorted([datetime.strptime(v['issue_date'], self.TIME_FORMAT) for v in violations.values(
             ) if v.get('violation') and v['violation'] in self.CAMERA_VIOLATIONS]))
 
         return OpenDataServicePlateLookup(
@@ -226,7 +234,7 @@ class OpenDataService:
         else:
             try:
                 summons['issue_date'] = datetime.strptime(
-                    summons['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y-%m-%dT%H:%M:%S.%f')
+                    summons['issue_date'], self.TIME_FORMAT).strftime(self.TIME_FORMAT)
                 summons['has_date'] = True
             except ValueError as ve:
                 summons['has_date'] = False
@@ -268,7 +276,7 @@ class OpenDataService:
         else:
             try:
                 summons['issue_date'] = datetime.strptime(
-                    summons['issue_date'], '%m/%d/%Y').strftime('%Y-%m-%dT%H:%M:%S.%f')
+                    summons['issue_date'], '%m/%d/%Y').strftime(self.TIME_FORMAT)
                 summons['has_date'] = True
             except ValueError as ve:
                 summons['has_date'] = False
@@ -290,15 +298,18 @@ class OpenDataService:
 
         return summons
 
-    def _perform_all_queries(self, plate_query: PlateQuery) -> OpenDataServicePlateLookup:
+    def _perform_all_queries(self,
+                             plate_query: PlateQuery,
+                             since: datetime,
+                             until: datetime) -> OpenDataServicePlateLookup:
         if self.MEDALLION_PATTERN.search(plate_query.plate) is not None:
             plate_query = self._perform_medallion_query(
                 plate_query=plate_query)
 
         opacv_result: Dict[str, Any] = self._perform_open_parking_and_camera_violations_query(
-            plate_query=plate_query)
+            plate_query=plate_query, since=since, until=until)
         fiscal_year_result: Dict[str, Any] = self._perform_fiscal_year_database_queries(
-            plate_query=plate_query)
+            plate_query=plate_query, since=since, until=until)
 
         violations: Dict[str, Any] = self._merge_violations(opacv_result, fiscal_year_result)
 
@@ -306,7 +317,10 @@ class OpenDataService:
                                               violations=violations)
 
 
-    def _perform_fiscal_year_database_queries(self, plate_query: PlateQuery) -> Dict[str, Any]:
+    def _perform_fiscal_year_database_queries(self,
+                                              plate_query: PlateQuery,
+                                              since: datetime,
+                                              until: datetime) -> Dict[str, Any]:
         """Grab data from each of the fiscal year violation datasets"""
 
         violations: Dict[str, Any] = {}
@@ -339,7 +353,26 @@ class OpenDataService:
                 new_data: Dict[str, Any] = {
                     needed_field: record.get(needed_field) for needed_field in FISCAL_YEAR_DATABASE_NEEDED_FIELDS}
 
-                violations[record['summons_number']] = new_data
+                if new_data.get('has_date'):
+                    try:
+                        issue_date: datetime = datetime.strptime(new_data['issue_date'], self.TIME_FORMAT)
+
+                        if (since is None or issue_date >= since) and (until is None or issue_date <= until):
+                            violations[new_data['summons_number']] = new_data
+
+                        else:
+                            LOG.debug(
+                                f"record {new_data['summons_number']} ({new_data['issue_date']}) "
+                                f"is not within time range "
+                                f"({since.strftime(self.TIME_FORMAT) if since else 'any'}<->"
+                                f"{until.strftime(self.TIME_FORMAT) if until else 'any'}")
+
+                        continue
+
+                    except ValueError as ve:
+                        LOG.info(f"Issue time could not be determined for {new_data['summons_number']}")
+
+                violations[new_data['summons_number']] = new_data
 
         return violations
 
@@ -375,7 +408,10 @@ class OpenDataService:
 
         return plate_query
 
-    def _perform_open_parking_and_camera_violations_query(self, plate_query: PlateQuery) -> Dict[str, Any]:
+    def _perform_open_parking_and_camera_violations_query(self,
+                                                          plate_query: PlateQuery,
+                                                          since: datetime,
+                                                          until: datetime) -> Dict[str, Any]:
         """Grab data from 'Open Parking and Camera Violations'"""
 
         violations: Dict[str, Any] = {}
@@ -406,8 +442,28 @@ class OpenDataService:
             record = self._normalize_open_parking_and_camera_violations_summons(
                 summons=record)
 
-            violations[record['summons_number']] = {
-                needed_field: record.get(needed_field) for needed_field in opacv_desired_keys}
+            new_data = {needed_field: record.get(needed_field) for needed_field in opacv_desired_keys}
+
+            if new_data.get('has_date'):
+                try:
+                    issue_date: datetime = datetime.strptime(new_data['issue_date'], self.TIME_FORMAT)
+
+                    if (since is None or issue_date >= since) and (until is None or issue_date <= until):
+                        violations[new_data['summons_number']] = new_data
+
+                    else:
+                        LOG.debug(
+                            f"record {new_data['summons_number']} ({new_data['issue_date']}) "
+                            f"is not within time range "
+                            f"({since.strftime(self.TIME_FORMAT) if since else 'any'}<->"
+                            f"{until.strftime(self.TIME_FORMAT) if until else 'any'}")
+
+                    continue
+
+                except ValueError as ve:
+                    LOG.info(f"Issue time could not be determined for {new_data['summons_number']}")
+
+            violations[new_data['summons_number']] = new_data
 
         return violations
 

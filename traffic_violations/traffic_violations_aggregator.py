@@ -37,6 +37,9 @@ LOG = logging.getLogger(__name__)
 
 class TrafficViolationsAggregator:
 
+    CAMERA_VIOLATIONS = ['Bus Lane Violation',
+                         'Failure To Stop At Red Light',
+                         'School Zone Speed Camera Violation']
     MYSQL_TIME_FORMAT: str = '%Y-%m-%d %H:%M:%S'
     REPEAT_LOOKUP_DATE_FORMAT: str = '%B %-d, %Y'
     REPEAT_LOOKUP_TIME_FORMAT: str = '%I:%M%p'
@@ -845,18 +848,36 @@ class TrafficViolationsAggregator:
 
             open_data_plate_lookup: OpenDataServicePlateLookup = open_data_response.data
 
+            bus_lane_camera_violations = None
+            red_light_camera_violations = None
+            speed_camera_violations = None
+
+            for violation_type_summary in open_data_plate_lookup.violations:
+                if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
+                    violation_count = violation_type_summary['count']
+
+                    if violation_type_summary['title'] == 'Bus Lane Violation':
+                        bus_lane_camera_violations = violation_count
+                    if violation_type_summary['title'] == 'Failure To Stop At Red Light':
+                        red_light_camera_violations = violation_count
+                    elif violation_type_summary['title'] == 'School Zone Speed Camera Violation':
+                        speed_camera_violations = violation_count
+
             camera_streak_data: CameraStreakData = open_data_plate_lookup.camera_streak_data
 
             # If this came from message, add it to the plate_lookups table.
             if plate_query.message_source and plate_query.message_id and plate_query.created_at:
                 new_lookup = PlateLookup(
                     boot_eligible=camera_streak_data.max_streak >= 5 if camera_streak_data else False,
+                    bus_lane_camera_violations=bus_lane_camera_violations,
                     created_at=plate_query.created_at,
                     message_id=plate_query.message_id,
                     message_source=plate_query.message_source,
                     num_tickets=open_data_plate_lookup.num_violations,
                     plate=plate_query.plate,
                     plate_types=plate_query.plate_types,
+                    red_light_camera_violations=red_light_camera_violations,
+                    speed_camera_violations=speed_camera_violations,
                     state=plate_query.state,
                     username=plate_query.username)
 

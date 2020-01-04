@@ -16,6 +16,7 @@ class PlateLookup(Base):
     # columns
     id = Column(Integer, primary_key=True)
     boot_eligible = Column(Boolean, default=False, nullable=False)
+    bus_lane_camera_violations = Column(Integer, nullable=True)
     count_towards_frequency = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     message_source = Column('lookup_source', String(255), nullable=False)
@@ -24,7 +25,9 @@ class PlateLookup(Base):
     _observed = Column('observed', String(255), default=None, nullable=True)
     plate = Column(String(16), nullable=False)
     plate_types = Column(String(255))
+    red_light_camera_violations = Column(Integer, nullable=True)
     responded_to = Column(Boolean, default=False, nullable=False)
+    speed_camera_violations = Column(Integer, nullable=True)
     state = Column(String(8), nullable=False)
     username = Column('external_username', String(32))
 
