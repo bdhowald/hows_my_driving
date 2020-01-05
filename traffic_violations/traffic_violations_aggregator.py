@@ -848,9 +848,9 @@ class TrafficViolationsAggregator:
 
             open_data_plate_lookup: OpenDataServicePlateLookup = open_data_response.data
 
-            bus_lane_camera_violations = None
-            red_light_camera_violations = None
-            speed_camera_violations = None
+            bus_lane_camera_violations = 0
+            red_light_camera_violations = 0
+            speed_camera_violations = 0
 
             for violation_type_summary in open_data_plate_lookup.violations:
                 if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
@@ -920,6 +920,3 @@ class TrafficViolationsAggregator:
 
         else:
             return None
-
-
-

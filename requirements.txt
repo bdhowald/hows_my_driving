@@ -1,5 +1,6 @@
 certifi==2019.3.9
 chardet==3.0.4
+python-dateutil==2.8.1
 ddt==1.2.1
 idna==2.8
 oauthlib==3.0.1

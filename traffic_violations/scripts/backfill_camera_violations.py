@@ -5,32 +5,23 @@ import os
 import logging
 import threading
 
-from datetime import datetime, time, timedelta
-from sqlalchemy import and_
-from sqlalchemy.sql.expression import func
-from typing import List, Optional
-
-from traffic_violations.constants import L10N
+from datetime import datetime
+from typing import List
 
 from traffic_violations.jobs.base_job import BaseJob
 
-from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.models.plate_query import PlateQuery
 from traffic_violations.models.response.open_data_service_response \
     import OpenDataServiceResponse
 
 from traffic_violations.services.apis.open_data_service import OpenDataService
-from traffic_violations.services.twitter_service import \
-    TrafficViolationsTweeter
-
-from traffic_violations.utils import string_utils, twitter_utils
 
 LOG = logging.getLogger(__name__)
 
 
 class BackfillCameraViolationsJob(BaseJob):
-    """ Tweet out a previously-repored reckless driver. """
+    """ Backfill camera violations for old lookups """
 
     CAMERA_VIOLATIONS = ['Bus Lane Violation',
                          'Failure To Stop At Red Light',
@@ -39,8 +30,6 @@ class BackfillCameraViolationsJob(BaseJob):
     def perform(self, *args, **kwargs):
         all_vehicles: bool = kwargs.get('all_vehicles') or False
         is_dry_run: bool = kwargs.get('is_dry_run') or False
-
-        new_tickets_rates: List[Tuple[int, int]] = []
 
         if all_vehicles:
             plate_lookups = PlateLookup.get_all_by(

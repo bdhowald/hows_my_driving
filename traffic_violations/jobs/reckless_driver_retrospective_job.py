@@ -3,18 +3,16 @@ import math
 
 import os
 import logging
-import threading
 
-from datetime import datetime, time, timedelta
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_
-from sqlalchemy.sql.expression import func
-from typing import List, Optional
+from typing import List
 
 from traffic_violations.constants import L10N
 
 from traffic_violations.jobs.base_job import BaseJob
 
-from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.models.plate_query import PlateQuery
 from traffic_violations.models.response.open_data_service_response \
@@ -23,8 +21,6 @@ from traffic_violations.models.response.open_data_service_response \
 from traffic_violations.services.apis.open_data_service import OpenDataService
 from traffic_violations.services.twitter_service import \
     TrafficViolationsTweeter
-
-from traffic_violations.utils import string_utils, twitter_utils
 
 LOG = logging.getLogger(__name__)
 
@@ -39,107 +35,83 @@ class RecklessDriverRetrospectiveJob(BaseJob):
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
-        new_tickets_rates: List[Tuple[int, int]] = []
+        now = datetime.now()
 
-        plate_lookups = PlateLookup.get_all_by(
-            boot_eligible=True,
-            count_towards_frequency=True)
+        top_of_the_hour_last_year = now.replace(
+            microsecond=0,
+            minute=0,
+            second=0) - relativedelta(years=1)
 
-        threads = []
-        num_threads = 10
-        chunk_length = math.ceil(len(plate_lookups)/num_threads)
+        top_of_the_next_hour_last_year = (
+            top_of_the_hour_last_year + relativedelta(hours=1))
 
-        for n in range(0, num_threads):
-            chunk_begin = n * chunk_length
-            chunk_plate_lookups = plate_lookups[chunk_begin:(chunk_begin + chunk_length)]
-            print(f'this thread will handle lookups: {[l.id for l in chunk_plate_lookups]}')
-            threads.append(threading.Thread(target=self.update_lookups, args=(chunk_plate_lookups,)))
+        lookups_to_update: List[PlateLookup] = PlateLookup.query.filter(
+            and_(PlateLookup.created_at >= top_of_the_hour_last_year,
+                 PlateLookup.created_at < top_of_the_next_hour_last_year,
+                 PlateLookup.boot_eligible == True,
+                 PlateLookup.count_towards_frequency == True)).all()
 
-        for thread in threads:
-            thread.start()
+        for previous_lookup in lookups_to_update:
 
-        for thread in threads:
-            thread.join()
-
-        if not is_dry_run:
-            PlateLookup.query.session.commit()
-
-    def update_lookups(self, lookups: List[PlateLookup]):
-
-        for previous_lookup in lookups:
-            now = datetime.utcnow()
-            plate_query: PlateQuery = PlateQuery(created_at=now,
+            plate_query: PlateQuery=PlateQuery(created_at=now,
                                                  message_source=previous_lookup.message_source,
                                                  plate=previous_lookup.plate,
                                                  plate_types=previous_lookup.plate_types,
                                                  state=previous_lookup.state)
 
-            nyc_open_data_service: OpenDataService = OpenDataService()
-            open_data_response: OpenDataServiceResponse = nyc_open_data_service.lookup_vehicle(
-                plate_query=plate_query,
-                until=previous_lookup.created_at)
+            nyc_open_data_service: OpenDataService=OpenDataService()
+            open_data_response: OpenDataServiceResponse=nyc_open_data_service.lookup_vehicle(
+                plate_query=plate_query)
 
-            open_data_plate_lookup: OpenDataServicePlateLookup = open_data_response.data
+            open_data_plate_lookup: OpenDataServicePlateLookup=open_data_response.data
+
+            new_bus_lane_camera_violations=None
+            new_speed_camera_violations=None
+            new_red_light_camera_violations=None
 
             for violation_type_summary in open_data_plate_lookup.violations:
                 if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
-                    violation_count = violation_type_summary['count']
+                    violation_count=violation_type_summary['count']
 
                     if violation_type_summary['title'] == 'Bus Lane Violation':
-                        previous_lookup.bus_lane_camera_violations = violation_count
+                        new_bus_lane_camera_violations=(violation_count -
+                            previous_lookup.bus_lane_camera_violations)
                     if violation_type_summary['title'] == 'Failure To Stop At Red Light':
-                        previous_lookup.red_light_camera_violations = violation_count
+                        new_speed_camera_violations=(violation_count -
+                            previous_lookup.red_light_camera_violations)
                     elif violation_type_summary['title'] == 'School Zone Speed Camera Violation':
-                        previous_lookup.speed_camera_violations = violation_count
+                        new_red_light_camera_violations=(violation_count -
+                            previous_lookup.speed_camera_violations)
 
-            if not previous_lookup.bus_lane_camera_violations:
-                previous_lookup.bus_lane_camera_violations = 0
+            if not new_bus_lane_camera_violations:
+                new_bus_lane_camera_violations=previous_lookup.bus_lane_camera_violations
 
-            if not previous_lookup.red_light_camera_violations:
-                previous_lookup.red_light_camera_violations = 0
+            if not new_speed_camera_violations:
+                new_speed_camera_violations=previous_lookup.red_light_camera_violations
 
-            if not previous_lookup.speed_camera_violations:
-                previous_lookup.speed_camera_violations = 0
+            if not new_red_light_camera_violations:
+                new_red_light_camera_violations=previous_lookup.speed_camera_violations
 
-            LOG.debug(f'updating lookup {previous_lookup.id}')
-            print(f'updating lookup {previous_lookup.id}')
-
-
-            # camera_streak_data: CameraStreakData = open_data_plate_lookup.camera_streak_data
-
-            # new_lookup = PlateLookup(
-            #     boot_eligible=camera_streak_data.max_streak >= 5 if camera_streak_data else False,
-            #     created_at=plate_query.created_at,
-            #     message_id=plate_query.message_id,
-            #     message_source=plate_query.message_source,
-            #     num_tickets=open_data_plate_lookup.num_violations,
-            #     plate=plate_query.plate,
-            #     plate_types=plate_query.plate_types,
-            #     state=plate_query.state,
-            #     username=plate_query.username)
-
-            # tickets_since: int = new_lookup.num_tickets - previous_lookup.num_tickets
-            # days_since: int = (now - previous_lookup.created_at).days
-
-            # new_tickets_rates.append((tickets_since, days_since,))
-
-            # print((tickets_since, days_since,))
-
+            print(
+                f'Update for {previous_lookup.state}:{previous_lookup.plate} :\n'
+                f'New bus lane camera tickets: {new_bus_lane_camera_violations}\n'
+                f'New speed camera tickets: {new_speed_camera_violations}\n'
+                f'New red light camera tickets: {new_red_light_camera_violations}\n')
 
 def parse_args():
-    parser = argparse.ArgumentParser(
+    parser=argparse.ArgumentParser(
         description='Perform lookups to collect yesterday\'s statistics.')
 
     parser.add_argument(
         '--dry-run',
         action='store_true',
-        help="Don't save results")
+        help="Don't tweet results")
 
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    arguments = parse_args()
+    arguments=parse_args()
 
-    job = RecklessDriverRetrospectiveJob()
+    job=RecklessDriverRetrospectiveJob()
     job.run(is_dry_run=arguments.dry_run)
