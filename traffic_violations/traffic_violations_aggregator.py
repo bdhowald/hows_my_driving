@@ -155,6 +155,10 @@ class TrafficViolationsAggregator:
                         vehicle=potential_vehicle,
                         request_object=request_object)
 
+                    # do we have a previous lookup
+                    previous_lookup: Optional[PlateLookup] = self._query_for_previous_lookup(plate_query=plate_query)
+                    LOG.debug(f'Previous lookup for this vehicle: {previous_lookup}')
+
                     # Do the real work!
                     open_data_response: OpenDataServiceResponse = self._perform_plate_lookup(
                         campaigns=included_campaigns,
@@ -166,10 +170,6 @@ class TrafficViolationsAggregator:
                         successful_lookup = True
 
                         plate_lookup: OpenDataServicePlateLookup = open_data_response.data
-
-                        # do we have a previous lookup
-                        previous_lookup: Optional[PlateLookup] = self._query_for_previous_lookup(plate_query=plate_query)
-                        LOG.debug(f'Previous lookup for this vehicle: {previous_lookup}')
 
                         # how many times have we searched for this plate from a tweet
                         current_frequency: int = self._query_for_lookup_frequency(plate_query)

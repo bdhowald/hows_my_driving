@@ -74,8 +74,8 @@ class LocationService:
     def _make_geocoding_request(self, params) -> Dict[str, str]:
         req = requests.get(self.GEOCODING_SERVICE_ENDPOINT, params=params)
 
-        if hasattr(req.json(), self.RESULTS_KEY):
-            return req.json()['results']
+        if req.json().get(self.RESULTS_KEY):
+            return req.json()[self.RESULTS_KEY]
         else:
             return None
 
