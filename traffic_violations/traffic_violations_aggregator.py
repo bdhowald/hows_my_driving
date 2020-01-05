@@ -41,8 +41,6 @@ class TrafficViolationsAggregator:
                          'Failure To Stop At Red Light',
                          'School Zone Speed Camera Violation']
     MYSQL_TIME_FORMAT: str = '%Y-%m-%d %H:%M:%S'
-    REPEAT_LOOKUP_DATE_FORMAT: str = '%B %-d, %Y'
-    REPEAT_LOOKUP_TIME_FORMAT: str = '%I:%M%p'
 
     def __init__(self):
         self.tweet_detection_service = TweetDetectionService()
@@ -91,9 +89,9 @@ class TrafficViolationsAggregator:
                 # Add the new ticket info and previous lookup time to the string.
                 violations_string += L10N.LAST_QUERIED_STRING.format(
                     adjusted_time.astimezone(
-                        self.eastern).strftime(self.REPEAT_LOOKUP_DATE_FORMAT),
+                        self.eastern).strftime(L10N.REPEAT_LOOKUP_DATE_FORMAT),
                     adjusted_time.astimezone(self.eastern).strftime(
-                        self.REPEAT_LOOKUP_TIME_FORMAT))
+                        L10N.REPEAT_LOOKUP_TIME_FORMAT))
 
                 if can_link_tweet:
                     violations_string += L10N.PREVIOUS_LOOKUP_STATUS_STRING.format(

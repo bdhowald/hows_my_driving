@@ -29,6 +29,7 @@ class TestDailySummaryJob(unittest.TestCase):
         'traffic_violations.jobs.daily_summary_job.PlateLookup.query')
     @mock.patch(
         'traffic_violations.jobs.daily_summary_job.TrafficViolationsTweeter')
+    @ddt.unpack
     def test_print_daily_summary(self,
                                  mocked_traffic_violations_tweeter,
                                  mocked_plate_lookup_query,
@@ -90,5 +91,5 @@ class TestDailySummaryJob(unittest.TestCase):
             mocked_traffic_violations_tweeter().send_status.assert_called_with(
                 message_parts=[lookup_string, reckless_string],
                 on_error_message=(
-                    f'Error printing featured plate. '
+                    f'Error printing daily summary. '
                     f'Tagging @bdhowald.'))

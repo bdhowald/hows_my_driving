@@ -1,5 +1,4 @@
 import argparse
-import os
 import logging
 
 from datetime import datetime, time, timedelta

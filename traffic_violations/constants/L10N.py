@@ -24,7 +24,9 @@ REPEAT_CAMERA_OFFENDER_STRING = (
     '{} | Speed Safety Camera Violations\n\n'
     'This makes {}{} the {} camera violator in New York City.')
 
+REPEAT_LOOKUP_DATE_FORMAT: str = '%B %-d, %Y'
 REPEAT_LOOKUP_STRING = ' Since then, {} has received {} new ticket{}.\n\n'
+REPEAT_LOOKUP_TIME_FORMAT: str = '%I:%M%p'
 
 VEHICLE_HASHTAG = '#{}_{}'
 
