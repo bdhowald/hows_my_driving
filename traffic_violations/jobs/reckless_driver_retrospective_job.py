@@ -7,7 +7,8 @@ import logging
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_
-from typing import List
+from sqlalchemy.sql.expression import func
+from typing import List, Tuple
 
 from traffic_violations.constants import L10N
 
@@ -45,11 +46,22 @@ class RecklessDriverRetrospectiveJob(BaseJob):
         top_of_the_next_hour_last_year = (
             top_of_the_hour_last_year + relativedelta(hours=1))
 
-        lookups_to_update: List[PlateLookup] = PlateLookup.query.filter(
+        recent_plate_lookup_ids: List[Tuple[int]] = PlateLookup.query.session.query(
+            func.max(PlateLookup.id).label('most_recent_vehicle_lookup')
+        ).filter(
             and_(PlateLookup.created_at >= top_of_the_hour_last_year,
                  PlateLookup.created_at < top_of_the_next_hour_last_year,
                  PlateLookup.boot_eligible == True,
-                 PlateLookup.count_towards_frequency == True)).all()
+                 PlateLookup.count_towards_frequency == True)
+        ).group_by(
+            PlateLookup.plate,
+            PlateLookup.state
+        ).all()
+
+        lookup_ids_to_update: List[int] = [id[0] for id in recent_plate_lookup_ids]
+
+        lookups_to_update: List[PlateLookup] = PlateLookup.get_all_in(
+            id=lookup_ids_to_update)
 
         for previous_lookup in lookups_to_update:
 
