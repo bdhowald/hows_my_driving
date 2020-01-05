@@ -73,7 +73,15 @@ class RecklessDriverRetrospectiveJob(BaseJob):
         lookups_to_update: List[PlateLookup] = PlateLookup.get_all_in(
             id=lookup_ids_to_update)
 
+        if not lookups_to_update:
+            LOG.debug(f'No vehicles for which to perform retrospective job '
+                      f'between {top_of_the_hour_last_year} and '
+                      f'and {top_of_the_next_hour_last_year}.')
+
         for previous_lookup in lookups_to_update:
+
+            LOG.debug(f'Performing retrospective job for '
+                      f'{L10N.VEHICLE_HASHTAG.format(previous_lookup.state, previous_lookup.plate)} ')
 
             plate_query: PlateQuery = PlateQuery(created_at=now,
                                                  message_source=previous_lookup.message_source,
@@ -191,7 +199,12 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                             f'Tagging @bdhowald.'))
 
                     if success:
-                        LOG.debug('Reckless driver update job ran successfully.')
+                        LOG.debug('Reckless driver retrospective job '
+                                  'ran successfully.')
+                else:
+                    print(f'{reckless_driver_update_string}')
+                    print('\n\n')
+                    print(f'{advocacy_string}')
 
 
 def parse_args():
@@ -200,6 +213,7 @@ def parse_args():
 
     parser.add_argument(
         '--dry-run',
+        '-d',
         action='store_true',
         help="Don't tweet results")
 
