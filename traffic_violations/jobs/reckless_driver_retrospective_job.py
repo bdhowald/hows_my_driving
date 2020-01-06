@@ -137,11 +137,6 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                 previous_lookup_time = previous_lookup_created_at.astimezone(eastern).strftime(
                     L10N.REPEAT_LOOKUP_TIME_FORMAT)
 
-                min_streak_date_formatted = camera_streak_data.min_streak_date.strftime(
-                    L10N.REPEAT_LOOKUP_DATE_FORMAT)
-                max_streak_date_formatted = camera_streak_data.max_streak_date.strftime(
-                    L10N.REPEAT_LOOKUP_DATE_FORMAT)
-
                 red_light_camera_violations_string = (
                     f'{new_red_light_camera_violations} | Red Light Camera Violations\n'
                     if new_red_light_camera_violations > 0 else '')
@@ -174,8 +169,8 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     reckless_driver_update_string += '.'
 
                 reckless_driver_update_string += (
-                    f' From {min_streak_date_formatted} to '
-                    f'{max_streak_date_formatted}, this vehicle '
+                    f' From {camera_streak_data.min_streak_date} to '
+                    f'{camera_streak_data.max_streak_date}, this vehicle '
                     f'received {camera_streak_data.max_streak} camera '
                     f'violations. Over the past 12 months, this vehicle '
                     f'received {new_boot_eligible_violations} new camera violation'
