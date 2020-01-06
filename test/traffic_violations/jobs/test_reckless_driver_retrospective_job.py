@@ -90,8 +90,8 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
         previous_username = 'BarackObama'
 
         max_streak = 20
-        min_streak_date = datetime(2018, 11, 26, 0, 0, 0)
-        max_streak_date = datetime(2019, 11, 22, 0, 0, 0)
+        min_streak_date = datetime(2018, 11, 26, 0, 0, 0).strftime('%B %-d, %Y')
+        max_streak_date = datetime(2019, 11, 22, 0, 0, 0).strftime('%B %-d, %Y')
 
         plate_lookups = [
             PlateLookup(
@@ -151,9 +151,11 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
             f'{speed_camera_tickets_diff} | Speed Safety Camera Violations\n'
             if speed_camera_tickets_diff else '')
 
-        lookup_string = (
+        summary_string = (
             f'#NY_ABCDEFG was queried on January 3, 2020 at 09:37AM'
-            f'{can_link_tweet_string}. '
+            f'{can_link_tweet_string}.')
+
+        update_string = (
             f'From November 26, 2018 to November 22, 2019, this vehicle '
             f'received 20 camera violations. Over the past 12 months, this '
             f'vehicle received {new_camera_violations_string}: \n\n'
@@ -172,7 +174,7 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
 
         if not dry_run and job_should_be_run:
             mocked_traffic_violations_tweeter().send_status.assert_called_with(
-                message_parts=[lookup_string, reckless_string],
+                message_parts=[summary_string, update_string, reckless_string],
                 on_error_message=(
                     f'Error printing reckless driver update. '
                     f'Tagging @bdhowald.'))

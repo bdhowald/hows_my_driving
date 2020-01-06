@@ -145,7 +145,7 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     f'{new_speed_camera_violations} | Speed Safety Camera Violations\n'
                     if new_speed_camera_violations > 0 else '')
 
-                reckless_driver_update_string = (
+                reckless_driver_summary_string = (
                     f'{vehicle_hashtag} was '
                     f'queried on {previous_lookup_date} '
                     f'at {previous_lookup_time}')
@@ -161,15 +161,15 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                         can_link_tweet = True
 
                 if can_link_tweet:
-                    reckless_driver_update_string += L10N.PREVIOUS_LOOKUP_STATUS_STRING.format(
+                    reckless_driver_summary_string += L10N.PREVIOUS_LOOKUP_STATUS_STRING.format(
                         previous_lookup.username,
                         previous_lookup.username,
                         previous_lookup.message_id)
                 else:
-                    reckless_driver_update_string += '.'
+                    reckless_driver_summary_string += '.'
 
-                reckless_driver_update_string += (
-                    f' From {camera_streak_data.min_streak_date} to '
+                reckless_driver_update_string = (
+                    f'From {camera_streak_data.min_streak_date} to '
                     f'{camera_streak_data.max_streak_date}, this vehicle '
                     f'received {camera_streak_data.max_streak} camera '
                     f'violations. Over the past 12 months, this vehicle '
@@ -183,6 +183,7 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     f'@bradlander\'s Reckless Driver Accountability Act.')
 
                 messages: List[str] = [
+                    reckless_driver_summary_string,
                     reckless_driver_update_string,
                     advocacy_string]
 
