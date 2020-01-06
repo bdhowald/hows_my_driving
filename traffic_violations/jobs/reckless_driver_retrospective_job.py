@@ -146,7 +146,7 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     if new_speed_camera_violations > 0 else '')
 
                 reckless_driver_summary_string = (
-                    f'{vehicle_hashtag} was '
+                    f'{vehicle_hashtag} was originally '
                     f'queried on {previous_lookup_date} '
                     f'at {previous_lookup_time}')
 
