@@ -163,8 +163,8 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
             f'{speed_camera_tickets_diff_string}')
 
         reckless_string = (
-            f"Please contact your council members and ask them to support "
-            f"@bradlander's Reckless Driver Accountability Act.")
+            f"Please contact @NYCMayor and your @NYCCouncil members and ask "
+            f"them to support @bradlander's Reckless Driver Accountability Act.")
 
         job_should_be_run = ((new_red_light_camera_tickets -
             old_red_light_camera_tickets) + (new_speed_camera_tickets -
