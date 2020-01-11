@@ -909,21 +909,32 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertIsInstance(result, OpenDataServiceResponse)
         self.assertRegex(str(result.message), 'server error when accessing')
 
+    @ddt.data({
+        'plate': 'HME6483',
+        'returned_plate': 'HME6483',
+        'state': 'NY'
+    }, {
+        'plate': '8A23',
+        'returned_plate': '8A23B',
+        'state': 'NY'
+    })
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
+    @ddt.unpack
     def test_create_response_direct_message(self,
                                             mocked_query_for_lookup_frequency,
-                                            mocked_perform_plate_lookup):
+                                            mocked_perform_plate_lookup,
+                                            plate,
+                                            returned_plate,
+                                            state):
         """ Test direct message and new format """
 
         username = 'bdhowald'
         message_id = random.randint(1000000000000000000, 2000000000000000000)
 
         num_tickets = 15
-        plate = 'HME6483'
-        state = 'NY'
 
         twitter_event = TwitterEvent(
             id=1,
@@ -949,7 +960,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'fines': FineData(**{'fined': 200.0, 'paid': 75.0,
                                  'outstanding': 125.0}),
             'num_violations': num_tickets,
-            'plate': plate,
+            'plate': returned_plate,
             'plate_types': None,
             'state': state,
             'violations': [{'count': 4,
@@ -989,7 +1000,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'request_object': direct_message_request_object,
             'response_parts': [
                 [
-                    '#NY_HME6483 has been queried 1 time.\n'
+                    f'#{state}_{returned_plate} has been queried 1 time.\n'
                     '\n'
                     'Total parking and camera violation tickets: 15\n'
                     '\n'
@@ -999,25 +1010,25 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     '1 | No Violation Description Available\n'
                     '1 | Bus Lane Violation\n',
                     'Parking and camera violation tickets for '
-                    "#NY_HME6483, cont'd:\n"
+                    f'#{state}_{returned_plate}, cont\'d:\n'
                     '\n'
                     '1 | Failure To Stop At Red Light\n'
                     '1 | No Standing - Commercial Meter Zone\n'
                     '1 | Expired Meter\n'
                     '1 | Double Parking\n'
                     '1 | No Angle Parking\n',
-                    'Violations by year for #NY_HME6483:\n'
+                    f'Violations by year for #{state}_{returned_plate}:\n'
                     '\n'
                     '10 | 2017\n'
                     '15 | 2018\n',
-                    'Violations by borough for #NY_HME6483:\n'
+                    f'Violations by borough for #{state}_{returned_plate}:\n'
                     '\n'
                     '1 | Bronx\n'
                     '2 | Brooklyn\n'
                     '3 | Manhattan\n'
                     '4 | Queens\n'
                     '5 | Staten Island\n',
-                    'Known fines for #NY_HME6483:\n'
+                    f'Known fines for #{state}_{returned_plate}:\n'
                     '\n'
                     '$200.00 | Fined\n'
                     '$0.00     | Reduced\n'

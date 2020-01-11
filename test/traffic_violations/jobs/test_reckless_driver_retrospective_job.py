@@ -152,7 +152,7 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
             if speed_camera_tickets_diff else '')
 
         summary_string = (
-            f'#NY_ABCDEFG was queried on January 3, 2020 at 09:37AM'
+            f'#NY_ABCDEFG was originally queried on January 3, 2020 at 09:37AM'
             f'{can_link_tweet_string}.')
 
         update_string = (

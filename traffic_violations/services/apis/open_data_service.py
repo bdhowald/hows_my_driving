@@ -302,6 +302,7 @@ class OpenDataService:
                              plate_query: PlateQuery,
                              since: datetime,
                              until: datetime) -> OpenDataServicePlateLookup:
+
         if self.MEDALLION_PATTERN.search(plate_query.plate) is not None:
             plate_query = self._perform_medallion_query(
                 plate_query=plate_query)
