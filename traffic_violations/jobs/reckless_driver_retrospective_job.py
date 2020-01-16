@@ -90,39 +90,44 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                                                  state=previous_lookup.state)
 
             nyc_open_data_service: OpenDataService = OpenDataService()
-            open_data_response: OpenDataServiceResponse = nyc_open_data_service.lookup_vehicle(
-                plate_query=plate_query)
+            data_before_query: OpenDataServiceResponse = nyc_open_data_service.lookup_vehicle(
+                plate_query=plate_query,
+                until=previous_lookup.created_at)
 
-            open_data_plate_lookup: OpenDataServicePlateLookup = open_data_response.data
+            lookup_before_query: OpenDataServicePlateLookup = data_before_query.data
+            camera_streak_data_before_query: CameraStreakData = lookup_before_query.camera_streak_data
 
-            camera_streak_data: CameraStreakData = open_data_plate_lookup.camera_streak_data
+            data_after_query: OpenDataServiceResponse = nyc_open_data_service.lookup_vehicle(
+                plate_query=plate_query,
+                since=previous_lookup.created_at,
+                until=previous_lookup.created_at + relativedelta(years=1))
+
+
+            lookup_after_query: OpenDataServicePlateLookup = data_after_query.data
 
             new_bus_lane_camera_violations: Optional[int] = None
             new_speed_camera_violations: Optional[int] = None
             new_red_light_camera_violations: Optional[int] = None
 
-            for violation_type_summary in open_data_plate_lookup.violations:
+            for violation_type_summary in lookup_after_query.violations:
                 if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
                     violation_count = violation_type_summary['count']
 
                     if violation_type_summary['title'] == 'Bus Lane Violation':
-                        new_bus_lane_camera_violations = (violation_count -
-                                                          previous_lookup.bus_lane_camera_violations)
+                        new_bus_lane_camera_violations = violation_count
                     if violation_type_summary['title'] == 'Failure To Stop At Red Light':
-                        new_red_light_camera_violations = (violation_count -
-                                                       previous_lookup.red_light_camera_violations)
+                        new_red_light_camera_violations = violation_count
                     elif violation_type_summary['title'] == 'School Zone Speed Camera Violation':
-                        new_speed_camera_violations = (violation_count -
-                                                           previous_lookup.speed_camera_violations)
+                        new_speed_camera_violations = violation_count
 
             if new_bus_lane_camera_violations is None:
-                new_bus_lane_camera_violations = previous_lookup.bus_lane_camera_violations
-
-            if new_speed_camera_violations is None:
-                new_speed_camera_violations = previous_lookup.red_light_camera_violations
+                new_bus_lane_camera_violations = 0
 
             if new_red_light_camera_violations is None:
-                new_red_light_camera_violations = previous_lookup.speed_camera_violations
+                new_red_light_camera_violations = 0
+
+            if new_speed_camera_violations is None:
+                new_speed_camera_violations = 0
 
             new_boot_eligible_violations = (new_red_light_camera_violations +
                                             new_speed_camera_violations)
@@ -169,9 +174,9 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     reckless_driver_summary_string += '.'
 
                 reckless_driver_update_string = (
-                    f'From {camera_streak_data.min_streak_date} to '
-                    f'{camera_streak_data.max_streak_date}, this vehicle '
-                    f'received {camera_streak_data.max_streak} camera '
+                    f'From {camera_streak_data_before_query.min_streak_date} to '
+                    f'{camera_streak_data_before_query.max_streak_date}, this vehicle '
+                    f'received {camera_streak_data_before_query.max_streak} camera '
                     f'violations. Over the past 12 months, this vehicle '
                     f'received {new_boot_eligible_violations} new camera violation'
                     f"{'' if new_boot_eligible_violations == 1 else 's'}: \n\n"

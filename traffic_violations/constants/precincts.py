@@ -32,5 +32,5 @@ class NYPDBorough(Enum):
         NYPDBoroughBureau.STATEN_ISLAND.name: NYPDBoroughBureau.STATEN_ISLAND.value,
     }
 
-PRECINCTS_BY_BOROUGH = {borough.name: [precinct for grouping in [precinct_list for bureau, precinct_list in borough.value.items(
+PRECINCTS_BY_BOROUGH = {borough.name.replace('_', ' '): [precinct for grouping in [precinct_list for bureau, precinct_list in borough.value.items(
     )] for precinct in grouping] for borough in NYPDBorough}

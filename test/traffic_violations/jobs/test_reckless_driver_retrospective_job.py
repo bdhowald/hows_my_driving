@@ -32,16 +32,16 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
         },
         {
             'new_camera_violations_string': '1 new camera violation',
-            'new_red_light_camera_tickets': 8,
-            'new_speed_camera_tickets': 13,
-            'old_red_light_camera_tickets': 8,
-            'old_speed_camera_tickets': 12,
+            'red_light_camera_tickets_after_previous_lookup': 0,
+            'speed_camera_tickets_after_previous_lookup': 1,
+            'red_light_camera_tickets_before_previous_lookup': 8,
+            'speed_camera_tickets_before_previous_lookup': 12,
         },
         {
-            'new_red_light_camera_tickets': 8,
-            'new_speed_camera_tickets': 12,
-            'old_red_light_camera_tickets': 8,
-            'old_speed_camera_tickets': 12,
+            'red_light_camera_tickets_after_previous_lookup': 0,
+            'speed_camera_tickets_after_previous_lookup': 0,
+            'red_light_camera_tickets_before_previous_lookup': 8,
+            'speed_camera_tickets_before_previous_lookup': 12,
         },
         {
             'can_link_tweet': True,
@@ -67,10 +67,10 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
                                  can_link_tweet=False,
                                  dry_run=False,
                                  new_camera_violations_string='10 new camera violations',
-                                 new_red_light_camera_tickets=11,
-                                 new_speed_camera_tickets=19,
-                                 old_red_light_camera_tickets=8,
-                                 old_speed_camera_tickets=12):
+                                 red_light_camera_tickets_after_previous_lookup=3,
+                                 speed_camera_tickets_after_previous_lookup=7,
+                                 red_light_camera_tickets_before_previous_lookup=8,
+                                 speed_camera_tickets_before_previous_lookup=12):
 
         job = RecklessDriverRetrospectiveJob()
 
@@ -102,14 +102,14 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
                 num_tickets=previous_num_tickets,
                 plate=plate,
                 plate_types=plate_types,
-                red_light_camera_violations=old_red_light_camera_tickets,
-                speed_camera_violations=old_speed_camera_tickets,
+                red_light_camera_violations=red_light_camera_tickets_before_previous_lookup,
+                speed_camera_violations=speed_camera_tickets_before_previous_lookup,
                 state=state,
                 username=previous_username)]
 
         mocked_plate_lookup_get_all_in.return_value = plate_lookups
 
-        open_data_plate_lookup = OpenDataServicePlateLookup(
+        open_data_plate_lookup_before_previous_lookup = OpenDataServicePlateLookup(
             boroughs=[],
             camera_streak_data=CameraStreakData(
                 min_streak_date=min_streak_date,
@@ -121,35 +121,53 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
             plate_types=plate_types,
             state=state,
             violations=[
-                {'count': new_red_light_camera_tickets,
+                {'count': red_light_camera_tickets_before_previous_lookup,
                  'title': 'Failure To Stop At Red Light'},
-                {'count': new_speed_camera_tickets, 'title':
+                {'count': speed_camera_tickets_before_previous_lookup, 'title':
                  'School Zone Speed Camera Violation'}],
             years=[])
 
-        open_data_response = OpenDataServiceResponse(
-            data=open_data_plate_lookup,
+        open_data_response_before_previous_lookup = OpenDataServiceResponse(
+            data=open_data_plate_lookup_before_previous_lookup,
             success=True)
 
-        mocked_open_data_service_lookup_vehicle.return_value = open_data_response
+
+        open_data_plate_lookup_after_previous_lookup = OpenDataServicePlateLookup(
+            boroughs=[],
+            camera_streak_data=CameraStreakData(
+                min_streak_date=min_streak_date,
+                max_streak=max_streak,
+                max_streak_date=max_streak_date),
+            fines=FineData(),
+            num_violations=150,
+            plate=plate,
+            plate_types=plate_types,
+            state=state,
+            violations=[
+                {'count': red_light_camera_tickets_after_previous_lookup,
+                 'title': 'Failure To Stop At Red Light'},
+                {'count': speed_camera_tickets_after_previous_lookup, 'title':
+                 'School Zone Speed Camera Violation'}],
+            years=[])
+
+        open_data_response_after_previous_lookup = OpenDataServiceResponse(
+            data=open_data_plate_lookup_after_previous_lookup,
+            success=True)
+
+        mocked_open_data_service_lookup_vehicle.side_effect = [
+            open_data_response_before_previous_lookup, open_data_response_after_previous_lookup]
 
         can_link_tweet_string = (
           f' by @BarackObama: '
           f'https://twitter.com/BarackObama/status/{previous_message_id}'
           if can_link_tweet else '')
-
-        red_light_camera_tickets_diff = (new_red_light_camera_tickets -
-            old_red_light_camera_tickets)
-        speed_camera_tickets_diff = (new_speed_camera_tickets -
-            old_speed_camera_tickets)
-
         red_light_camera_tickets_diff_string = (
-            f'{red_light_camera_tickets_diff} | Red Light Camera Violations\n'
-            if red_light_camera_tickets_diff else '')
+            f'{red_light_camera_tickets_after_previous_lookup} | Red Light Camera Violations\n'
+            if red_light_camera_tickets_after_previous_lookup else '')
 
         speed_camera_tickets_diff_string = (
-            f'{speed_camera_tickets_diff} | Speed Safety Camera Violations\n'
-            if speed_camera_tickets_diff else '')
+            f'{speed_camera_tickets_after_previous_lookup} | Speed Safety Camera Violations\n'
+            if speed_camera_tickets_after_previous_lookup else '')
 
         summary_string = (
             f'#NY_ABCDEFG was originally queried on January 3, 2020 at 09:37AM'
@@ -166,9 +184,9 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
             f"Please contact @NYCMayor and your @NYCCouncil members and ask "
             f"them to support @bradlander's Reckless Driver Accountability Act.")
 
-        job_should_be_run = ((new_red_light_camera_tickets -
-            old_red_light_camera_tickets) + (new_speed_camera_tickets -
-            old_speed_camera_tickets)) > 0
+        job_should_be_run = ((red_light_camera_tickets_after_previous_lookup -
+            red_light_camera_tickets_before_previous_lookup) + (speed_camera_tickets_after_previous_lookup -
+            speed_camera_tickets_before_previous_lookup)) > 0
 
         job.run(is_dry_run=dry_run)
 

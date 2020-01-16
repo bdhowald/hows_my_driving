@@ -246,7 +246,7 @@ class OpenDataService:
                 summons['borough'] = boros[0]
             else:
                 if summons.get('violation_county') is not None:
-                    boros = [name.replace(" ", "_") for name, codes in BOROUGH_CODES.items(
+                    boros = [name for name, codes in BOROUGH_CODES.items(
                     ) if summons.get('violation_county') in codes]
                     if boros:
                         summons['borough'] = boros[0]
