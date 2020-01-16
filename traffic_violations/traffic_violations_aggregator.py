@@ -896,7 +896,8 @@ class TrafficViolationsAggregator:
         return len(PlateLookup.get_all_by(
             plate=plate_query.plate,
             plate_types=plate_query.plate_types,
-            state=plate_query.state))
+            state=plate_query.state,
+            count_towards_frequency=True))
 
     def _query_for_previous_lookup(self, plate_query: PlateQuery) -> Optional[PlateLookup]:
         """ See if we've seen this vehicle before. """
