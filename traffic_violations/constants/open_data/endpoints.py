@@ -1,9 +1,9 @@
 FISCAL_YEAR_DATABASE_ENDPOINTS = {
-  2014: 'https://data.cityofnewyork.us/resource/j7ig-zgkq.json',
-  2015: 'https://data.cityofnewyork.us/resource/aagd-wyjz.json',
-  2016: 'https://data.cityofnewyork.us/resource/avxe-2nrn.json',
-  2017: 'https://data.cityofnewyork.us/resource/ati4-9cgt.json',
-  2018: 'https://data.cityofnewyork.us/resource/9wgk-ev5c.json',
+  2014: 'https://data.cityofnewyork.us/resource/jt7v-77mi.json',
+  2015: 'https://data.cityofnewyork.us/resource/c284-tqph.json',
+  2016: 'https://data.cityofnewyork.us/resource/kiv2-tbus.json',
+  2017: 'https://data.cityofnewyork.us/resource/2bnn-yakx.json',
+  2018: 'https://data.cityofnewyork.us/resource/a5td-mswe.json',
   2019: 'https://data.cityofnewyork.us/resource/faiq-9dfq.json',
   2020: 'https://data.cityofnewyork.us/resource/pvqr-7yc4.json'
 }
