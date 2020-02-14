@@ -83,7 +83,7 @@ class TestDailySummaryJob(unittest.TestCase):
         reckless_string = (
             f"{num_reckless_drivers} {'vehicle was' if num_reckless_drivers == 1 else 'vehicles were'} "
             f"eligible to be booted or impounded under @bradlander's proposed legislation "
-            f"({total_reckless_drivers} such lookups since June 6, 2018).")
+            f"({'{:,}'.format(total_reckless_drivers)} such lookups since June 6, 2018).")
 
         job.run(is_dry_run=dry_run)
 

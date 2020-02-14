@@ -92,7 +92,7 @@ class DailySummaryJob(BaseJob):
         reckless_drivers_summary_string = (
             f"{num_reckless_drivers} {'vehicle was' if num_reckless_drivers == 1 else 'vehicles were'} "
             f"eligible to be booted or impounded under @bradlander's "
-            f"proposed legislation ({total_reckless_drivers} such lookups "
+            f"proposed legislation ({'{:,}'.format(total_reckless_drivers)} such lookups "
             f"since June 6, 2018).")
 
         messages: List[str] = [
