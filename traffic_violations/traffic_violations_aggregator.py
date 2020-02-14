@@ -401,7 +401,7 @@ class TrafficViolationsAggregator:
         # Use old logic of 'state:<state> plate:<plate>'
         potential_vehicles: List[Vehicle] = []
         legacy_plate_data: Tuple = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower(
-        ) for part in list_of_strings if ('state:' in part.lower() or 'plate:' in part.lower() or 'types:' in part.lower())]])
+        ) for part in list_of_strings if (('state:' in part.lower() or 'plate:' in part.lower() or 'types:' in part.lower()) and '://' not in part.lower())]])
 
         if legacy_plate_data:
             if self._detect_state(legacy_plate_data.get('state')) and legacy_plate_data.get('plate'):
