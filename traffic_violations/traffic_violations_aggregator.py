@@ -137,7 +137,7 @@ class TrafficViolationsAggregator:
                 vehicles=potential_vehicles)
 
             # Find included campaign hashtags
-            included_campaigns = self._detect_campaign_hashtags(
+            included_campaigns: List[Campaign] = self._detect_campaigns(
                 request_object.string_tokens())
             LOG.debug(f'included_campaigns: {included_campaigns}')
 
@@ -347,10 +347,15 @@ class TrafficViolationsAggregator:
             'username': request_object.username()
         }
 
-    def _detect_campaign_hashtags(self, string_tokens):
-        """ Look for campaign hashtags in the message's text. """
+    def _detect_campaigns(self, string_tokens) -> List[Campaign]:
+        """ Look for campaign hashtags in the message's text
+        and return matching campaigns.
+        
+        """
 
-        return Campaign.get_all_in(hashtag=tuple([regexp_constants.HASHTAG_PATTERN.sub('', string) for string in string_tokens]))
+        return Campaign.get_all_in(
+            hashtag=tuple(
+                [regexp_constants.HASHTAG_PATTERN.sub('', string) for string in string_tokens]))
 
     def _detect_plate_types(self, plate_types_input) -> bool:
         if ',' in plate_types_input:
@@ -794,20 +799,20 @@ class TrafficViolationsAggregator:
 
     def _perform_campaign_lookup(self,
                                  included_campaigns:
-                                 List[Tuple[int, str]]) -> List[
+                                 List[Campaign]) -> List[
             Tuple[str, int, int]]:
 
         LOG.debug('Performing lookup for campaigns.')
 
         result: List[Tuple[str, int, int]] = []
 
-        for campaign_tuple in included_campaigns:
-            campaign: Campaign = Campaign.get_by(id=campaign_tuple[0])
+        for campaign in included_campaigns:
 
             subquery = campaign.plate_lookups.session.query(
                 PlateLookup.plate, PlateLookup.state, func.max(PlateLookup.created_at).label(
                     'most_recent_campaign_lookup'),).group_by(
-                PlateLookup.plate, PlateLookup.state).subquery('subquery')
+                PlateLookup.plate, PlateLookup.state).filter(
+                    PlateLookup.campaigns.any(Campaign.id.in_([campaign.id]))).subquery('subquery')
 
             full_query = PlateLookup.query.join(subquery,
                                                 (PlateLookup.plate == subquery.c.plate) &
@@ -822,7 +827,7 @@ class TrafficViolationsAggregator:
                 [lookup.num_tickets for lookup in campaign_lookups])
 
             result.append(
-                (campaign_tuple[1], campaign_vehicles, campaign_tickets))
+                (campaign.hashtag, campaign_vehicles, campaign_tickets))
 
         return result
 

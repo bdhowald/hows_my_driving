@@ -64,8 +64,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         }
     )
     @ddt.unpack
-    def test_detect_campaign_hashtags(self, campaigns, hashtags):
-        self.assertEqual(self.aggregator._detect_campaign_hashtags(
+    def test_detect_campaigns(self, campaigns, hashtags):
+        self.assertEqual(self.aggregator._detect_campaigns(
             hashtags), campaigns)
 
     def test_detect_plate_types(self):
@@ -676,8 +676,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                                      mocked_plate_lookup_class,
                                      mocked_campaign_class):
 
-        campaign_tuple = (1, '#SaferSkillman')
-        included_campaigns = [campaign_tuple]
+        campaign = MagicMock(name='campaign')
+        campaign_hashtag = '#SaferSkillman'
+        campaign.hashtag = campaign_hashtag
+
+        included_campaigns = [campaign]
 
         plate_lookups = []
         for _ in range(random.randint(5, 20)):
@@ -688,7 +691,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         mocked_plate_lookup_class.query.join().order_by().all.return_value = plate_lookups
 
         result = [
-            (campaign_tuple[1],
+            (campaign_hashtag,
              len(plate_lookups),
              sum(plate_lookup.num_tickets for plate_lookup in plate_lookups))]
 
@@ -1160,9 +1163,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_campaign_lookup')
     @mock.patch(
-        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaign_hashtags')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaigns')
     def test_create_response_campaign_only_lookup(self,
-                                                  mocked_detect_campaign_hashtags,
+                                                  mocked_detect_campaigns,
                                                   mocked_perform_campaign_lookup):
         """ Test campaign-only lookup """
 
@@ -1203,7 +1206,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': request_object.username()
         }
 
-        mocked_detect_campaign_hashtags.return_value = included_campaigns
+        mocked_detect_campaigns.return_value = included_campaigns
         mocked_perform_campaign_lookup.return_value = campaign_result
 
         self.assertEqual(self.aggregator._create_response(
@@ -1212,9 +1215,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         mocked_perform_campaign_lookup.assert_called_with(included_campaigns)
 
     @mock.patch(
-        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaign_hashtags')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaigns')
     def test_create_response_with_search_status(self,
-                                                mocked_detect_campaign_hashtags):
+                                                mocked_detect_campaigns):
         """ Test plateless lookup """
 
         now = datetime.now()
@@ -1250,7 +1253,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': request_object.username()
         }
 
-        mocked_detect_campaign_hashtags.return_value = []
+        mocked_detect_campaigns.return_value = []
 
         self.assertEqual(self.aggregator._create_response(
             request_object), response)
