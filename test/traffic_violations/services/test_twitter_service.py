@@ -205,8 +205,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         campaign_tickets = random.randint(1000, 2000)
         campaign_vehicles = random.randint(100, 200)
 
-        response_parts = [['@' + username + ' ' + str(campaign_vehicles) + ' vehicles with a total of ' + str(
-            campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n\n']]
+        response_parts = [[(f"@{username} {'{:,}'.format(campaign_vehicles)} vehicles with a total of "
+            f"{'{:,}'.format(campaign_tickets)} tickets have been tagged with {campaign_hashtag}.\n\n")]]
 
         lookup_request = AccountActivityAPIStatus(
             message=TwitterEvent(

@@ -438,9 +438,9 @@ class TrafficViolationsAggregator:
             campaign_tickets = campaign[2]
 
             next_string_part = (
-                f"{campaign_vehicles} {'vehicle with' if campaign_vehicles == 1 else 'vehicles with a total of'} "
-                f"{campaign_tickets} ticket{L10N.pluralize(campaign_tickets)} {'has' if campaign_vehicles == 1 else 'have'} "
-                f"been tagged with { campaign_name}.\n\n")
+                f"{'{:,}'.format(campaign_vehicles)} {'vehicle with' if campaign_vehicles == 1 else 'vehicles with a total of'} "
+                f"{'{:,}'.format(campaign_tickets)} ticket{L10N.pluralize(campaign_tickets)} {'has' if campaign_vehicles == 1 else 'have'} "
+                f"been tagged with {campaign_name}.\n\n")
 
             # how long would it be
             potential_response_length = len(

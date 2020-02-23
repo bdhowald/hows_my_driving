@@ -1194,8 +1194,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         included_campaigns = [(1, campaign_hashtag)]
 
-        response_parts = [[str(campaign_vehicles) + ' vehicles with a total of ' + str(
-            campaign_tickets) + ' tickets have been tagged with ' + campaign_hashtag + '.\n\n']]
+        response_parts = [[(f"{'{:,}'.format(campaign_vehicles)} vehicles with a total of "
+            f"{'{:,}'.format(campaign_tickets)} tickets have been tagged with {campaign_hashtag}.\n\n")]]
 
         response = {
             'error_on_lookup': False,
