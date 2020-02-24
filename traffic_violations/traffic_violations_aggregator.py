@@ -7,7 +7,7 @@ import requests_futures.sessions
 from datetime import datetime, timedelta
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from traffic_violations.constants import L10N, regexps as regexp_constants, \
@@ -812,7 +812,7 @@ class TrafficViolationsAggregator:
                 PlateLookup.plate, PlateLookup.state, func.max(PlateLookup.created_at).label(
                     'most_recent_campaign_lookup'),).group_by(
                 PlateLookup.plate, PlateLookup.state).filter(
-                    PlateLookup.campaigns.any(Campaign.id.in_([campaign.id]))).subquery('subquery')
+                    and_(PlateLookup.campaigns.any(Campaign.id.in_([campaign.id])), PlateLookup.count_towards_frequency == True)).subquery('subquery')
 
             full_query = PlateLookup.query.join(subquery,
                                                 (PlateLookup.plate == subquery.c.plate) &

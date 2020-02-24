@@ -688,6 +688,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             lookup.num_tickets = random.randint(1, 200)
             plate_lookups.append(lookup)
 
+        mocked_plate_lookup_class.campaigns.any.return_value = True
         mocked_plate_lookup_class.query.join().order_by().all.return_value = plate_lookups
 
         result = [
