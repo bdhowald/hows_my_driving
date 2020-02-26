@@ -30,6 +30,7 @@ class PlateLookup(Base):
     responded_to = Column(Boolean, default=False, nullable=False)
     speed_camera_violations = Column(INTEGER(unsigned=True), nullable=True)
     state = Column(String(8), nullable=False)
+    unique_identifier = Column(String(8), nullable=False)
     username = Column('external_username', String(32))
 
     # associations
@@ -51,5 +52,6 @@ class PlateLookup(Base):
         Index('index_count_towards_frequency', 'count_towards_frequency'),
         Index('index_num_tickets', 'num_tickets'),
         Index('index_boot_eligible', 'boot_eligible'),
-        Index('index_responded_to', 'responded_to')
+        Index('index_responded_to', 'responded_to'),
+        Index('index_unique_identifier', 'unique_identifier')
     )

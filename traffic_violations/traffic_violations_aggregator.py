@@ -1,8 +1,10 @@
 import logging
 import pytz
+import random
 import re
 import requests
 import requests_futures.sessions
+import string
 
 from datetime import datetime, timedelta
 from requests.packages.urllib3.util.retry import Retry
@@ -40,7 +42,10 @@ class TrafficViolationsAggregator:
     CAMERA_VIOLATIONS = ['Bus Lane Violation',
                          'Failure To Stop At Red Light',
                          'School Zone Speed Camera Violation']
+
     MYSQL_TIME_FORMAT: str = '%Y-%m-%d %H:%M:%S'
+
+    UNIQUE_IDENTIFIER_STRING_LENGTH = 8
 
     def __init__(self):
         self.tweet_detection_service = TweetDetectionService()
@@ -618,6 +623,17 @@ class TrafficViolationsAggregator:
                 f"with at least {'${:,.2f}'.format(aggregate_fines.fined - aggregate_fines.reduced)} "
                 f"in fines, of which {'${:,.2f}'.format(aggregate_fines.paid)} has been paid.\n\n"]
 
+    def _generate_unique_identifier(self):
+        return ''.join(
+            random.SystemRandom().choice(
+                string.ascii_lowercase + string.digits) for _ in range(self.UNIQUE_IDENTIFIER_STRING_LENGTH))
+
+    def _get_unique_identifier(self):
+        unique_identifier = self._generate_unique_identifier()
+        while PlateLookup.query.filter(PlateLookup.unique_identifier == unique_identifier).all():
+            unique_identifier = self._generate_unique_identifier()
+        return unique_identifier
+
     def _get_plate_query(self, request_object: Type[BaseLookupRequest], vehicle: Vehicle) -> PlateQuery:
         """Transform a request object into plate query"""
 
@@ -878,6 +894,7 @@ class TrafficViolationsAggregator:
                     red_light_camera_violations=red_light_camera_violations,
                     speed_camera_violations=speed_camera_violations,
                     state=plate_query.state,
+                    unique_identifier=self._get_unique_identifier(),
                     username=plate_query.username)
 
                 # Iterate through included campaigns to tie lookup to each
