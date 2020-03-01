@@ -45,7 +45,7 @@ class BackfillUniqueIdentifiersJob(BaseJob):
 
         plate_lookups = PlateLookup.query.filter(PlateLookup.unique_identifier == None).all()
         unique_identifiers = {}
-        
+
         for i in range(0, len(plate_lookups)):
             random_string = self._generate_unique_identifier()
             while unique_identifiers.get(random_string):

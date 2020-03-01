@@ -4,7 +4,7 @@ import pytz
 
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import func
 from typing import List, Optional, Tuple
 
@@ -37,6 +37,12 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                          'Failure To Stop At Red Light',
                          'School Zone Speed Camera Violation']
 
+    LEAP_DAY_DATE = 29
+    LEAP_DAY_MONTH = 2
+
+    POST_LEAP_DAY_DATE = 1
+    POST_LEAP_DAY_MONTH = 3
+
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
@@ -47,6 +53,18 @@ class RecklessDriverRetrospectiveJob(BaseJob):
         utc = pytz.timezone('UTC')
 
         now = datetime.now()
+
+        # If today is leap day, there were no lookups a year ago today
+        if (now.day == self.LEAP_DAY_DATE and
+            now.month == self.LEAP_DAY_MONTH):
+            return
+
+        # If today is March 1, and last year was a leap year, show lookups
+        # from the previous February 29.
+        one_year_after_leap_day = True if (
+            now.day == self.POST_LEAP_DAY_DATE and
+            now.month == self.POST_LEAP_DAY_MONTH and
+            self._is_leap_year(now.year - 1)) else False
 
         top_of_the_hour_last_year = now.replace(
             microsecond=0,
@@ -59,10 +77,18 @@ class RecklessDriverRetrospectiveJob(BaseJob):
         recent_plate_lookup_ids: List[Tuple[int]] = PlateLookup.query.session.query(
             func.max(PlateLookup.id).label('most_recent_vehicle_lookup')
         ).filter(
-            and_(PlateLookup.created_at >= top_of_the_hour_last_year,
-                 PlateLookup.created_at < top_of_the_next_hour_last_year,
-                 PlateLookup.boot_eligible == True,
-                 PlateLookup.count_towards_frequency == True)
+            or_ (
+                    and_(PlateLookup.created_at >= top_of_the_hour_last_year,
+                         PlateLookup.created_at < top_of_the_next_hour_last_year,
+                         PlateLookup.boot_eligible == True,
+                         PlateLookup.count_towards_frequency == True)
+                ), (
+                    and_(one_year_after_leap_day,
+                         PlateLookup.created_at >= (top_of_the_hour_last_year - relativedelta(days=1)),
+                         PlateLookup.created_at < (top_of_the_next_hour_last_year - relativedelta(days=1)),
+                         PlateLookup.boot_eligible == True,
+                         PlateLookup.count_towards_frequency == True)
+                )
         ).group_by(
             PlateLookup.plate,
             PlateLookup.state
@@ -207,6 +233,11 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     print(f'{reckless_driver_update_string}')
                     print('\n\n')
                     print(f'{advocacy_string}')
+
+    def _is_leap_year(self, year):
+        if (year % 400 == 0) or (year % 4 == 0 and year % 100 != 0):
+            return True
+        return False
 
 
 def parse_args():
