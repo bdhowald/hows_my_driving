@@ -58,20 +58,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         user_handle = 'bdhowald'
         user_id = random.randint(1000000000, 2000000000)
 
-        older_twitter_event = TwitterEvent(
-            id=db_id,
-            created_at=timestamp,
-            detected_via_account_activity_api=False,
-            event_id=event_id,
-            event_text=event_text,
-            event_type=event_type,
-            in_reply_to_message_id=None,
-            location=None,
-            responded_to=True,
-            user_handle=user_handle,
-            user_id=user_id,
-            user_mentions='')
-
         new_twitter_event = TwitterEvent(
             created_at=timestamp + 1,
             detected_via_account_activity_api=False,
@@ -124,7 +110,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             screen_name=user_handle)
 
         twitter_event_mock.return_value = new_twitter_event
-        twitter_event_mock.query.filter.order_by.first.return_value = older_twitter_event
         twitter_event_mock.query.filter.return_value.first.side_effect = [
             None, message_not_needing_event]
 
@@ -229,6 +214,16 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         twitter_event_mock.query.session.add.assert_called_once_with(new_twitter_event)
         twitter_event_mock.query.session.commit.assert_called_once_with()
+
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TwitterEvent')
+    def test_find_and_respond_to_missed_statuses_with_no_undetected_events(self, twitter_event_mock):
+        twitter_event_mock.query.filter.order_by.first.return_value = None
+
+        self.tweeter._find_and_respond_to_missed_statuses()
+
+        twitter_event_mock.query.session.add.assert_not_called()
+        twitter_event_mock.query.session.commit.assert_not_called()
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')

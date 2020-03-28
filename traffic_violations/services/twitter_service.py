@@ -156,10 +156,10 @@ class TrafficViolationsTweeter:
             interval, self._find_and_respond_to_missed_direct_messages).start()
 
         try:
-            most_recent_undetected_twitter_event = TwitterEvent.query.filter(
-                and_(TwitterEvent.detected_via_account_activity_api == False,
-                     TwitterEvent.event_type == TwitterMessageType.DIRECT_MESSAGE.value)
-            ).order_by(TwitterEvent.event_id.desc()).first()
+            # most_recent_undetected_twitter_event = TwitterEvent.query.filter(
+            #     and_(TwitterEvent.detected_via_account_activity_api == False,
+            #          TwitterEvent.event_type == TwitterMessageType.DIRECT_MESSAGE.value)
+            # ).order_by(TwitterEvent.event_id.desc()).first()
 
             # Tweepy bug with cursors prevents us from searching for more than 50 events
             # at a time until 3.9, so it'll have to do.
@@ -205,19 +205,21 @@ class TrafficViolationsTweeter:
                      TwitterEvent.event_type == TwitterMessageType.STATUS.value)
             ).order_by(TwitterEvent.event_id.desc()).first()
 
-            statuses_since_last_twitter_event: List[tweepy.Status] = []
-            max_status_id: Optional[int] = None
+            if most_recent_undetected_twitter_event:
 
-            while max_status_id is None or len(statuses_since_last_twitter_event) == self.MAX_STATUSES_RETURNED:
-                statuses_since_last_twitter_event = self.client_api.mentions_timeline(
-                    max_id=max_status_id, since_id=most_recent_undetected_twitter_event.event_id, tweet_mode='extended')
+                statuses_since_last_twitter_event: List[tweepy.Status] = []
+                max_status_id: Optional[int] = None
 
-                self._add_twitter_events_for_missed_statuses(statuses_since_last_twitter_event)
+                while max_status_id is None or len(statuses_since_last_twitter_event) == self.MAX_STATUSES_RETURNED:
+                    statuses_since_last_twitter_event = self.client_api.mentions_timeline(
+                        max_id=max_status_id, since_id=most_recent_undetected_twitter_event.event_id, tweet_mode='extended')
 
-                if statuses_since_last_twitter_event:
-                    max_status_id = statuses_since_last_twitter_event[-1].id
-                else:
-                    max_status_id = most_recent_undetected_twitter_event.event_id
+                    self._add_twitter_events_for_missed_statuses(statuses_since_last_twitter_event)
+
+                    if statuses_since_last_twitter_event:
+                        max_status_id = statuses_since_last_twitter_event[-1].id
+                    else:
+                        max_status_id = most_recent_undetected_twitter_event.event_id
 
         except Exception as e:
             LOG.error(e)
