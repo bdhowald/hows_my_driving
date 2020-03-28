@@ -77,17 +77,16 @@ class RecklessDriverRetrospectiveJob(BaseJob):
         recent_plate_lookup_ids: List[Tuple[int]] = PlateLookup.query.session.query(
             func.max(PlateLookup.id).label('most_recent_vehicle_lookup')
         ).filter(
-            or_ (
-                    and_(PlateLookup.created_at >= top_of_the_hour_last_year,
-                         PlateLookup.created_at < top_of_the_next_hour_last_year,
-                         PlateLookup.boot_eligible == True,
-                         PlateLookup.count_towards_frequency == True)
-                ), (
-                    and_(one_year_after_leap_day,
-                         PlateLookup.created_at >= (top_of_the_hour_last_year - relativedelta(days=1)),
-                         PlateLookup.created_at < (top_of_the_next_hour_last_year - relativedelta(days=1)),
-                         PlateLookup.boot_eligible == True,
-                         PlateLookup.count_towards_frequency == True)
+            or_(
+                  and_(PlateLookup.created_at >= top_of_the_hour_last_year,
+                       PlateLookup.created_at < top_of_the_next_hour_last_year,
+                       PlateLookup.boot_eligible == True,
+                       PlateLookup.count_towards_frequency == True),
+                  and_(one_year_after_leap_day,
+                       PlateLookup.created_at >= (top_of_the_hour_last_year - relativedelta(days=1)),
+                       PlateLookup.created_at < (top_of_the_next_hour_last_year - relativedelta(days=1)),
+                       PlateLookup.boot_eligible == True,
+                       PlateLookup.count_towards_frequency == True)
                 )
         ).group_by(
             PlateLookup.plate,
