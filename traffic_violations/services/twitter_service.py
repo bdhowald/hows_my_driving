@@ -161,7 +161,7 @@ class TrafficViolationsTweeter:
         TwitterEvent objects when those direct message events have not already been recorded.
         """
 
-        interval = 30.0 if self._is_production() else self.DEVELOPMENT_TIME_INTERVAL
+        interval = 300.0 if self._is_production() else self.DEVELOPMENT_TIME_INTERVAL
 
         self.statuses_iteration += 1
         LOG.debug(
@@ -203,7 +203,7 @@ class TrafficViolationsTweeter:
         TwitterEvent objects when those status events have not already been recorded.
         """
 
-        interval = 30.0 if self._is_production() else self.DEVELOPMENT_TIME_INTERVAL
+        interval = 300.0 if self._is_production() else self.DEVELOPMENT_TIME_INTERVAL
 
         self.statuses_iteration += 1
         LOG.debug(
