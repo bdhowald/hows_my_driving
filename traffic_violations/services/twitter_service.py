@@ -82,6 +82,8 @@ class TrafficViolationsTweeter:
                                                      Twitter Search API via Tweepy.
         """
 
+        undetected_messages = 0
+
         sender_ids = set(int(message.message_create['sender_id']) for message in messages)
 
         sender_objects = self.client_api.lookup_users(sender_ids)
@@ -92,6 +94,8 @@ class TrafficViolationsTweeter:
             existing_event: Optional[TwitterEvent] = TwitterEvent.query.filter(TwitterEvent.event_id == message.id).first()
 
             if not existing_event:
+                undetected_messages += 1
+
                 sender = senders[message.message_create['sender_id']]
 
                 event: TwitterEvent = TwitterEvent(
@@ -110,6 +114,10 @@ class TrafficViolationsTweeter:
 
         TwitterEvent.query.session.commit()
 
+        LOG.debug(
+            f"Found {undetected_messages} direct message{'' if undetected_messages == 1 else 's'} that "
+            f"{'was' if undetected_messages == 1 else 'were'} previously undetected.")
+
 
     def _add_twitter_events_for_missed_statuses(self, messages: List[tweepy.Status]):
         """Creates TwitterEvent objects when the Account Activity API fails to send us
@@ -119,10 +127,14 @@ class TrafficViolationsTweeter:
                                               Search API via Tweepy.
         """
 
+        undetected_messages = 0
+
         for message in messages:
             existing_event: Optional[TwitterEvent] = TwitterEvent.query.filter(TwitterEvent.event_id == message.id).first()
 
             if not existing_event:
+                undetected_messages += 1
+
                 event: TwitterEvent = TwitterEvent(
                     event_type=TwitterMessageType.STATUS.value,
                     event_id=message.id,
@@ -138,6 +150,10 @@ class TrafficViolationsTweeter:
                 TwitterEvent.query.session.add(event)
 
         TwitterEvent.query.session.commit()
+
+        LOG.debug(
+            f"Found {undetected_messages} status{'' if undetected_messages == 1 else 'es'} that "
+            f"{'was' if undetected_messages == 1 else 'were'} previously undetected.")
 
     def _find_and_respond_to_missed_direct_messages(self) -> None:
         """Uses Tweepy to call the Twitter Search API to find direct messages to/from

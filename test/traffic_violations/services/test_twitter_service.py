@@ -30,6 +30,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     def setUp(self):
         self.tweeter = TrafficViolationsTweeter()
 
+        self.log_patcher = mock.patch(
+            'traffic_violations.services.twitter_service.LOG')
+        self.mocked_log = self.log_patcher.start()
+
+    def tearDown(self):
+        self.log_patcher.stop()
+
     def test_find_and_respond_to_requests(self):
         direct_messages_mock = MagicMock(
             name='_find_and_respond_to_missed_direct_messages')
@@ -124,6 +131,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         twitter_event_mock.query.session.add.assert_called_once_with(new_twitter_event)
         twitter_event_mock.query.session.commit.assert_called_once_with()
 
+        self.mocked_log.debug.assert_called_with('Found 1 direct message that was previously undetected.')
+
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
     def test_find_and_respond_to_missed_statuses(self, twitter_event_mock):
@@ -214,6 +223,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         twitter_event_mock.query.session.add.assert_called_once_with(new_twitter_event)
         twitter_event_mock.query.session.commit.assert_called_once_with()
+
+        self.mocked_log.debug.assert_called_with('Found 1 status that was previously undetected.')
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
