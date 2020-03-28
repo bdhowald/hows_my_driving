@@ -24,3 +24,4 @@ class TwitterEvent(Base):
     responded_to = Column(Boolean, default=False, nullable=False)
     error_on_lookup = Column(Boolean, default=False, nullable=False)
     is_duplicate = Column(Boolean, default=False, nullable=False)
+    detected_via_account_activity_api = Column(Boolean, default=True, nullable=False)

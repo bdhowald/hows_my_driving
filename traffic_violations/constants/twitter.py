@@ -1,6 +1,7 @@
 from enum import Enum
 
 HMDNY_TWITTER_HANDLE: str = 'HowsMyDrivingNY'
+HMDNY_TWITTER_USER_ID: int = 976593574732222465
 MAX_TWITTER_STATUS_LENGTH: int = 280
 TWITTER_TIME_FORMAT: str = '%a %b %d %H:%M:%S %z %Y'
 

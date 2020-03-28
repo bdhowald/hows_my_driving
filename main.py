@@ -21,7 +21,7 @@ def run():
     elif sys.argv[-1] == 'print_featured_plate':
         tweeter._print_featured_plate()
     else:
-        tweeter._find_and_respond_to_twitter_events()
+        tweeter._find_and_respond_to_requests()
 
 def parse_args():
     parser = argparse.ArgumentParser(

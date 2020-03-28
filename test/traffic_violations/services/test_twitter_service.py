@@ -5,7 +5,8 @@ import random
 import statistics
 import unittest
 
-from datetime import datetime, timezone, time, timedelta
+from datetime import datetime, time, timedelta, timezone
+from dateutil.relativedelta import relativedelta
 
 from unittest.mock import call, MagicMock
 
@@ -29,14 +30,205 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     def setUp(self):
         self.tweeter = TrafficViolationsTweeter()
 
-    def test_find_messages_to_respond_to(self):
+    def test_find_and_respond_to_requests(self):
+        direct_messages_mock = MagicMock(
+            name='_find_and_respond_to_missed_direct_messages')
+        statuses_mock = MagicMock(
+            name='_find_and_respond_to_missed_statuses')
         twitter_events_mock = MagicMock(
-            name='find_and_respond_to_twitter_events')
+            name='_find_and_respond_to_twitter_events')
         self.tweeter._find_and_respond_to_twitter_events = twitter_events_mock
+        self.tweeter._find_and_respond_to_missed_direct_messages = direct_messages_mock
+        self.tweeter._find_and_respond_to_missed_statuses = statuses_mock
 
-        self.tweeter._find_messages_to_respond_to()
+        self.tweeter._find_and_respond_to_requests()
 
+        direct_messages_mock.assert_called_with()
+        statuses_mock.assert_called_with()
         twitter_events_mock.assert_called_with()
+
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TwitterEvent')
+    def test_find_and_respond_to_missed_direct_messages(self, twitter_event_mock):
+        db_id = 1
+        event_id = random.randint(10000000000000000000, 20000000000000000000)
+        event_text = 'abc1234:ny'
+        event_type = 'direct_message'
+        timestamp = random.randint(1500000000000, 1700000000000)
+        user_handle = 'bdhowald'
+        user_id = random.randint(1000000000, 2000000000)
+
+        older_twitter_event = TwitterEvent(
+            id=db_id,
+            created_at=timestamp,
+            detected_via_account_activity_api=False,
+            event_id=event_id,
+            event_text=event_text,
+            event_type=event_type,
+            in_reply_to_message_id=None,
+            location=None,
+            responded_to=True,
+            user_handle=user_handle,
+            user_id=user_id,
+            user_mentions='')
+
+        new_twitter_event = TwitterEvent(
+            created_at=timestamp + 1,
+            detected_via_account_activity_api=False,
+            event_id=event_id + 1,
+            event_text=event_text + '!',
+            event_type=event_type,
+            in_reply_to_message_id=None,
+            location=None,
+            responded_to=False,
+            user_handle=user_handle,
+            user_id=user_id,
+            user_mentions='')
+
+        message_needing_event = MagicMock(
+            id=event_id + 1,
+            created_timestamp = timestamp + 1,
+            message_create={
+              'message_data': {
+                'entities': {
+                  'user_mentions': [
+                    {
+                      'screen_name': user_handle
+                    }
+                  ]
+                },
+                'text': event_text + '!'
+              },
+              'sender_id': f'{user_id}'
+            },
+            name='message_needing_event')
+
+        message_not_needing_event = MagicMock(
+            id=event_id - 1,
+            created_timestamp = timestamp - 1,
+            message_create={
+                'message_data': {
+                    'entities': {
+                        'user_mentions': [{'screen_name': user_handle}]
+                    },
+                  'text': event_text,
+                },
+                'sender_id': f'{user_id}'
+            },
+            name='message_not_needing_event')
+
+        sender = MagicMock(
+            id=user_id,
+            id_str=f'{user_id}',
+            name='sender',
+            screen_name=user_handle)
+
+        twitter_event_mock.return_value = new_twitter_event
+        twitter_event_mock.query.filter.order_by.first.return_value = older_twitter_event
+        twitter_event_mock.query.filter.return_value.first.side_effect = [
+            None, message_not_needing_event]
+
+        api_mock = MagicMock(name='api')
+        api_mock.list_direct_messages.return_value = [
+          message_needing_event, message_not_needing_event]
+        api_mock.lookup_users.return_value = [sender]
+        self.tweeter.client_api = api_mock
+
+        self.tweeter._find_and_respond_to_missed_direct_messages()
+
+        twitter_event_mock.query.session.add.assert_called_once_with(new_twitter_event)
+        twitter_event_mock.query.session.commit.assert_called_once_with()
+
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TwitterEvent')
+    def test_find_and_respond_to_missed_statuses(self, twitter_event_mock):
+        db_id = 1
+        event_id = random.randint(10000000000000000000, 20000000000000000000)
+        event_text = '@HowsMyDrivingNY @bdhowald abc1234:ny'
+        event_type = 'status'
+        in_reply_to_message_id = random.randint(
+            10000000000000000000, 20000000000000000000)
+        location = 'Queens, NY'
+        now = datetime.utcnow()
+        place = MagicMock(
+            full_name=location,
+            name='place')
+
+        user_id = random.randint(1000000000, 2000000000)
+        user = MagicMock(
+            id=user_id,
+            name='user')
+        user_handle = 'bdhowald'
+
+        older_twitter_event = TwitterEvent(
+            id=db_id,
+            created_at=now.replace(tzinfo=pytz.timezone('UTC')).timestamp() * 1000,
+            detected_via_account_activity_api=False,
+            event_id=event_id,
+            event_text=event_text,
+            event_type=event_type,
+            in_reply_to_message_id=in_reply_to_message_id,
+            location=location,
+            responded_to=True,
+            user_handle=user_handle,
+            user_id=user_id,
+            user_mentions=user_handle)
+
+        new_twitter_event = TwitterEvent(
+            created_at=now.replace(tzinfo=pytz.timezone('UTC')).timestamp() * 1000,
+            detected_via_account_activity_api=False,
+            event_id=event_id + 1,
+            event_text=event_text + '!',
+            event_type=event_type,
+            in_reply_to_message_id=in_reply_to_message_id,
+            location=location,
+            responded_to=False,
+            user_handle=user_handle,
+            user_id=user_id,
+            user_mentions=user_handle)
+
+        status_needing_event = MagicMock(
+            id=event_id + 1,
+            created_at = now,
+            entities={
+                'user_mentions': [{
+                    'screen_name': user_handle
+                }]
+            },
+            full_text=event_text + '!',
+            in_reply_to_message_id=in_reply_to_message_id,
+            name='status_needing_event',
+            place=place,
+            user=user)
+
+        status_not_needing_event = MagicMock(
+            id=event_id - 1,
+            created_at = now - relativedelta(minutes=1),
+            entities={
+                'user_mentions': [{
+                    'screen_name': user_handle
+                }]
+            },
+            full_text=event_text,
+            in_reply_to_message_id=in_reply_to_message_id,
+            name='status_not_needing_event',
+            place=place,
+            user=user)
+
+        twitter_event_mock.return_value = new_twitter_event
+        twitter_event_mock.query.filter.order_by.first.return_value = older_twitter_event
+        twitter_event_mock.query.filter.return_value.first.side_effect = [
+            None, status_not_needing_event]
+
+        api_mock = MagicMock(name='api')
+        api_mock.mentions_timeline.return_value = [
+          status_needing_event, status_not_needing_event]
+        self.tweeter.client_api = api_mock
+
+        self.tweeter._find_and_respond_to_missed_statuses()
+
+        twitter_event_mock.query.session.add.assert_called_once_with(new_twitter_event)
+        twitter_event_mock.query.session.commit.assert_called_once_with()
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
@@ -134,7 +326,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock = MagicMock(name='api')
         api_mock.send_direct_message = send_direct_message_mock
 
-        self.tweeter.api = api_mock
+        self.tweeter.app_api = api_mock
 
         self.tweeter._process_response(reply_event_args)
 
@@ -184,7 +376,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         api_mock.create_favorite = create_favorite_mock
 
         self.tweeter._is_production = is_production_mock
-        self.tweeter.api = api_mock
+        self.tweeter.app_api = api_mock
 
         reply_event_args['username'] = username
 
@@ -384,7 +576,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
 
-        self.tweeter.api = api_mock
+        self.tweeter.app_api = api_mock
         self.tweeter._is_production = is_production_mock
 
         self.assertEqual(self.tweeter._recursively_process_status_updates(
