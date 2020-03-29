@@ -328,7 +328,10 @@ class TrafficViolationsTweeter:
                             if not (reply_event.get(
                                     'error_on_lookup') and event.error_on_lookup):
 
-                                self._process_response(reply_event)
+                                try:
+                                    self._process_response(reply_event)
+                                except tweepy.error.TweepError as e:
+                                    reply_event['error_on_lookup'] = True
 
                             # We've responded!
                             event.response_in_progress = False
