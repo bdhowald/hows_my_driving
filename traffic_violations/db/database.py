@@ -23,7 +23,7 @@ class DatabaseConnection(NamedTuple):
 
 password_str = os.environ[
                 'MYSQL_PASSWORD'] if 'MYSQL_PASSWORD' in os.environ else ''
-MYSQL_URI = f"mysql+pymysql://{os.environ['MYSQL_USER']}:{password_str}@localhost/{os.environ['MYSQL_DATABASE']}?charset=utf8"
+MYSQL_URI = f"mysql+pymysql://{os.environ['MYSQL_USER']}:{password_str}@localhost/{os.environ['MYSQL_DATABASE']}?charset=utf8mb4"
 
 
 def _create_mysql_engine(readonly: bool = False) -> Engine:
