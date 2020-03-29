@@ -23,7 +23,6 @@ class TrafficViolationsTweeter:
     DEVELOPMENT_TIME_INTERVAL = 3000.0
     MILLISECONDS_PER_SECOND = 1000.0
 
-    MAX_STATUSES_RETURNED = 20
     MAX_DIRECT_MESSAGES_RETURNED = 50
 
 
@@ -226,16 +225,16 @@ class TrafficViolationsTweeter:
                 statuses_since_last_twitter_event: List[tweepy.Status] = []
                 max_status_id: Optional[int] = None
 
-                while max_status_id is None or len(statuses_since_last_twitter_event) == self.MAX_STATUSES_RETURNED:
+                while max_status_id is None or statuses_since_last_twitter_event:
                     statuses_since_last_twitter_event = self.client_api.mentions_timeline(
                         max_id=max_status_id, since_id=most_recent_undetected_twitter_event.event_id, tweet_mode='extended')
 
                     self._add_twitter_events_for_missed_statuses(statuses_since_last_twitter_event)
 
                     if statuses_since_last_twitter_event:
-                        max_status_id = statuses_since_last_twitter_event[-1].id
+                        max_status_id = statuses_since_last_twitter_event[-1].id - 1
                     else:
-                        max_status_id = most_recent_undetected_twitter_event.event_id
+                        max_status_id = most_recent_undetected_twitter_event.event_id - 1
 
         except Exception as e:
             LOG.error(e)
