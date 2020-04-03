@@ -112,7 +112,7 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
         covid_19_reckless_driver_string = (
             'From March 10, 2020 to March 23, 2020, '
             f"#{offender['state']}_{offender['plate']} "
-            f"received {offender['count']} speed safety camera violations:\n\n"
+            f"received {offender['count']} camera violations:\n\n"
             f'{speed_camera_violations_string}')
 
         dval_string = (
@@ -132,7 +132,7 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
             'social distancing when walking on our narrow sidewalks.')
 
         open_streets_string = (
-            'Let\'s solve two problems, @NYCMayor & @NYCSpeakerCoJo, '
+            'Let\'s solve two problems, @NYCMayor, '
             'by opening more streets for people to walk safely.')
 
         job.run(is_dry_run=dry_run)

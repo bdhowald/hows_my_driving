@@ -103,7 +103,7 @@ class Covid19CameraOffenderJob(BaseJob):
 
                 covid_19_reckless_driver_string = (
                     f'From March 10, 2020 to March 23, 2020, {vehicle_hashtag} '
-                    f'received {total_camera_violations} speed safety camera '
+                    f'received {total_camera_violations} camera '
                     f'violations:\n\n'
                     f'{red_light_camera_violations_string}'
                     f'{speed_camera_violations_string}')
