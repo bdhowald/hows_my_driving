@@ -10,9 +10,6 @@ from unittest.mock import call, MagicMock
 
 from traffic_violations.jobs.daily_summary_job import DailySummaryJob
 
-from traffic_violations.models.repeat_camera_offender import \
-    RepeatCameraOffender
-
 
 @ddt.ddt
 class TestDailySummaryJob(unittest.TestCase):

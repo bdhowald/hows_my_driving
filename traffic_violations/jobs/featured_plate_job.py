@@ -10,8 +10,8 @@ from traffic_violations.constants import L10N
 
 from traffic_violations.jobs.base_job import BaseJob
 
-from traffic_violations.models.repeat_camera_offender import \
-    RepeatCameraOffender
+from traffic_violations.models.special_purpose.repeat_camera_offender import (
+    RepeatCameraOffender)
 
 from traffic_violations.services.twitter_service import \
     TrafficViolationsTweeter

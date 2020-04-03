@@ -48,7 +48,7 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
         }
     )
     @mock.patch(
-        'traffic_violations.jobs.reckless_driver_retrospective_job.OpenDataService.lookup_vehicle')
+        'traffic_violations.jobs.reckless_driver_retrospective_job.OpenDataService.look_up_vehicle')
     @mock.patch(
         'traffic_violations.jobs.reckless_driver_retrospective_job.PlateLookup.query')
     @mock.patch(
@@ -63,7 +63,7 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
                                  mocked_traffic_violations_tweeter,
                                  mocked_plate_lookup_get_all_in,
                                  mocked_plate_lookup_query,
-                                 mocked_open_data_service_lookup_vehicle,
+                                 mocked_open_data_service_look_up_vehicle,
                                  can_link_tweet=False,
                                  dry_run=False,
                                  new_camera_violations_string='10 new camera violations',
@@ -154,7 +154,7 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
             data=open_data_plate_lookup_after_previous_lookup,
             success=True)
 
-        mocked_open_data_service_lookup_vehicle.side_effect = [
+        mocked_open_data_service_look_up_vehicle.side_effect = [
             open_data_response_before_previous_lookup, open_data_response_after_previous_lookup]
 
         can_link_tweet_string = (

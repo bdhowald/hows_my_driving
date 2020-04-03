@@ -87,7 +87,7 @@ class TestOpenDataService(unittest.TestCase):
     @mock.patch(
         f'traffic_violations.services.apis.open_data_service.'
         f'OpenDataService._perform_query')
-    def test_lookup_vehicle_with_violations(self,
+    def test_look_up_vehicle_with_violations(self,
                                             mocked_perform_query,
                                             plate,
                                             state=None,
@@ -354,13 +354,13 @@ class TestOpenDataService(unittest.TestCase):
                               for k, v in years], key=lambda k: k['title'])),
             success=True)
 
-        self.assertEqual(self.open_data_service.lookup_vehicle(plate_query),
+        self.assertEqual(self.open_data_service.look_up_vehicle(plate_query),
                          result)
 
     @mock.patch(
         f'traffic_violations.services.apis.open_data_service.'
         f'OpenDataService._perform_query')
-    def test_lookup_vehicle_with_no_violations(self,
+    def test_look_up_vehicle_with_no_violations(self,
                                             mocked_perform_query):
 
         plate = 'ABC1234'
@@ -393,5 +393,5 @@ class TestOpenDataService(unittest.TestCase):
                 years=[]),
             success=True)
 
-        self.assertEqual(self.open_data_service.lookup_vehicle(plate_query),
+        self.assertEqual(self.open_data_service.look_up_vehicle(plate_query),
                          result)

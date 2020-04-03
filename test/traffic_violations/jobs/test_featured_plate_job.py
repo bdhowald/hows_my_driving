@@ -7,8 +7,8 @@ from unittest.mock import call, MagicMock
 
 from traffic_violations.jobs.featured_plate_job import FeaturedPlateJob
 
-from traffic_violations.models.repeat_camera_offender import \
-    RepeatCameraOffender
+from traffic_violations.models.special_purpose.repeat_camera_offender import (
+    RepeatCameraOffender)
 
 
 @ddt.ddt

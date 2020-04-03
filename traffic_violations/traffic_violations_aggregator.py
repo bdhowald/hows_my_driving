@@ -854,7 +854,7 @@ class TrafficViolationsAggregator:
         LOG.debug('Performing lookup for plate.')
 
         nyc_open_data_service: OpenDataService = OpenDataService()
-        open_data_response: OpenDataServiceResponse = nyc_open_data_service.lookup_vehicle(
+        open_data_response: OpenDataServiceResponse = nyc_open_data_service.look_up_vehicle(
             plate_query=plate_query)
 
         LOG.debug(f'Violation data: {open_data_response}')

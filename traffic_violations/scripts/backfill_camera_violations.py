@@ -69,7 +69,7 @@ class BackfillCameraViolationsJob(BaseJob):
                                                  state=previous_lookup.state)
 
             nyc_open_data_service: OpenDataService = OpenDataService()
-            open_data_response: OpenDataServiceResponse = nyc_open_data_service.lookup_vehicle(
+            open_data_response: OpenDataServiceResponse = nyc_open_data_service.look_up_vehicle(
                 plate_query=plate_query,
                 until=previous_lookup.created_at)
 

@@ -69,7 +69,7 @@ class OpenDataService:
 
         self.location_service = LocationService()
 
-    def lookup_vehicle(self,
+    def look_up_vehicle(self,
                        plate_query: PlateQuery,
                        since: datetime = None,
                        until: datetime = None) -> OpenDataServiceResponse:
