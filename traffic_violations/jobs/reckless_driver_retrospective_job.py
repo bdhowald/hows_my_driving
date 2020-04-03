@@ -142,7 +142,7 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                         new_bus_lane_camera_violations = violation_count
                     if violation_type_summary['title'] == 'Failure To Stop At Red Light':
                         new_red_light_camera_violations = violation_count
-                    elif violation_type_summary['title'] == 'School Zone Speed Camera Violation':
+                    if violation_type_summary['title'] == 'School Zone Speed Camera Violation':
                         new_speed_camera_violations = violation_count
 
             if new_bus_lane_camera_violations is None:
@@ -229,9 +229,8 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                         LOG.debug('Reckless driver retrospective job '
                                   'ran successfully.')
                 else:
-                    print(f'{reckless_driver_update_string}')
-                    print('\n\n')
-                    print(f'{advocacy_string}')
+                    print(reckless_driver_update_string)
+                    print(advocacy_string)
 
     def _is_leap_year(self, year):
         if (year % 400 == 0) or (year % 4 == 0 and year % 100 != 0):

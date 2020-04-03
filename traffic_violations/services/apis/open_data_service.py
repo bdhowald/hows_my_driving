@@ -26,10 +26,12 @@ from traffic_violations.constants.precincts import PRECINCTS_BY_BOROUGH
 from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.fine_data import FineData
 from traffic_violations.models.plate_query import PlateQuery
-from traffic_violations.models.response.open_data_service_plate_lookup \
-    import OpenDataServicePlateLookup
-from traffic_violations.models.response.open_data_service_response \
-    import OpenDataServiceResponse
+from traffic_violations.models.response.open_data_service_plate_lookup import (
+    OpenDataServicePlateLookup)
+from traffic_violations.models.response.open_data_service_response import (
+    OpenDataServiceResponse)
+from traffic_violations.models.special_purpose.covid_19_camera_offender import (
+    Covid19CameraOffender)
 
 from traffic_violations.services.constants.exceptions import \
     APIFailureException
@@ -68,6 +70,33 @@ class OpenDataService:
         self.api = s_req
 
         self.location_service = LocationService()
+
+    def lookup_covid_19_camera_violations(self) -> List[Dict[str, str]]:
+        """Search for all camera violations for all vehicles between two
+        timestamps.
+        """
+
+        # Ugly hardcoded query, but necessary since
+        # Open Parking and Camera Violations has a string 'issue_date',
+        # meaning that queries must use LIKE operators
+        open_parking_and_camera_violations_query_string: str = (
+            f'{OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT}?'
+            f'$select=plate,state,count(summons_number)%20as%20count&'
+            f'$where=violation%20in%20('
+            f'%27PHTO%20SCHOOL%20ZN%20SPEED%20VIOLATION%27,'
+            f'%27FAILURE%20TO%20STOP%20AT%20RED%20LIGHT%27'
+            f')%20and%20('
+            f'issue_date%20LIKE%20%2703/1_/2020%27%20or'
+            f'%20issue_date%20LIKE%20%2703/2_/2020%27'
+            f')&'
+            f'$group=plate,state&$order=count%20desc')
+
+        open_parking_and_camera_violations_response: Dict[str, str] = self._perform_query(
+            query_string=open_parking_and_camera_violations_query_string)
+
+        return open_parking_and_camera_violations_response['data']
+
+
 
     def look_up_vehicle(self,
                        plate_query: PlateQuery,

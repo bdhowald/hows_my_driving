@@ -355,7 +355,7 @@ class TrafficViolationsAggregator:
     def _detect_campaigns(self, string_tokens) -> List[Campaign]:
         """ Look for campaign hashtags in the message's text
         and return matching campaigns.
-        
+
         """
 
         return Campaign.get_all_in(
