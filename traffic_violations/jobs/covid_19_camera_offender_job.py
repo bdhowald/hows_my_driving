@@ -163,6 +163,8 @@ class Covid19CameraOffenderJob(BaseJob):
                 else:
                     print(covid_19_reckless_driver_string)
                     print(dval_string)
+                    print(speeding_string)
+                    print(open_streets_string)
                     break
 
 
