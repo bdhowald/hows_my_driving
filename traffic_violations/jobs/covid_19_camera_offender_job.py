@@ -125,7 +125,7 @@ class Covid19CameraOffenderJob(BaseJob):
                     'social distancing when walking on our narrow sidewalks.')
 
                 open_streets_string = (
-                    'Let\'s solve two problems, @NYCMayor & @NYCSpeakerCoJo, '
+                    'Let\'s solve two problems, @NYCMayor, '
                     'by opening more streets for people to walk safely.')
 
                 messages: List[str] = [
