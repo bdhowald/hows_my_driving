@@ -361,7 +361,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'camera_streak_data':
                     CameraStreakData(**{'min_streak_date': 'September 7, 2015',
                                         'max_streak': 4,
-                                        'max_streak_date': 'November 5, 2015'})
+                                        'max_streak_date': 'November 5, 2015'}),
+                'unique_identifier': 'a1b2c3d4',
             },
             'response': [
                 '#NY_HME6483 (types: pas) has been queried 8 times.\n'
@@ -405,7 +406,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '$180.00 | Fined\n'
                 '$50.00   | Reduced\n'
                 '$100.00 | Paid\n'
-                '$30.00   | Outstanding\n'
+                '$30.00   | Outstanding\n',
+                'View more details at https://howsmydrivingny.nyc/a1b2c3d4.'
             ],
             'username': 'bdhowald'
         },
@@ -452,7 +454,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'camera_streak_data':
                     CameraStreakData(**{'min_streak_date': 'September 7, 2015',
                                         'max_streak': 5,
-                                        'max_streak_date': 'November 5, 2015'})
+                                        'max_streak_date': 'November 5, 2015'}),
+                'unique_identifier': 'abcd1234',
             },
             'response': [
                 '#NY_HME6483 has been queried 8 times.\n'
@@ -495,6 +498,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 "Under @bradlander's proposed legislation, this vehicle could "
                 "have been booted or impounded due to its 5 camera violations "
                 "(>= 5/year) from September 7, 2015 to November 5, 2015.\n",
+                'View more details at https://howsmydrivingny.nyc/abcd1234.'
             ],
             'username': 'bdhowald'
         }
@@ -519,6 +523,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             plate_types=data['plate_types'],
             previous_lookup=data['previous_result'],
             state=data['state'],
+            unique_identifier=data['unique_identifier'],
             username=username,
             violations=data['violations'],
             year_data=data['years']), response)
@@ -730,6 +735,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             state=state,
             username='@bdhowald')
 
+        unique_identifier = 'abcd1234'
+
         previous_lookup = PlateLookup(
             created_at=previous_time,
             message_id=previous_message_id,
@@ -902,13 +909,17 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         requests_futures.sessions.FuturesSession = session_object_mock
 
         self.assertEqual(self.aggregator._perform_plate_lookup(
-            campaigns=campaigns, plate_query=plate_query), result)
+            campaigns=campaigns,
+            plate_query=plate_query,
+            unique_identifier=unique_identifier), result)
 
         # Try again with a forced error.
         violations_mock.status_code = 503
 
         result = self.aggregator._perform_plate_lookup(
-            campaigns=[], plate_query=plate_query)
+            campaigns=[],
+            plate_query=plate_query,
+            unique_identifier=unique_identifier)
 
         self.assertIsInstance(result, OpenDataServiceResponse)
         self.assertRegex(str(result.message), 'server error when accessing')
@@ -916,23 +927,29 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     @ddt.data({
         'plate': 'HME6483',
         'returned_plate': 'HME6483',
-        'state': 'NY'
+        'state': 'NY',
+        'unique_identifier': 'a1b2c3d4',
     }, {
         'plate': '8A23',
         'returned_plate': '8A23B',
-        'state': 'NY'
+        'state': 'NY',
+        'unique_identifier': 'abcd1234',
     })
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
+    @mock.patch(
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._get_unique_identifier')
     @ddt.unpack
     def test_create_response_direct_message(self,
+                                            mocked_get_unique_identifier,
                                             mocked_query_for_lookup_frequency,
                                             mocked_perform_plate_lookup,
-                                            plate,
-                                            returned_plate,
-                                            state):
+                                            plate: str,
+                                            returned_plate: str,
+                                            state: str,
+                                            unique_identifier: str):
         """ Test direct message and new format """
 
         username = 'bdhowald'
@@ -1037,7 +1054,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     '$200.00 | Fined\n'
                     '$0.00     | Reduced\n'
                     '$75.00   | Paid\n'
-                    '$125.00 | Outstanding\n'
+                    '$125.00 | Outstanding\n',
+                    f'View more details at https://howsmydrivingny.nyc/{unique_identifier}.'
                 ]
             ],
             'success': True,
@@ -1045,6 +1063,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': username
         }
 
+        mocked_get_unique_identifier.return_value = unique_identifier
         mocked_perform_plate_lookup.return_value = plate_lookup
         mocked_query_for_lookup_frequency.return_value = 1
 
@@ -1052,12 +1071,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             direct_message_request_object), response)
 
     @mock.patch(
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
+    @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
     @mock.patch(
-        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._query_for_lookup_frequency')
+        'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._get_unique_identifier')
     def test_create_response_status_legacy_format(self,
-                                                  mocked_query_for_lookup_frequency,
-                                                  mocked_perform_plate_lookup):
+                                                  mocked_get_unique_identifier,
+                                                  mocked_perform_plate_lookup,
+                                                  mocked_query_for_lookup_frequency):
         """ Test status and old format """
 
         username = 'BarackObama'
@@ -1120,6 +1142,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             data=lookup,
             success=True)
 
+        unique_identifier = 'ab12cd34'
+
         response_parts = [['#PA_GLF7467 has been queried 2 times.\n\n'
                            'Total parking and camera violation tickets: 49\n\n'
                            '17 | No Parking - Street Cleaning\n'
@@ -1144,7 +1168,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                            '$1,000.00 | Fined\n'
                            '$0.00         | Reduced\n'
                            '$775.00     | Paid\n'
-                           '$225.00     | Outstanding\n']]
+                           '$225.00     | Outstanding\n',
+                           'View more details at https://howsmydrivingny.nyc/ab12cd34.']]
 
         response = {
             'error_on_lookup': False,
@@ -1155,6 +1180,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'username': request_object.username()
         }
 
+        mocked_get_unique_identifier.return_value = unique_identifier
         mocked_perform_plate_lookup.return_value = plate_lookup
         mocked_query_for_lookup_frequency.return_value = 2
 

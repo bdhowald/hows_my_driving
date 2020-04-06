@@ -12,8 +12,8 @@ from requests.adapters import HTTPAdapter
 from sqlalchemy import and_, func
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-from traffic_violations.constants import L10N, regexps as regexp_constants, \
-    lookup_sources, twitter as twitter_constants
+from traffic_violations.constants import (L10N, endpoints, lookup_sources,
+    twitter as twitter_constants, regexps as regexp_constants)
 
 from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.campaign import Campaign
@@ -164,10 +164,14 @@ class TrafficViolationsAggregator:
                     previous_lookup: Optional[PlateLookup] = self._query_for_previous_lookup(plate_query=plate_query)
                     LOG.debug(f'Previous lookup for this vehicle: {previous_lookup}')
 
+                    # Obtain a unique identifier for the lookup
+                    unique_identifier: str = self._get_unique_identifier()
+
                     # Do the real work!
                     open_data_response: OpenDataServiceResponse = self._perform_plate_lookup(
                         campaigns=included_campaigns,
-                        plate_query=plate_query)
+                        plate_query=plate_query,
+                        unique_identifier=unique_identifier)
 
                     if open_data_response.success:
 
@@ -196,6 +200,7 @@ class TrafficViolationsAggregator:
                                 previous_lookup=previous_lookup,
                                 state=plate_lookup.state,
                                 username=request_object.username(),
+                                unique_identifier=unique_identifier,
                                 violations=plate_lookup.violations,
                                 year_data=plate_lookup.years)
 
@@ -470,6 +475,7 @@ class TrafficViolationsAggregator:
             plate: str,
             plate_types: List[str],
             state: str,
+            unique_identifier: str,
             username: str,
             violations: List[Tuple[str, int]],
             year_data: List[Tuple[str, int]],
@@ -596,6 +602,11 @@ class TrafficViolationsAggregator:
                 # add to container
                 response_chunks.append(streak_string)
 
+        unique_link: str = self._get_website_plate_lookup_link(unique_identifier)
+
+        website_link_string = f'View more details at {unique_link}.'
+        response_chunks.append(website_link_string)
+
         # Send it back!
         return response_chunks
 
@@ -666,6 +677,9 @@ class TrafficViolationsAggregator:
         LOG.debug(f'plate_query: {plate_query}')
 
         return plate_query
+
+    def _get_website_plate_lookup_link(self, unique_identifier: str) -> str:
+        return f'{endpoints.HOWS_MY_DRIVING_NY_WEBSITE}/{unique_identifier}'
 
     def _handle_response_part_formation(self,
                                         count: str,
@@ -849,7 +863,8 @@ class TrafficViolationsAggregator:
 
     def _perform_plate_lookup(self,
                               campaigns: List[Campaign],
-                              plate_query: PlateQuery) -> OpenDataServiceResponse:
+                              plate_query: PlateQuery,
+                              unique_identifier: str) -> OpenDataServiceResponse:
 
         LOG.debug('Performing lookup for plate.')
 
@@ -894,7 +909,7 @@ class TrafficViolationsAggregator:
                     red_light_camera_violations=red_light_camera_violations,
                     speed_camera_violations=speed_camera_violations,
                     state=plate_query.state,
-                    unique_identifier=self._get_unique_identifier(),
+                    unique_identifier=unique_identifier,
                     username=plate_query.username)
 
                 # Iterate through included campaigns to tie lookup to each
