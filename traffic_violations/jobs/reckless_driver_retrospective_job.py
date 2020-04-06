@@ -209,9 +209,8 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     f'{speed_camera_violations_string}')
 
                 advocacy_string = (
-                    f'Please contact @NYCMayor and your @NYCCouncil members '
-                    f'and ask them to support @bradlander\'s Reckless Driver '
-                    f'Accountability Act.')
+                    f'Thank you to @bradlander for making the Dangerous Driver '
+                    f'Abatement Act a reality.')
 
                 messages: List[str] = [
                     reckless_driver_summary_string,

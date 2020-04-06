@@ -181,12 +181,11 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
             f'{speed_camera_tickets_diff_string}')
 
         reckless_string = (
-            f"Please contact @NYCMayor and your @NYCCouncil members and ask "
-            f"them to support @bradlander's Reckless Driver Accountability Act.")
+            f'Thank you to @bradlander for making the Dangerous Driver '
+            f'Abatement Act a reality.')
 
-        job_should_be_run = ((red_light_camera_tickets_after_previous_lookup -
-            red_light_camera_tickets_before_previous_lookup) + (speed_camera_tickets_after_previous_lookup -
-            speed_camera_tickets_before_previous_lookup)) > 0
+        job_should_be_run = (red_light_camera_tickets_after_previous_lookup +
+            speed_camera_tickets_after_previous_lookup) > 0
 
         job.run(is_dry_run=dry_run)
 
