@@ -82,7 +82,7 @@ class Covid19CameraOffenderJob(BaseJob):
                         if violation_type_summary['title'] == self.SPEED_CAMERA_VIOLATION_DESCRIPTION:
                             speed_camera_violations = violation_count
 
-                days_in_period = 14.0
+                days_in_period = 21.0
                 days_in_year = 366.0
 
                 periods_in_year = days_in_year / days_in_period
@@ -102,7 +102,7 @@ class Covid19CameraOffenderJob(BaseJob):
                     if speed_camera_violations > 0 else '')
 
                 covid_19_reckless_driver_string = (
-                    f'From March 10, 2020 to March 23, 2020, {vehicle_hashtag} '
+                    f'From March 10, 2020 to March 30, 2020, {vehicle_hashtag} '
                     f'received {total_camera_violations} camera '
                     f'violations:\n\n'
                     f'{red_light_camera_violations_string}'

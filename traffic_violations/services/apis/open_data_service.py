@@ -81,15 +81,16 @@ class OpenDataService:
         # meaning that queries must use LIKE operators
         open_parking_and_camera_violations_query_string: str = (
             f'{OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT}?'
-            f'$select=plate,state,count(summons_number)%20as%20count&'
-            f'$where=violation%20in%20('
-            f'%27PHTO%20SCHOOL%20ZN%20SPEED%20VIOLATION%27,'
-            f'%27FAILURE%20TO%20STOP%20AT%20RED%20LIGHT%27'
-            f')%20and%20('
-            f'issue_date%20LIKE%20%2703/1_/2020%27%20or'
-            f'%20issue_date%20LIKE%20%2703/2_/2020%27'
-            f')&'
-            f'$group=plate,state&$order=count%20desc')
+             '$select=plate,state,count(summons_number)%20as%20count&'
+             '$where=violation%20in%20('
+             '%27PHTO%20SCHOOL%20ZN%20SPEED%20VIOLATION%27,'
+             '%27FAILURE%20TO%20STOP%20AT%20RED%20LIGHT%27'
+             ')%20and%20('
+             'issue_date%20LIKE%20%2703/1_/2020%27%20or%20'
+             'issue_date%20LIKE%20%2703/2_/2020%27%20or%20'
+             'issue_date%20LIKE%20%2703/3_/2020%27'
+             ')&'
+             '$group=plate,state&$order=count%20desc')
 
         open_parking_and_camera_violations_response: Dict[str, str] = self._perform_query(
             query_string=open_parking_and_camera_violations_query_string)
