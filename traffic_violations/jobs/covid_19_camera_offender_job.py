@@ -1,5 +1,6 @@
 import argparse
 import logging
+import random
 import pytz
 
 from datetime import datetime, timedelta
@@ -35,6 +36,18 @@ class Covid19CameraOffenderJob(BaseJob):
 
     CAMERA_VIOLATIONS = [RED_LIGHT_CAMERA_VIOLATION_DESCRIPTION,
                          SPEED_CAMERA_VIOLATION_DESCRIPTION]
+
+    COVID_19_OPEN_STREETS_TWEETS: List[str] = [
+        'https://twitter.com/JSadikKhan/status/1248675348268621826',
+        'https://twitter.com/StreetsblogDen/status/1247535862843236355',
+        'https://twitter.com/RegineGuenther/status/1247870521234075652?s=20',
+        'https://twitter.com/BrentToderian/status/1248076792683888640',
+        'https://twitter.com/ashk4n/status/1248442190017122304',
+        'https://twitter.com/MayorHancock/status/1246193113611280386?s=20',
+        'https://twitter.com/maxnesterak/status/1243300381301641217',
+        'https://twitter.com/MikeLydon/status/1248400819642220545',
+        'https://twitter.com/DianaUrge/status/1248402038649544706',
+    ]
 
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
@@ -133,8 +146,8 @@ class Covid19CameraOffenderJob(BaseJob):
                 'social distancing when walking on our narrow sidewalks.')
 
             open_streets_string = (
-                'Let\'s solve two problems, @NYCMayor, '
-                'by opening more streets for people to walk safely.')
+                'Other cities are eating our lunch, @NYCMayor:\n\n'
+                f'{random.choice(self.COVID_19_OPEN_STREETS_TWEETS)}')
 
             messages: List[str] = [
                 covid_19_reckless_driver_string,

@@ -60,8 +60,11 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
         'traffic_violations.jobs.covid_19_camera_offender_job.TrafficViolationsTweeter.send_status')
     @mock.patch(
         'traffic_violations.jobs.covid_19_camera_offender_job.OpenDataService.lookup_covid_19_camera_violations')
+    @mock.patch(
+        'traffic_violations.jobs.covid_19_camera_offender_job.random.choice')
     @ddt.unpack
     def test_print_covid_19_camera_offender_message(self,
+                                 mocked_random_open_streets_tweet: MagicMock,
                                  mocked_open_data_covid_19_lookup: MagicMock,
                                  mocked_traffic_violations_tweeter_send_status: MagicMock,
                                  mocked_covid_19_camera_offender_get_by: MagicMock,
@@ -71,6 +74,9 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
                                  offender_record_exists: bool = False):
 
         job = Covid19CameraOffenderJob()
+
+        open_streets_tweet: str = 'https://twitter.com/JSadikKhan/status/1248675348268621826'
+        mocked_random_open_streets_tweet.return_value = open_streets_tweet
 
         mocked_open_data_covid_19_lookup.return_value = open_data_results
 
@@ -132,8 +138,8 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
             'social distancing when walking on our narrow sidewalks.')
 
         open_streets_string = (
-            'Let\'s solve two problems, @NYCMayor, '
-            'by opening more streets for people to walk safely.')
+            'Other cities are eating our lunch, @NYCMayor:\n\n'
+           f'{open_streets_tweet}')
 
         job.run(is_dry_run=dry_run)
 
