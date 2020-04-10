@@ -39,9 +39,14 @@ class Covid19CameraOffenderJob(BaseJob):
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
+        days_in_period = 22.0
+        days_in_year = 366.0
+
+        periods_in_year = days_in_year / days_in_period
+
         eastern = pytz.timezone('US/Eastern')
         start_date = datetime(2020, 3, 10)
-        end_date = datetime(2020, 3, 24) + timedelta(days=1, seconds=-1)
+        end_date = start_date + timedelta(days=days_in_period, seconds=-1)
 
         tweeter = TrafficViolationsTweeter()
 
@@ -55,9 +60,6 @@ class Covid19CameraOffenderJob(BaseJob):
             offender: Optional[Covid19CameraOffender] = Covid19CameraOffender.get_by(
                 plate_id=plate,
                 state=state)
-
-            LOG.debug(f'COVID-19 speeder - {L10N.VEHICLE_HASHTAG.format(state, plate)}: '
-                      f"{vehicle['count']} camera violations")
 
             if offender:
                 LOG.debug(f'COVID-19 speeder - {L10N.VEHICLE_HASHTAG.format(state, plate)} '
@@ -92,11 +94,6 @@ class Covid19CameraOffenderJob(BaseJob):
                     if violation_type_summary['title'] == self.SPEED_CAMERA_VIOLATION_DESCRIPTION:
                         speed_camera_violations = violation_count
 
-            days_in_period = 22.0
-            days_in_year = 366.0
-
-            periods_in_year = days_in_year / days_in_period
-
             total_camera_violations = (red_light_camera_violations +
                 speed_camera_violations)
 
@@ -112,7 +109,8 @@ class Covid19CameraOffenderJob(BaseJob):
                 if speed_camera_violations > 0 else '')
 
             covid_19_reckless_driver_string = (
-                f'From March 10, 2020 to March 31, 2020, {vehicle_hashtag} '
+                f"From {start_date.strftime('%B %-d, %Y')} to "
+                f"{end_date.strftime('%B %-d, %Y')}, {vehicle_hashtag} "
                 f'received {total_camera_violations} camera '
                 f'violations:\n\n'
                 f'{red_light_camera_violations_string}'
