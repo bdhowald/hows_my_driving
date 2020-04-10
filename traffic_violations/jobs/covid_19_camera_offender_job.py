@@ -56,116 +56,126 @@ class Covid19CameraOffenderJob(BaseJob):
                 plate_id=plate,
                 state=state)
 
-            if not offender:
-                plate_query: PlateQuery = PlateQuery(created_at=datetime.now(),
-                                                     message_source=LookupSource.API,
-                                                     plate=plate,
-                                                     plate_types=None,
-                                                     state=state)
+            LOG.debug(f'COVID-19 speeder - {L10N.VEHICLE_HASHTAG.format(state, plate)}: '
+                      f"{vehicle['count']} camera violations")
 
-                response: OpenDataServiceResponse = nyc_open_data_service.look_up_vehicle(
-                    plate_query=plate_query,
-                    since=start_date,
-                    until=end_date)
+            if offender:
+                LOG.debug(f'COVID-19 speeder - {L10N.VEHICLE_HASHTAG.format(state, plate)} '
+                      f"with {vehicle['count']} camera violations has been seen before.")
+                continue
 
-                plate_lookup: OpenDataServicePlateLookup = response.data
+            LOG.debug(f'COVID-19 speeder - {L10N.VEHICLE_HASHTAG.format(state, plate)} '
+                      f"with {vehicle['count']} camera violations has not been seen before.")
 
-                red_light_camera_violations = 0
-                speed_camera_violations = 0
+            plate_query: PlateQuery = PlateQuery(created_at=datetime.now(),
+                                                    message_source=LookupSource.API,
+                                                    plate=plate,
+                                                    plate_types=None,
+                                                    state=state)
 
-                for violation_type_summary in plate_lookup.violations:
-                    if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
-                        violation_count = violation_type_summary['count']
+            response: OpenDataServiceResponse = nyc_open_data_service.look_up_vehicle(
+                plate_query=plate_query,
+                since=start_date,
+                until=end_date)
 
-                        if violation_type_summary['title'] == self.RED_LIGHT_CAMERA_VIOLATION_DESCRIPTION:
-                            red_light_camera_violations = violation_count
-                        if violation_type_summary['title'] == self.SPEED_CAMERA_VIOLATION_DESCRIPTION:
-                            speed_camera_violations = violation_count
+            plate_lookup: OpenDataServicePlateLookup = response.data
 
-                days_in_period = 22.0
-                days_in_year = 366.0
+            red_light_camera_violations = 0
+            speed_camera_violations = 0
 
-                periods_in_year = days_in_year / days_in_period
+            for violation_type_summary in plate_lookup.violations:
+                if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
+                    violation_count = violation_type_summary['count']
 
-                total_camera_violations = (red_light_camera_violations +
-                    speed_camera_violations)
+                    if violation_type_summary['title'] == self.RED_LIGHT_CAMERA_VIOLATION_DESCRIPTION:
+                        red_light_camera_violations = violation_count
+                    if violation_type_summary['title'] == self.SPEED_CAMERA_VIOLATION_DESCRIPTION:
+                        speed_camera_violations = violation_count
 
-                vehicle_hashtag = L10N.VEHICLE_HASHTAG.format(
-                    state, plate)
+            days_in_period = 22.0
+            days_in_year = 366.0
 
-                red_light_camera_violations_string = (
-                    f'{red_light_camera_violations} | Red Light Camera Violations\n'
-                    if red_light_camera_violations > 0 else '')
+            periods_in_year = days_in_year / days_in_period
 
-                speed_camera_violations_string = (
-                    f'{speed_camera_violations} | Speed Safety Camera Violations\n'
-                    if speed_camera_violations > 0 else '')
+            total_camera_violations = (red_light_camera_violations +
+                speed_camera_violations)
 
-                covid_19_reckless_driver_string = (
-                    f'From March 10, 2020 to March 31, 2020, {vehicle_hashtag} '
-                    f'received {total_camera_violations} camera '
-                    f'violations:\n\n'
-                    f'{red_light_camera_violations_string}'
-                    f'{speed_camera_violations_string}')
+            vehicle_hashtag = L10N.VEHICLE_HASHTAG.format(
+                state, plate)
 
-                dval_string = (
-                    'At this rate, this vehicle will receive '
-                    f'{round(periods_in_year * total_camera_violations)} '
-                    'speed safety camera violations over '
-                    'a year, qualifying it for towing or booting under '
-                    '@bradlander\'s Dangerous Vehicle Abatement Law and '
-                    'requiring its driver to take a course on the consequences '
-                    'of reckless driving.')
+            red_light_camera_violations_string = (
+                f'{red_light_camera_violations} | Red Light Camera Violations\n'
+                if red_light_camera_violations > 0 else '')
 
-                speeding_string = (
-                    'With such little traffic, many drivers are speeding '
-                    'regularly, putting New Yorkers at increased risk of '
-                    'ending up in a hospital at a time our hospitals are '
-                    'stretched to their limits. It\'s also hard to practice '
-                    'social distancing when walking on our narrow sidewalks.')
+            speed_camera_violations_string = (
+                f'{speed_camera_violations} | Speed Safety Camera Violations\n'
+                if speed_camera_violations > 0 else '')
 
-                open_streets_string = (
-                    'Let\'s solve two problems, @NYCMayor, '
-                    'by opening more streets for people to walk safely.')
+            covid_19_reckless_driver_string = (
+                f'From March 10, 2020 to March 31, 2020, {vehicle_hashtag} '
+                f'received {total_camera_violations} camera '
+                f'violations:\n\n'
+                f'{red_light_camera_violations_string}'
+                f'{speed_camera_violations_string}')
 
-                messages: List[str] = [
-                    covid_19_reckless_driver_string,
-                    dval_string,
-                    [speeding_string, open_streets_string]]
+            dval_string = (
+                'At this rate, this vehicle will receive '
+                f'{round(periods_in_year * total_camera_violations)} '
+                'speed safety camera violations over '
+                'a year, qualifying it for towing or booting under '
+                '@bradlander\'s Dangerous Vehicle Abatement Law and '
+                'requiring its driver to take a course on the consequences '
+                'of reckless driving.')
 
-                if not is_dry_run:
-                    success: bool = tweeter.send_status(
-                        message_parts=messages,
-                        on_error_message=(
+            speeding_string = (
+                'With such little traffic, many drivers are speeding '
+                'regularly, putting New Yorkers at increased risk of '
+                'ending up in a hospital at a time our hospitals are '
+                'stretched to their limits. It\'s also hard to practice '
+                'social distancing when walking on our narrow sidewalks.')
+
+            open_streets_string = (
+                'Let\'s solve two problems, @NYCMayor, '
+                'by opening more streets for people to walk safely.')
+
+            messages: List[str] = [
+                covid_19_reckless_driver_string,
+                dval_string,
+                [speeding_string, open_streets_string]]
+
+            if not is_dry_run:
+                success: bool = tweeter.send_status(
+                    message_parts=messages,
+                    on_error_message=(
+                        f'Error printing COVID-19 reckless driver update. '
+                        f'Tagging @bdhowald.'))
+
+                if success:
+                    offender = Covid19CameraOffender(plate_id=plate,
+                                                        state=state,
+                                                        red_light_camera_violations=red_light_camera_violations,
+                                                        speed_camera_violations=speed_camera_violations)
+
+                    Covid19CameraOffender.query.session.add(offender)
+                    try:
+                        Covid19CameraOffender.query.session.commit()
+
+                        LOG.debug('COVID-19 Reckless driver retrospective job '
+                            'ran successfully.')
+                    except:
+                        tweeter.send_status(message_parts=[(
                             f'Error printing COVID-19 reckless driver update. '
-                            f'Tagging @bdhowald.'))
+                            f'Tagging @bdhowald.')])
 
-                    if success:
-                        offender = Covid19CameraOffender(plate_id=plate,
-                                                         state=state,
-                                                         red_light_camera_violations=red_light_camera_violations,
-                                                         speed_camera_violations=speed_camera_violations)
-
-                        Covid19CameraOffender.query.session.add(offender)
-                        try:
-                            Covid19CameraOffender.query.session.commit()
-
-                            LOG.debug('COVID-19 Reckless driver retrospective job '
-                                'ran successfully.')
-                        except:
-                            tweeter.send_status(message_parts=[(
-                                f'Error printing COVID-19 reckless driver update. '
-                                f'Tagging @bdhowald.')])
-
-                        # Only do one at a time.
-                        break
-
-                else:
-                    print(covid_19_reckless_driver_string)
-                    print(dval_string)
-                    print(speeding_string)
-                    print(open_streets_string)
+                    # Only do one at a time.
                     break
+
+            else:
+                print(covid_19_reckless_driver_string)
+                print(dval_string)
+                print(speeding_string)
+                print(open_streets_string)
+                break
 
 
 def parse_args():
