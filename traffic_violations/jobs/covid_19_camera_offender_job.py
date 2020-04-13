@@ -52,7 +52,7 @@ class Covid19CameraOffenderJob(BaseJob):
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
-        days_in_period = 22.0
+        days_in_period = 28.0
         days_in_year = 366.0
 
         periods_in_year = days_in_year / days_in_period
