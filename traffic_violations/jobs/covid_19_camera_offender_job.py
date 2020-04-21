@@ -73,7 +73,8 @@ class Covid19CameraOffenderJob(BaseJob):
 
             offender: Optional[Covid19CameraOffender] = Covid19CameraOffender.get_by(
                 plate_id=plate,
-                state=state)
+                state=state,
+                count_as_queried=True)
 
             if offender:
                 LOG.debug(f'COVID-19 speeder - {L10N.VEHICLE_HASHTAG.format(state, plate)} '
