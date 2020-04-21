@@ -1,5 +1,6 @@
 import argparse
 import logging
+import math
 import random
 import pytz
 
@@ -31,6 +32,8 @@ LOG = logging.getLogger(__name__)
 class Covid19CameraOffenderJob(BaseJob):
     """ Tweet out a reckless driver during COVID-19. """
 
+    SECONDS_IN_A_DAY = 86400
+
     RED_LIGHT_CAMERA_VIOLATION_DESCRIPTION = 'Failure To Stop At Red Light'
     SPEED_CAMERA_VIOLATION_DESCRIPTION = 'School Zone Speed Camera Violation'
 
@@ -52,14 +55,12 @@ class Covid19CameraOffenderJob(BaseJob):
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
-        days_in_period = 28.0
+        start_date = datetime(2020, 3, 10, 0, 0, 0, 0)
+        end_date = datetime(2020, 4, 13, 23, 59, 59, 999999)
+
+        days_in_period = math.ceil((end_date - start_date).total_seconds() / self.SECONDS_IN_A_DAY)
         days_in_year = 366.0
-
         periods_in_year = days_in_year / days_in_period
-
-        eastern = pytz.timezone('US/Eastern')
-        start_date = datetime(2020, 3, 10)
-        end_date = start_date + timedelta(days=days_in_period, seconds=-1)
 
         tweeter = TrafficViolationsTweeter()
 
