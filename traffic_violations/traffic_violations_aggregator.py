@@ -22,12 +22,19 @@ from traffic_violations.models.fine_data import FineData
 from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.models.plate_query import PlateQuery
 from traffic_violations.models.lookup_requests import BaseLookupRequest
+
+from traffic_violations.models.response.invalid_vehicle_response \
+    import InvalidVehicleResponse
+from traffic_violations.models.response.non_vehicle_response \
+    import NonVehicleResponse
 from traffic_violations.models.response.open_data_service_plate_lookup \
     import OpenDataServicePlateLookup
 from traffic_violations.models.response.open_data_service_response \
     import OpenDataServiceResponse
 from traffic_violations.models.response.traffic_violations_aggregator_response \
     import TrafficViolationsAggregatorResponse
+from traffic_violations.models.response.valid_vehicle_response \
+    import ValidVehicleResponse
 from traffic_violations.models.vehicle import Vehicle
 
 from traffic_violations.services.apis.open_data_service import OpenDataService
@@ -113,7 +120,7 @@ class TrafficViolationsAggregator:
 
         return violations_string
 
-    def _create_response(self, request_object: Type[BaseLookupRequest]):
+    def _create_response(self, request_object: Type[BaseLookupRequest]) -> Dict:
 
         LOG.info('\n')
         LOG.info('Calling create_response')
@@ -122,24 +129,15 @@ class TrafficViolationsAggregator:
         LOG.debug(f'request_object: {request_object}')
 
         # Collect response parts here.
-        response_parts = []
-        successful_lookup = False
-        error_on_lookup = False
+        response_parts: List[Any] = []
+        success_on_any_lookup = False
+        error_on_any_lookup = False
 
-        # Wrap in try/catch block
         try:
-
             # Find potential plates
             potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
                 request_object.string_tokens())
             LOG.debug(f'potential_vehicles: {potential_vehicles}')
-
-            potential_vehicles += self._find_potential_vehicles_using_legacy_logic(
-                request_object.legacy_string_tokens())
-            LOG.debug(f'potential_vehicles: {potential_vehicles}')
-
-            potential_vehicles = self._ensure_unique_plates(
-                vehicles=potential_vehicles)
 
             # Find included campaign hashtags
             included_campaigns: List[Campaign] = self._detect_campaigns(
@@ -155,113 +153,30 @@ class TrafficViolationsAggregator:
             for potential_vehicle in potential_vehicles:
 
                 if potential_vehicle.valid_plate:
+                    # If the plate is valid, process it by doing a lookup.
+                    vehicle_response: ValidVehicleResponse = self._process_valid_vehicle(
+                                            campaigns=included_campaigns,
+                                            lookup_summary=summary,
+                                            request_object=request_object,
+                                            vehicle=potential_vehicle)
 
-                    plate_query: PlateQuery = self._get_plate_query(
-                        vehicle=potential_vehicle,
-                        request_object=request_object)
+                    # Add lookup to summary
+                    summary.plate_lookups.append(vehicle_response.plate_lookup)
 
-                    # do we have a previous lookup
-                    previous_lookup: Optional[PlateLookup] = self._query_for_previous_lookup(plate_query=plate_query)
-                    LOG.debug(f'Previous lookup for this vehicle: {previous_lookup}')
+                    # Keep track of any error while looking up a plate.
+                    error_on_any_lookup = error_on_any_lookup or vehicle_response.error_on_lookup
 
-                    # Obtain a unique identifier for the lookup
-                    unique_identifier: str = self._get_unique_identifier()
-
-                    # Do the real work!
-                    open_data_response: OpenDataServiceResponse = self._perform_plate_lookup(
-                        campaigns=included_campaigns,
-                        plate_query=plate_query,
-                        unique_identifier=unique_identifier)
-
-                    if open_data_response.success:
-
-                        # Record successful lookup.
-                        successful_lookup = True
-
-                        plate_lookup: OpenDataServicePlateLookup = open_data_response.data
-
-                        # how many times have we searched for this plate from a tweet
-                        current_frequency: int = self._query_for_lookup_frequency(plate_query)
-
-                        # self._proceess_lookup_results()
-
-                        # Add lookup to summary
-                        summary.plate_lookups.append(plate_lookup)
-
-                        if plate_lookup.violations:
-
-                            plate_lookup_response_parts: List[Any] = self._form_plate_lookup_response_parts(
-                                borough_data=plate_lookup.boroughs,
-                                camera_streak_data=plate_lookup.camera_streak_data,
-                                fine_data=plate_lookup.fines,
-                                frequency=current_frequency,
-                                plate=plate_lookup.plate,
-                                plate_types=plate_lookup.plate_types,
-                                previous_lookup=previous_lookup,
-                                state=plate_lookup.state,
-                                username=request_object.username(),
-                                unique_identifier=unique_identifier,
-                                violations=plate_lookup.violations,
-                                year_data=plate_lookup.years)
-
-                            response_parts.append(plate_lookup_response_parts)
-                            # [[campaign_stuff], tickets_0, tickets_1, etc.]
-
-                        else:
-                            # Let user know we didn't find anything.
-                            plate_types_string = (
-                                f' (types: {plate_query.plate_types})') if plate_lookup.plate_types else ''
-                            response_parts.append(
-                                L10N.NO_TICKETS_FOUND_STRING.format(
-                                    plate_query.state,
-                                    plate_lookup.plate,
-                                    plate_types_string))
-
-                    else:
-
-                        # Record lookup error.
-                        error_on_lookup = True
-
-                        response_parts.append([
-                            f"Sorry, I received an error when looking up "
-                            f"{plate_query.state}:{plate_query.plate}"
-                            f"{(' (types: ' + plate_query.plate_types + ')') if plate_query.plate_types else ''}. "
-                            f"Please try again."])
+                    # Note if any lookup was successful
+                    success_on_any_lookup = success_on_any_lookup or vehicle_response.success_on_lookup
 
                 else:
+                    # If the plate is invalid, process it by gathering response parts.
+                    vehicle_response: InvalidVehicleResponse = self._process_invalid_vehicle(
+                                            request_object=request_object,
+                                            invalid_vehicle=potential_vehicle)
 
-                    # Record the failed lookup.
-                    new_failed_lookup = FailedPlateLookup(
-                        message_id=request_object.external_id(),
-                        username=request_object.username())
-
-                    # Insert plate lookup
-                    FailedPlateLookup.query.session.add(new_failed_lookup)
-                    FailedPlateLookup.query.session.commit()
-
-                    # Legacy data where state is not a valid abbreviation.
-                    if potential_vehicle.state:
-                        LOG.debug("We have a state, but it's invalid.")
-
-                        response_parts.append([
-                            f"The state should be two characters, but you supplied '{potential_vehicle.state}'. "
-                            f"Please try again."])
-
-                    # '<state>:<plate>' format, but no valid state could be detected.
-                    elif potential_vehicle.original_string:
-                        LOG.debug(
-                            "We don't have a state, but we have an attempted lookup with the new format.")
-
-                        response_parts.append([
-                            f"Sorry, a plate and state could not be inferred from "
-                            f"{potential_vehicle.original_string}."])
-
-                    # If we have a plate, but no state.
-                    elif potential_vehicle.plate:
-                        LOG.debug("We have a plate, but no state")
-
-                        response_parts.append(
-                            ["Sorry, the state appears to be blank."])
+                # Add response parts.
+                response_parts.append(vehicle_response.response_parts)
 
             # If we have multiple vehicles, prepend a summary.
             if len(summary.plate_lookups) > 1:
@@ -269,74 +184,32 @@ class TrafficViolationsAggregator:
                 summary_string: Optional[str] = self._form_summary_string(summary)
 
                 if summary_string:
-                    response_parts.insert(
-                        0, summary_string)
+                    # Prepend summary string if more than one vehicle.
+                    response_parts.insert(0, summary_string)
 
             # Look up campaign hashtags after doing the plate lookups and then
             # prepend to response.
             if included_campaigns:
                 campaign_lookups: List[Tuple[str, int, int]] = self._perform_campaign_lookup(
                     included_campaigns)
+                # Prepend campaign string to response.
                 response_parts.insert(0, self._form_campaign_lookup_response_parts(
                     campaign_lookups, request_object.username()))
 
-                successful_lookup = True
+                success_on_any_lookup = True
 
             # If we don't look up a single plate successfully,
             # figure out how we can help the user.
-            if not successful_lookup and not error_on_lookup:
+            if not success_on_any_lookup and not error_on_any_lookup:
 
-                # Record the failed lookup.
-                new_failed_lookup = FailedPlateLookup(
-                    message_id=request_object.external_id(),
-                    username=request_object.username())
+                non_vehicle_response: NonVehicleResponse = self._process_lookup_without_detected_vehicles(
+                    request_object=request_object)
 
-                # Insert plate lookup
-                FailedPlateLookup.query.session.add(new_failed_lookup)
-                FailedPlateLookup.query.session.commit()
-
-                LOG.debug('The data seems to be in the wrong format.')
-
-                state_matches = [regexp_constants.STATE_ABBREVIATIONS_PATTERN.search(
-                    s.upper()) != None for s in request_object.string_tokens()]
-                number_matches = [regexp_constants.NUMBER_PATTERN.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
-                    r'\.|@', '', part.lower()) not in set(request_object.mentioned_users), request_object.string_tokens()))]
-
-                # We have what appears to be a plate and a state abbreviation.
-                if all([any(state_matches), any(number_matches)]):
-                    LOG.debug(
-                        'There is both plate and state information in this message.')
-
-                    # Let user know plate format
-                    response_parts.append(
-                        ["I’d be happy to look that up for you!\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"])
-
-                # Maybe we have plate or state. Let's find out.
-                else:
-                    LOG.debug(
-                        'The tweet is missing either state or plate or both.')
-
-                    state_minus_words_matches = [regexp_constants.STATE_MINUS_WORDS_PATTERN.search(
-                        s.upper()) != None for s in request_object.string_tokens()]
-
-                    number_matches = [regexp_constants.NUMBER_PATTERN.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
-                        r'\.|@', '', part.lower()) not in set(request_object.mentioned_users), request_object.string_tokens()))]
-
-                    # We have either plate or state.
-                    if any(state_minus_words_matches) or any(number_matches):
-
-                        # Let user know plate format
-                        response_parts.append(
-                            ["I think you're trying to look up a plate, but can't be sure.\n\nJust a reminder, the format is <state|province|territory>:<plate>, e.g. NY:abc1234"])
-
-                    # We have neither plate nor state. Do nothing.
-                    else:
-                        LOG.debug(
-                            'ignoring message since no plate or state information to respond to.')
+                response_parts.append(non_vehicle_response.response_parts)
 
         except Exception as e:
             # Set response data
-            error_on_lookup = True
+            error_on_any_lookup = True
             response_parts.append(
                 ["Sorry, I encountered an error. Tagging @bdhowald."])
 
@@ -349,11 +222,11 @@ class TrafficViolationsAggregator:
 
         # Indicate successful response processing.
         return {
-            'error_on_lookup': error_on_lookup,
+            'error_on_lookup': error_on_any_lookup,
             'request_object': request_object,
             'response_parts': response_parts,
             'success': True,
-            'successful_lookup': successful_lookup,
+            'successful_lookup': success_on_any_lookup,
             'username': request_object.username()
         }
 
@@ -402,18 +275,22 @@ class TrafficViolationsAggregator:
         return unique_vehicles
 
     def _find_potential_vehicles(self, list_of_strings: List[str]) -> List[Vehicle]:
+        """Parse tweet text for vehicles"""
 
-        # Use new logic of '<state>:<plate>'
-        plate_tuples: Union[Tuple[str, str, str], Tuple[str, str]] = [[part.strip() for part in match.split(':')] for match in re.findall(regexp_constants.PLATE_FORMAT_REGEX, ' '.join(
-            list_of_strings)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
+        potential_vehicles: List[Vehicle] = []
 
-        return self._infer_plate_and_state_data(plate_tuples)
+        potential_vehicles += self._find_potential_vehicles_using_combined_fields(
+            list_of_strings=list_of_strings)
 
-    def _find_potential_vehicles_using_legacy_logic(self, list_of_strings: List[str]) -> List[Vehicle]:
+        potential_vehicles += self._find_potential_vehicles_using_separate_fields(
+            list_of_strings=list_of_strings)
 
-        # Find potential plates
+        return self._ensure_unique_plates(
+            vehicles=potential_vehicles)
 
-        # Use old logic of 'state:<state> plate:<plate>'
+    def _find_potential_vehicles_using_separate_fields(self, list_of_strings: List[str]) -> List[Vehicle]:
+        """Parse tweet text for vehicles using old logic of 'state:<state> plate:<plate>'"""
+
         potential_vehicles: List[Vehicle] = []
         legacy_plate_data: Tuple = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower(
         ) for part in list_of_strings if (('state:' in part.lower() or 'plate:' in part.lower() or 'types:' in part.lower()) and '://' not in part.lower())]])
@@ -433,6 +310,15 @@ class TrafficViolationsAggregator:
             potential_vehicles.append(vehicle)
 
         return potential_vehicles
+
+    def _find_potential_vehicles_using_combined_fields(self, list_of_strings: List[str]) -> List[Vehicle]:
+        """Parse tweet text for vehicles using new logic of '<state>:<plate>'"""
+
+        plate_tuples: Union[Tuple[str, str, str], Tuple[str, str]] = [[part.strip() for part in match.split(':')] for match in re.findall(regexp_constants.PLATE_FORMAT_REGEX, ' '.join(
+            list_of_strings)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
+
+        return self._infer_plate_and_state_data(plate_tuples)
+
 
     def _form_campaign_lookup_response_parts(self,
                                              campaign_summaries:
@@ -926,10 +812,206 @@ class TrafficViolationsAggregator:
 
         return open_data_response
 
-    def _proceess_lookup_results(self, plate_query: PlateLookup):
-        pass
+    def _process_invalid_vehicle(self,
+                                 request_object: BaseLookupRequest,
+                                 invalid_vehicle: Vehicle) -> InvalidVehicleResponse:
+
+        """Process an invalid vehicle by notifying the user which necessary lookup
+        elements were missing or incorrect and how to correct the issue in a
+        subsequent tweet.s
+        """
+
+        plate_lookup_response_parts: List[Any]
+
+        # Record the failed lookup.
+        new_failed_lookup = FailedPlateLookup(
+            message_id=request_object.external_id(),
+            username=request_object.username())
+
+        # Insert plate lookup
+        FailedPlateLookup.query.session.add(new_failed_lookup)
+        FailedPlateLookup.query.session.commit()
+
+        # Legacy data where state is not a valid abbreviation.
+        if invalid_vehicle.state:
+            LOG.debug("We have a state, but it's invalid.")
+
+            plate_lookup_response_parts = [
+                f"The state should be two characters, but you supplied '{invalid_vehicle.state}'. "
+                f"Please try again."]
+
+        # '<state>:<plate>' format, but no valid state could be detected.
+        elif invalid_vehicle.original_string:
+            LOG.debug(
+                "We don't have a state, but we have an attempted lookup with the new format.")
+
+            plate_lookup_response_parts = [
+                f"Sorry, a plate and state could not be inferred from "
+                f"{invalid_vehicle.original_string}."]
+
+        # If we have a plate, but no state.
+        elif invalid_vehicle.plate:
+            LOG.debug("We have a plate, but no state")
+
+            plate_lookup_response_parts = [
+                "Sorry, the state appears to be blank."]
+
+        return InvalidVehicleResponse(response_parts=plate_lookup_response_parts)
+
+    def _process_lookup_without_detected_vehicles(self,
+        request_object: BaseLookupRequest) -> NonVehicleResponse:
+
+        """Process a lookup that had no detected vehicles, either partial or
+        complete, by determining if the user was likely trying to submit a
+        lookup, and if so, help them do so in a subsequent message.
+        """
+
+        non_vehicle_response_parts: List[Any]
+
+        # Record the failed lookup.
+        new_failed_lookup = FailedPlateLookup(
+            message_id=request_object.external_id(),
+            username=request_object.username())
+
+        # Insert plate lookup
+        FailedPlateLookup.query.session.add(new_failed_lookup)
+        FailedPlateLookup.query.session.commit()
+
+        LOG.debug('The data seems to be in the wrong format.')
+
+        state_matches = [regexp_constants.STATE_ABBREVIATIONS_PATTERN.search(
+            s.upper()) != None for s in request_object.string_tokens()]
+        number_matches = [regexp_constants.NUMBER_PATTERN.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
+            r'\.|@', '', part.lower()) not in set(request_object.mentioned_users), request_object.string_tokens()))]
+
+        # We have what appears to be a plate and a state abbreviation.
+        if all([any(state_matches), any(number_matches)]):
+            LOG.debug(
+                'There is both plate and state information in this message.')
+
+            # Let user know plate format
+            non_vehicle_response_parts = [(
+                "I’d be happy to look that up for you!\n\n"
+                'Just a reminder, the format is '
+                '<state|province|territory>:<plate>, e.g. NY:abc1234')]
+
+        # Maybe we have plate or state. Let's find out.
+        else:
+            LOG.debug(
+                'The tweet is missing either state or plate or both.')
+
+            state_minus_words_matches = [regexp_constants.STATE_MINUS_WORDS_PATTERN.search(
+                s.upper()) != None for s in request_object.string_tokens()]
+
+            number_matches = [regexp_constants.NUMBER_PATTERN.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
+                r'\.|@', '', part.lower()) not in set(request_object.mentioned_users), request_object.string_tokens()))]
+
+            # We have either plate or state.
+            if any(state_minus_words_matches) or any(number_matches):
+
+                # Let user know plate format
+                non_vehicle_response_parts = [(
+                    "I think you're trying to look up a plate, but can't be sure.\n\n"
+                    'Just a reminder, the format is '
+                    '<state|province|territory>:<plate>, e.g. NY:abc1234')]
+
+            # We have neither plate nor state. Do nothing.
+            else:
+                non_vehicle_response_parts = []
+                LOG.debug(
+                    'ignoring message since no plate or state information to respond to.')
+
+        return NonVehicleResponse(response_parts=non_vehicle_response_parts)
+
+
+    def _process_valid_vehicle(self,
+                             campaigns: List[Campaign],
+                             lookup_summary: TrafficViolationsAggregatorResponse,
+                             request_object: BaseLookupRequest,
+                             vehicle: Vehicle) -> ValidVehicleResponse:
+
+        """Process a valid plate by:
+
+        1. searching open data
+        2. saving the lookup
+        3. returning the results
+
+        """
+
+        error_on_plate_lookup: bool = False
+        plate_lookup_response_parts: List[Any]
+        success_on_plate_lookup: bool = False
+
+        plate_query: PlateQuery = self._get_plate_query(vehicle=vehicle,
+                                                        request_object=request_object)
+
+        # do we have a previous lookup
+        previous_lookup: Optional[PlateLookup] = self._query_for_previous_lookup(
+            plate_query=plate_query)
+        LOG.debug(f'Previous lookup for this vehicle: {previous_lookup}')
+
+        # Obtain a unique identifier for the lookup
+        unique_identifier: str = self._get_unique_identifier()
+
+        # Do the real work!
+        open_data_response: OpenDataServiceResponse = self._perform_plate_lookup(
+            campaigns=campaigns,
+            plate_query=plate_query,
+            unique_identifier=unique_identifier)
+
+        if open_data_response.success:
+
+            # Record successful lookup.
+            success_on_plate_lookup = True
+
+            plate_lookup: OpenDataServicePlateLookup = open_data_response.data
+
+            # how many times have we searched for this plate from a tweet
+            current_frequency: int = self._query_for_lookup_frequency(plate_query)
+
+            if plate_lookup.violations:
+
+                plate_lookup_response_parts = self._form_plate_lookup_response_parts(
+                    borough_data=plate_lookup.boroughs,
+                    camera_streak_data=plate_lookup.camera_streak_data,
+                    fine_data=plate_lookup.fines,
+                    frequency=current_frequency,
+                    plate=plate_lookup.plate,
+                    plate_types=plate_lookup.plate_types,
+                    previous_lookup=previous_lookup,
+                    state=plate_lookup.state,
+                    username=request_object.username(),
+                    unique_identifier=unique_identifier,
+                    violations=plate_lookup.violations,
+                    year_data=plate_lookup.years)
+
+            else:
+                # Let user know we didn't find anything.
+                plate_types_string = (
+                    f' (types: {plate_query.plate_types})') if plate_lookup.plate_types else ''
+
+                plate_lookup_response_parts = L10N.NO_TICKETS_FOUND_STRING.format(
+                        plate_query.state,
+                        plate_lookup.plate,
+                        plate_types_string)
+
+        else:
+            # Record lookup error.
+            error_on_plate_lookup = True
+
+            plate_lookup_response_parts = [
+                f"Sorry, I received an error when looking up "
+                f"{plate_query.state}:{plate_query.plate}"
+                f"{(' (types: ' + plate_query.plate_types + ')') if plate_query.plate_types else ''}. "
+                f"Please try again."]
+
+        return ValidVehicleResponse(error_on_lookup=error_on_plate_lookup,
+                                    plate_lookup=plate_lookup,
+                                    response_parts=plate_lookup_response_parts,
+                                    success_on_lookup=success_on_plate_lookup)
 
     def _query_for_lookup_frequency(self, plate_query: PlateQuery) -> int:
+        """How many times has this plate been queried before?"""
         return len(PlateLookup.get_all_by(
             plate=plate_query.plate,
             plate_types=plate_query.plate_types,

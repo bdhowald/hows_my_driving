@@ -243,13 +243,14 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         }
     )
     @ddt.unpack
-    def test_find_potential_vehicles(self,
-                                     potential_vehicle_data, string_parts):
+    def test_find_potential_vehicles_using_combined_fields(self,
+                                                           potential_vehicle_data,
+                                                           string_parts):
 
         potential_vehicles: List[Vehicle] = [
             Vehicle(**data) for data in potential_vehicle_data]
 
-        self.assertEqual(self.aggregator._find_potential_vehicles(
+        self.assertEqual(self.aggregator._find_potential_vehicles_using_combined_fields(
             string_parts), potential_vehicles)
 
     @ddt.data(
@@ -275,11 +276,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         }
     )
     @ddt.unpack
-    def test_find_potential_vehicles_using_legacy_logic(self,
-                                                        potential_vehicles,
-                                                        string_parts):
+    def test_find_potential_vehicles_using_separate_fields(self,
+                                                           potential_vehicles,
+                                                           string_parts):
         self.assertEqual(
-            self.aggregator._find_potential_vehicles_using_legacy_logic(
+            self.aggregator._find_potential_vehicles_using_separate_fields(
                 string_parts), potential_vehicles)
 
     @ddt.data(

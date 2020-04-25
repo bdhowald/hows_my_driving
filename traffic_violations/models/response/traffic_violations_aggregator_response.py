@@ -7,5 +7,5 @@ from traffic_violations.models.response.open_data_service_plate_lookup \
 
 @dataclass
 class TrafficViolationsAggregatorResponse:
-    """ Represents a plate query to be submitted to the open data apis """
+    """ Represents the results of a query from open data apis."""
     plate_lookups: List[OpenDataServicePlateLookup] = field(default_factory=list)
