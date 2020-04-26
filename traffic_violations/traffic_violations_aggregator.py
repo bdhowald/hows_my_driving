@@ -194,7 +194,7 @@ class TrafficViolationsAggregator:
                     included_campaigns)
                 # Prepend campaign string to response.
                 response_parts.insert(0, self._form_campaign_lookup_response_parts(
-                    campaign_lookups, request_object.username()))
+                    campaign_lookups))
 
                 success_on_any_lookup = True
 
@@ -322,8 +322,7 @@ class TrafficViolationsAggregator:
 
     def _form_campaign_lookup_response_parts(self,
                                              campaign_summaries:
-                                             List[Tuple[str, int, int]],
-                                             username: str):
+                                             List[Tuple[str, int, int]]):
 
         campaign_chunks: List[str] = []
         campaign_string = ""
@@ -339,8 +338,7 @@ class TrafficViolationsAggregator:
                 f"been tagged with {campaign_name}.\n\n")
 
             # how long would it be
-            potential_response_length = len(
-                username + ' ' + campaign_string + next_string_part)
+            potential_response_length = len(campaign_string + next_string_part)
 
             if (potential_response_length <= twitter_constants.MAX_TWITTER_STATUS_LENGTH):
                 campaign_string += next_string_part
@@ -406,8 +404,7 @@ class TrafficViolationsAggregator:
             default_description='No Year Available',
             prefix_format_string=L10N.LOOKUP_TICKETS_STRING.format(
                 total_violations),
-            result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
-            username=username)
+            result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
 
         if year_data:
             response_chunks += self._handle_response_part_formation(
@@ -419,8 +416,7 @@ class TrafficViolationsAggregator:
                 default_description='No Year Available',
                 prefix_format_string=L10N.LOOKUP_YEAR_STRING.format(
                     L10N.VEHICLE_HASHTAG.format(state, plate)),
-                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
-                username=username)
+                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
 
         if borough_data:
             response_chunks += self._handle_response_part_formation(
@@ -432,8 +428,7 @@ class TrafficViolationsAggregator:
                 default_description='No Borough Available',
                 prefix_format_string=L10N.LOOKUP_BOROUGH_STRING.format(
                     L10N.VEHICLE_HASHTAG.format(state, plate)),
-                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
-                username=username)
+                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
 
         if fine_data and fine_data.fines_assessed():
 
@@ -457,10 +452,9 @@ class TrafficViolationsAggregator:
                     f"{fine_type.replace('_', ' ').title()}\n")
 
                 # determine current string length if necessary
-                potential_response_length = len(
-                    username + ' ' + cur_string + next_part)
+                potential_response_length = len(cur_string + next_part)
 
-                # If username, space, violation string so far and new part are less or
+                # If violation string so far and new part are less or
                 # equal than 280 characters, append to existing tweet string.
                 if (potential_response_length <= twitter_constants.MAX_TWITTER_STATUS_LENGTH):
                     cur_string += next_part
@@ -575,7 +569,6 @@ class TrafficViolationsAggregator:
                                         default_description: str,
                                         prefix_format_string: str,
                                         result_format_string: str,
-                                        username: str,
                                         cur_string: str = None):
 
         # collect the responses
@@ -612,9 +605,9 @@ class TrafficViolationsAggregator:
                 str(violation_count).ljust(left_justify_amount), violation_description)
 
             # determine current string length
-            potential_response_length = len(f'{username} {cur_string}{next_part}')
+            potential_response_length = len(cur_string + next_part)
 
-            # If username, space, violation string so far and new part are less or
+            # If violation string so far and new part are less or
             # equal than 280 characters, append to existing tweet string.
             if (potential_response_length <= twitter_constants.MAX_TWITTER_STATUS_LENGTH):
                 cur_string += next_part
