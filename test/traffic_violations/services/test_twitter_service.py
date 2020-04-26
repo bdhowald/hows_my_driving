@@ -19,7 +19,7 @@ from traffic_violations.services.twitter_service import \
     TrafficViolationsTweeter
 
 
-def inc(part, in_reply_to_status_id):
+def inc(status: str, in_reply_to_status_id: str, auto_populate_reply_metadata: bool):
     int_mock = MagicMock(name='api')
     int_mock.id = (in_reply_to_status_id + 1)
     return int_mock
