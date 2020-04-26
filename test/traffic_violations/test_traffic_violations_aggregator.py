@@ -290,6 +290,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 (f'6 vehicles with a total of 71 tickets have been '
                  f'tagged with #SaferSkillman.\n\n')
             ],
+            'username': '@bdhowald'
         },
         {
             'data': [('#BetterPresident', 1, 1)],
@@ -297,6 +298,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 (f'1 vehicle with 1 ticket has been '
                  f'tagged with #BetterPresident.\n\n')
             ],
+            'username': '@BarackObama'
         },
         {
             'data': [('#BusTurnaround', 1, 0)],
@@ -304,15 +306,17 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 (f'1 vehicle with 0 tickets has been '
                  f'tagged with #BusTurnaround.\n\n')
             ],
+            'username': '@FixQueensBlvd'
         }
     )
     @ddt.unpack
     def test_form_campaign_lookup_response_parts(self,
                                                  data: {},
-                                                 results: []):
+                                                 results: [],
+                                                 username):
         self.assertEqual(
             self.aggregator._form_campaign_lookup_response_parts(
-                data), results)
+                data, username), results)
 
     @ddt.data(
         {
@@ -379,11 +383,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
-                '1   | Failure To Stop At Red Light\n'
-                '1   | No Standing - Commercial Meter Zone\n',
+                '1   | Failure To Stop At Red Light\n',
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
+                '1   | No Standing - Commercial Meter Zone\n'
                 '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
@@ -472,11 +476,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
-                '1   | Bus Lane Violation\n'
-                '1   | Failure To Stop At Red Light\n',
+                '1   | Bus Lane Violation\n',
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
+                '1   | Failure To Stop At Red Light\n'
                 '1   | No Standing - Commercial Meter Zone\n'
                 '1   | Expired Meter\n'
                 '1   | Double Parking\n'
@@ -610,7 +614,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             description='title',
             default_description='No Year Available',
             prefix_format_string=f'Violations by year for #{state}_{plate}:\n\n',
-            result_format_string='{}| {}\n'), result)
+            result_format_string='{}| {}\n',
+            username=username), result)
 
     @mock.patch('traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._create_response')
     def test_initiate_reply(self, mocked_create_response):
@@ -1146,17 +1151,17 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                            '6   | Expired Meter\n'
                            '5   | No Violation Description Available\n'
                            '3   | Fire Hydrant\n'
-                           '3   | No Parking - Day/Time Limits\n'
-                           '3   | Failure To Display Meter Receipt\n',
+                           '3   | No Parking - Day/Time Limits\n',
                            'Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n\n'
+                           '3   | Failure To Display Meter Receipt\n'
                            '3   | School Zone Speed Camera Violation\n'
                            '2   | No Parking - Except Authorized Vehicles\n'
                            '2   | Bus Lane Violation\n'
-                           '1   | Failure To Stop At Red Light\n'
-                           '1   | No Standing - Day/Time Limits\n',
+                           '1   | Failure To Stop At Red Light\n',
                            'Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n\n'
+                           '1   | No Standing - Day/Time Limits\n'
                            '1   | No Standing - Except Authorized Vehicle\n'
                            '1   | Obstructing Traffic Or Intersection\n'
                            '1   | Double Parking\n',
