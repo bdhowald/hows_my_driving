@@ -1055,8 +1055,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ]
             ],
             'success': True,
-            'successful_lookup': True,
-            'username': username
+            'successful_lookup': True
         }
 
         mocked_get_unique_identifier.return_value = unique_identifier
@@ -1172,8 +1171,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'request_object': request_object,
             'response_parts': response_parts,
             'success': True,
-            'successful_lookup': True,
-            'username': request_object.username()
+            'successful_lookup': True
         }
 
         mocked_get_unique_identifier.return_value = unique_identifier
@@ -1225,8 +1223,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'request_object': request_object,
             'response_parts': response_parts,
             'success': True,
-            'successful_lookup': True,
-            'username': request_object.username()
+            'successful_lookup': True
         }
 
         mocked_detect_campaigns.return_value = included_campaigns
@@ -1272,8 +1269,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'request_object': request_object,
             'response_parts': response_parts,
             'success': True,
-            'successful_lookup': False,
-            'username': request_object.username()
+            'successful_lookup': False
         }
 
         mocked_detect_campaigns.return_value = []
@@ -1330,8 +1326,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'request_object': request_object,
             'response_parts': response_parts,
             'success': True,
-            'successful_lookup': False,
-            'username': request_object.username()
+            'successful_lookup': False
         }
 
         self.assertEqual(self.aggregator._create_response(
@@ -1372,8 +1367,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'request_object': request_object,
             'response_parts': response_parts,
             'success': True,
-            'successful_lookup': False,
-            'username': request_object.username()
+            'successful_lookup': False
         }
 
         self.assertEqual(self.aggregator._create_response(

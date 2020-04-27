@@ -321,9 +321,6 @@ class TrafficViolationsTweeter:
                         success = reply_event.get('success', False)
 
                         if success:
-                            # Need username for statuses
-                            reply_event['username'] = event.user_handle
-
                             # There's need to tell people that there was an error more than once
                             if not (reply_event.get(
                                     'error_on_lookup') and event.error_on_lookup):
@@ -418,8 +415,9 @@ class TrafficViolationsTweeter:
 
             LOG.debug('responding as status update')
 
-            self._recursively_process_status_updates(reply_event_args.get(
-                'response_parts', {}), message_id, reply_event_args['username'])
+            self._recursively_process_status_updates(
+                response_parts=reply_event_args.get('response_parts', {}),
+                message_id=message_id)
 
         else:
             LOG.error('Unkown message source. Cannot respond.')
@@ -453,8 +451,7 @@ class TrafficViolationsTweeter:
 
     def _recursively_process_status_updates(self,
                                             response_parts: Union[List[any], List[str]],
-                                            message_id: Optional[int] = None,
-                                            username: Optional[str] = None):
+                                            message_id: Optional[int] = None):
 
         """Status responses from the aggregator return lists
         of chunked information (by violation type, by borough, by year, etc.).
@@ -476,12 +473,12 @@ class TrafficViolationsTweeter:
             # Some may be lists themselves
             if isinstance(part, list):
                 message_id = self._recursively_process_status_updates(
-                    part, message_id, username)
+                    response_parts=part,
+                    message_id=message_id)
             else:
                 if self._is_production():
-                    text: str = f'@{username} {part}' if username else part
                     new_message = self.app_api.update_status(
-                        status=text,
+                        status=part,
                         in_reply_to_status_id=message_id,
                         auto_populate_reply_metadata=True)
                     message_id = new_message.id

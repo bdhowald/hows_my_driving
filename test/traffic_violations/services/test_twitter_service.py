@@ -389,7 +389,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts, message_id, username)
+            response_parts=response_parts, message_id=message_id)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -431,7 +431,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts, message_id, username)
+            response_parts=response_parts, message_id=message_id)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -470,7 +470,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts, message_id, username)
+            response_parts=response_parts, message_id=message_id)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -509,7 +509,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts, message_id, username)
+            response_parts=response_parts, message_id=message_id)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -549,7 +549,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._process_response(reply_event_args)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts, message_id, username)
+            response_parts=response_parts, message_id=message_id)
 
     def test_recursively_process_direct_messages(self):
         str1 = 'Some stuff\n'
@@ -586,7 +586,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._is_production = is_production_mock
 
         self.assertEqual(self.tweeter._recursively_process_status_updates(
-            response_parts, original_id, 'BarackObama'), original_id + len(response_parts))
+            response_parts, original_id), original_id + len(response_parts))
 
         self.assertEqual(self.tweeter._recursively_process_status_updates(
-            response_parts, original_id, 'BarackObama'), original_id + len(response_parts))
+            response_parts, original_id), original_id + len(response_parts))

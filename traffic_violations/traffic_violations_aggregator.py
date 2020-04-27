@@ -226,8 +226,7 @@ class TrafficViolationsAggregator:
             'request_object': request_object,
             'response_parts': response_parts,
             'success': True,
-            'successful_lookup': success_on_any_lookup,
-            'username': request_object.username()
+            'successful_lookup': success_on_any_lookup
         }
 
     def _detect_campaigns(self, string_tokens) -> List[Campaign]:
