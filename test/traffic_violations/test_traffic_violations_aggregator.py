@@ -671,6 +671,43 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             self.aggregator._infer_plate_and_state_data(plate_tuples),
             [Vehicle(**data) for data in potential_vehicle_data])
 
+    @ddt.data(
+        {
+            'expected_result': True,
+            'text': '@HowsMyDrivingNY, I found some more ny:123abcd '
+                'ca:6vmd948 xx:7kvj935 state:fl plate:d4kdm4'
+        },
+        {
+            'expected_result': False,
+            'text': '@HowsMyDrivingNY, I love you very much!'
+        },
+        {
+            'expected_result': True,
+            'text':
+                '@HowsMyDrivingNY I found some more state:fl '
+                'plate:d4kdm4 types:pas,com'
+        },
+        {
+            'expected_result': False,
+            'text': '@HowsMyDrivingNY xx:123abcd'
+        }
+    )
+    @ddt.unpack
+    def test_lookup_has_valid_plates(self, expected_result, text):
+        request_object = AccountActivityAPIStatus(
+            message=TwitterEvent(
+                id=1,
+                created_at=random.randint(1500000000000, 1600000000000),
+                event_id=random.randint(1500000000000, 1600000000000),
+                event_text=text,
+                event_type='status',
+                user_handle='BarackObama',
+                user_id=random.randint(100000000, 1000000000)),
+            message_source='status')
+
+        self.assertEqual(self.aggregator.lookup_has_valid_plates(
+            lookup_request=request_object), expected_result)
+
     @mock.patch('traffic_violations.traffic_violations_aggregator.Campaign')
     @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup')
     def test_perform_campaign_lookup(self,

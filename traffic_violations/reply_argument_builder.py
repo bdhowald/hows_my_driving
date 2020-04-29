@@ -3,7 +3,7 @@ import pytz
 import re
 
 from datetime import datetime, timezone
-from typing import Type
+from typing import List, Type
 
 from traffic_violations.constants.lookup_sources import LookupSource
 from traffic_violations.constants.twitter import TwitterAPIAttribute, \

@@ -61,10 +61,21 @@ class TrafficViolationsAggregator:
         self.utc = pytz.timezone('UTC')
 
     def initiate_reply(self, lookup_request: Type[BaseLookupRequest]):
+        """Look up the plates in a request and return the results."""
         LOG.info('Calling initiate_reply')
 
         if lookup_request.requires_response():
             return self._create_response(lookup_request)
+
+    def lookup_has_valid_plates(self, lookup_request: Type[BaseLookupRequest]
+        ) -> bool:
+        """Does the request have valid plates in it requiring a response."""
+
+        potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
+            lookup_request.string_tokens())
+        
+        return any(potential_vehicle.valid_plate for potential_vehicle
+            in potential_vehicles)
 
     def _create_repeat_lookup_string(
             self,
@@ -130,20 +141,22 @@ class TrafficViolationsAggregator:
 
         # Collect response parts here.
         response_parts: List[Any] = []
-        success_on_any_lookup = False
+        
+        # We need to know if any lookups errored out or were successful.
         error_on_any_lookup = False
+        success_on_any_lookup = False
+
+        # Find potential plates
+        potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
+            request_object.string_tokens())
+        LOG.debug(f'potential_vehicles: {potential_vehicles}')
+
+        # Find included campaign hashtags
+        included_campaigns: List[Campaign] = self._detect_campaigns(
+            request_object.string_tokens())
+        LOG.debug(f'included_campaigns: {included_campaigns}')
 
         try:
-            # Find potential plates
-            potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
-                request_object.string_tokens())
-            LOG.debug(f'potential_vehicles: {potential_vehicles}')
-
-            # Find included campaign hashtags
-            included_campaigns: List[Campaign] = self._detect_campaigns(
-                request_object.string_tokens())
-            LOG.debug(f'included_campaigns: {included_campaigns}')
-
             # for each vehicle, we need to determine if the supplied information amounts to a valid plate
             # then we need to look up each valid plate
             # then we need to respond in a single thread in order with the responses
@@ -192,6 +205,7 @@ class TrafficViolationsAggregator:
             if included_campaigns:
                 campaign_lookups: List[Tuple[str, int, int]] = self._perform_campaign_lookup(
                     included_campaigns)
+
                 # Prepend campaign string to response.
                 response_parts.insert(0, self._form_campaign_lookup_response_parts(
                     campaign_lookups))

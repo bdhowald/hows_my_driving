@@ -1,3 +1,4 @@
+import ddt
 import mock
 import os
 import pytz
@@ -7,6 +8,8 @@ import unittest
 
 from datetime import datetime, time, timedelta, timezone
 from dateutil.relativedelta import relativedelta
+
+from typing import List, Optional
 
 from unittest.mock import call, MagicMock
 
@@ -24,14 +27,21 @@ def inc(status, in_reply_to_status_id: int, auto_populate_reply_metadata: bool):
     int_mock.id = (in_reply_to_status_id + 1)
     return int_mock
 
-
+@ddt.ddt
 class TestTrafficViolationsTweeter(unittest.TestCase):
 
     def setUp(self):
         self.tweeter = TrafficViolationsTweeter()
 
+        self.tweeter._app_api = MagicMock(name='app_api')
+        self.tweeter._client_api = MagicMock(name='client_api')
+
+        # mock followers ids to be empty so that asking if the
+        # requesting user is a follower always returns True
+        self.tweeter._client_api.followers_ids.return_value = []
         self.log_patcher = mock.patch(
             'traffic_violations.services.twitter_service.LOG')
+
         self.mocked_log = self.log_patcher.start()
 
     def tearDown(self):
@@ -120,11 +130,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         twitter_event_mock.query.filter.return_value.first.side_effect = [
             None, message_not_needing_event]
 
-        api_mock = MagicMock(name='api')
-        api_mock.list_direct_messages.return_value = [
+        client_api_mock = MagicMock(name='client_api')
+        client_api_mock.list_direct_messages.return_value = [
           message_needing_event, message_not_needing_event]
-        api_mock.lookup_users.return_value = [sender]
-        self.tweeter.client_api = api_mock
+        client_api_mock.lookup_users.return_value = [sender]
+        self.tweeter._client_api = client_api_mock
 
         self.tweeter._find_and_respond_to_missed_direct_messages()
 
@@ -210,14 +220,14 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             user=user)
 
         twitter_event_mock.return_value = new_twitter_event
-        twitter_event_mock.query.filter.order_by.first.return_value = older_twitter_event
-        twitter_event_mock.query.filter.return_value.first.side_effect = [
+        twitter_event_mock.query.filter().order_by().first.return_value = older_twitter_event
+        twitter_event_mock.query.filter().first.side_effect = [
             None, status_not_needing_event]
 
-        api_mock = MagicMock(name='api')
-        api_mock.mentions_timeline.return_value = [
-          status_needing_event, status_not_needing_event]
-        self.tweeter.client_api = api_mock
+        client_api_mock = MagicMock(name='client_api')
+        client_api_mock.mentions_timeline.side_effect = [[
+            status_needing_event, status_not_needing_event], []]
+        self.tweeter._client_api = client_api_mock
 
         self.tweeter._find_and_respond_to_missed_statuses()
 
@@ -229,19 +239,40 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
     def test_find_and_respond_to_missed_statuses_with_no_undetected_events(self, twitter_event_mock):
-        twitter_event_mock.query.filter.order_by.first.return_value = None
+        twitter_event_mock.query.filter().order_by().first.return_value = None
 
         self.tweeter._find_and_respond_to_missed_statuses()
 
-        twitter_event_mock.query.session.add.assert_not_called()
-        twitter_event_mock.query.session.commit.assert_not_called()
+        twitter_event_mock.query.session().add.assert_not_called()
+        twitter_event_mock.query.session().commit.assert_not_called()
 
+    @ddt.data({
+        'event_type': 'direct_message',
+        'is_follower': True
+    }, {
+        'event_type': 'direct_message',
+        'is_follower': False,
+        'response_parts': [
+            'If you would like to look up plates via direct message, '
+            'please follow @HowsMyDrivingNY and try again.']
+    }, {
+        'event_type': 'status',
+        'is_follower': False,
+        'response_parts': [
+            "It appears that you don't follow @HowsMyDrivingNY.\n\n"
+            'No worries, simply like this tweet to perform a query '
+            'or visit https://howsmydrivingny.nyc.']
+    })
+    @ddt.unpack
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
-    def test_find_and_respond_to_twitter_events(self, twitter_event_mock):
+    def test_find_and_respond_to_twitter_events(self,
+                                                twitter_event_mock: MagicMock,
+                                                event_type: str,
+                                                is_follower: bool,
+                                                response_parts: Optional[List[str]] = None):
         db_id = 1
-        random_id = random.randint(10000000000000000000, 20000000000000000000)
-        event_type = 'status'
+        random_id = random.randint(1000000000000000000, 2000000000000000000)
         user_handle = 'bdhowald'
         user_id = random.randint(1000000000, 2000000000)
         event_text = '@HowsMyDrivingNY abc1234:ny'
@@ -270,11 +301,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 id=1,
                 created_at=timestamp,
                 event_id=random_id,
-                event_text='@howsmydrivingny ny:hme6483',
-                event_type='direct_message',
+                event_text=event_text,
+                event_type=event_type,
                 user_handle=user_handle,
-                user_id=30139847),
-            message_source='api')
+                user_id=user_id),
+            message_source=event_type)
 
         twitter_event_mock.get_all_by.return_value = [twitter_event]
         twitter_event_mock.query.filter_by().filter().count.return_value = 0
@@ -286,10 +317,25 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         build_reply_data_mock.return_value = lookup_request
         self.tweeter.reply_argument_builder.build_reply_data = build_reply_data_mock
 
+        application_api_mock = MagicMock(name='application_api')
+        application_api_mock.followers_ids.return_value = [
+            user_id if is_follower else (user_id + 1)]
+        self.tweeter._app_api = application_api_mock
+
+        process_response_mock = MagicMock(name='process_response')
+        process_response_mock.return_value = random_id
+        self.tweeter._process_response = process_response_mock
+
         self.tweeter._find_and_respond_to_twitter_events()
 
-        self.tweeter.aggregator.initiate_reply.assert_called_with(
-            lookup_request=lookup_request)
+        if is_follower:
+            self.tweeter.aggregator.initiate_reply.assert_called_with(
+                lookup_request=lookup_request)
+        else:
+            self.tweeter.aggregator.initiate_reply.assert_not_called()
+            self.tweeter._process_response.assert_called_with(
+                request_object=lookup_request,
+                response_parts=response_parts)
 
     def test_is_production(self):
         self.assertEqual(self.tweeter._is_production(),
@@ -316,25 +362,18 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         combined_message = "@bdhowald #NY_HME6483 has been queried 1 time.\n\nTotal parking and camera violation tickets: 15\n\n4 | No Standing - Day/Time Limits\n3 | No Parking - Street Cleaning\n1 | Failure To Display Meter Receipt\n1 | No Violation Description Available\n1 | Bus Lane Violation\n\n@bdhowald Parking and camera violation tickets for #NY_HME6483, cont'd:\n\n1 | Failure To Stop At Red Light\n1 | No Standing - Commercial Meter Zone\n1 | Expired Meter\n1 | Double Parking\n1 | No Angle Parking\n\n@bdhowald Violations by year for #NY_HME6483:\n\n10 | 2017\n15 | 2018\n\n@bdhowald Known fines for #NY_HME6483:\n\n$200.00 | Fined\n$125.00 | Outstanding\n$75.00   | Paid\n"
 
-        reply_event_args = {
-            'error_on_lookup': False,
-            'request_object': lookup_request,
-            'response_parts': [[combined_message]],
-            'success': True,
-            'successful_lookup': True,
-            'username': username
-        }
-
         mocked_is_production.return_value = True
 
         send_direct_message_mock = MagicMock('send_direct_message_mock')
 
-        api_mock = MagicMock(name='api')
-        api_mock.send_direct_message = send_direct_message_mock
+        application_api_mock = MagicMock(name='application_api')
+        application_api_mock.send_direct_message = send_direct_message_mock
+        self.tweeter._app_api = application_api_mock
 
-        self.tweeter.app_api = api_mock
-
-        self.tweeter._process_response(reply_event_args)
+        self.tweeter._process_response(
+            request_object=lookup_request,
+            response_parts=[[combined_message]],
+            successful_lookup=True)
 
         send_direct_message_mock.assert_called_with(
           recipient_id=30139847,
@@ -378,15 +417,18 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         create_favorite_mock = MagicMock(name='is_production')
         create_favorite_mock.return_value = True
 
-        api_mock = MagicMock(name='api')
-        api_mock.create_favorite = create_favorite_mock
+        application_api_mock = MagicMock(name='application_api')
+        application_api_mock.create_favorite = create_favorite_mock
 
         self.tweeter._is_production = is_production_mock
-        self.tweeter.app_api = api_mock
+        self.tweeter._app_api = application_api_mock
 
         reply_event_args['username'] = username
 
-        self.tweeter._process_response(reply_event_args)
+        self.tweeter._process_response(
+            request_object=lookup_request,
+            response_parts=response_parts,
+            successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
             response_parts=response_parts, message_id=message_id)
@@ -428,7 +470,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         reply_event_args['username'] = username
 
-        self.tweeter._process_response(reply_event_args)
+        self.tweeter._process_response(
+            request_object=lookup_request,
+            response_parts=response_parts,
+            successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
             response_parts=response_parts, message_id=message_id)
@@ -467,7 +512,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         reply_event_args['username'] = username
 
-        self.tweeter._process_response(reply_event_args)
+        self.tweeter._process_response(
+            request_object=lookup_request,
+            response_parts=response_parts,
+            successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
             response_parts=response_parts, message_id=message_id)
@@ -506,7 +554,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         reply_event_args['username'] = username
 
-        self.tweeter._process_response(reply_event_args)
+        self.tweeter._process_response(
+            request_object=lookup_request,
+            response_parts=response_parts,
+            successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
             response_parts=response_parts, message_id=message_id)
@@ -546,7 +597,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         reply_event_args['username'] = username
 
-        self.tweeter._process_response(reply_event_args)
+        self.tweeter._process_response(
+            request_object=lookup_request,
+            response_parts=response_parts,
+            successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
             response_parts=response_parts, message_id=message_id)
@@ -576,13 +630,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             [str1], str2, str3
         ]
 
-        api_mock = MagicMock(name='api')
-        api_mock.update_status = inc
+        application_api_mock = MagicMock(name='application_api')
+        application_api_mock.update_status = inc
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
 
-        self.tweeter.app_api = api_mock
+        self.tweeter._app_api = application_api_mock
         self.tweeter._is_production = is_production_mock
 
         self.assertEqual(self.tweeter._recursively_process_status_updates(

@@ -1,5 +1,7 @@
 from string import Template
 
+from traffic_violations.constants.endpoints import HOWS_MY_DRIVING_NY_WEBSITE
+
 LAST_QUERIED_STRING = "This vehicle was last queried on {} at {}"
 
 LOOKUP_BOROUGH_STRING = 'Violations by borough for {}:\n\n'
@@ -12,6 +14,15 @@ LOOKUP_YEAR_STRING = "Violations by year for {}:\n\n"
 LOOKUP_YEAR_STRING_CONTD = "Violations by year for {}, cont'd:\n\n"
 
 NO_TICKETS_FOUND_STRING = "I couldn't find any tickets for {}:{}{}."
+
+NON_FOLLOWER_DIRECT_MESSAGE_REPLY_STRING = (
+    'If you would like to look up plates via direct message, '
+    'please follow @HowsMyDrivingNY and try again.')
+
+NON_FOLLOWER_TWEET_REPLY_STRING = (
+    "It appears that you don't follow @HowsMyDrivingNY.\n\n"
+    'No worries, simply like this tweet to perform a query '
+    f'or visit {HOWS_MY_DRIVING_NY_WEBSITE}.')
 
 PLATE_TYPES_LOOKUP_STRING = ' (types: {}) '
 
