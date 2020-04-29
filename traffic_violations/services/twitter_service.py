@@ -88,7 +88,7 @@ class TrafficViolationsTweeter:
 
             existing_event: Optional[TwitterEvent] = TwitterEvent.query.filter(TwitterEvent.event_id == message.id).first()
 
-            if not existing_event:
+            if not existing_event and message.user.id != HMDNY_TWITTER_USER_ID:
                 undetected_messages += 1
 
                 sender = senders[message.message_create['sender_id']]
@@ -127,7 +127,7 @@ class TrafficViolationsTweeter:
         for message in messages:
             existing_event: Optional[TwitterEvent] = TwitterEvent.query.filter(TwitterEvent.event_id == message.id).first()
 
-            if not existing_event:
+            if not existing_event and message.user.id != HMDNY_TWITTER_USER_ID:
                 undetected_messages += 1
 
                 event: TwitterEvent = TwitterEvent(
