@@ -398,14 +398,13 @@ class TrafficViolationsTweeter:
 
             LOG.debug('responding as direct message')
 
-            combined_message = self._recursively_process_direct_messages(
+            combined_message = self._recursively_compile_direct_messages(
                 response_parts)
 
             LOG.debug(f'combined_message: {combined_message}')
 
-            self._is_production() and self._get_twitter_application_api().send_direct_message(
-                recipient_id=request_object.user_id if request_object else None,
-                text=combined_message)
+            return self._send_direct_message(message=combined_message,
+                                             recipient_id=request_object.user_id)
 
         elif message_source == LookupSource.STATUS.value:
             # If we have at least one successful lookup, favorite the status
@@ -537,7 +536,7 @@ class TrafficViolationsTweeter:
                     f'Encountered unknown event type. '
                     f'Response is not possible.')
 
-    def _recursively_process_direct_messages(self, response_parts):
+    def _recursively_compile_direct_messages(self, response_parts):
         """Direct message responses from the aggregator return lists
         of chunked information (by violation type, by borough, by year, etc.).
         Data look like:
@@ -558,7 +557,7 @@ class TrafficViolationsTweeter:
         for part in response_parts:
             if isinstance(part, list):
                 return_message.append(
-                    self._recursively_process_direct_messages(part))
+                    self._recursively_compile_direct_messages(part))
             else:
                 return_message.append(part)
 
@@ -566,7 +565,7 @@ class TrafficViolationsTweeter:
 
     def _recursively_process_status_updates(self,
                                             response_parts: Union[List[any], List[str]],
-                                            message_id: Optional[int] = None):
+                                            message_id: Optional[int] = None) -> Optional[int]:
 
         """Status responses from the aggregator return lists
         of chunked information (by violation type, by borough, by year, etc.).
@@ -603,7 +602,23 @@ class TrafficViolationsTweeter:
                 else:
                     LOG.debug(
                         "This is where 'self._get_twitter_application_api()"
-                        ".update_status(part, in_reply_to_status_id = message_id)' "
-                        "would be called in production.")
+                        ".update_status(status=part, in_reply_to_status_id=message_id, "
+                        "auto_populate_reply_metadata=True)' would be called in production.")
+                    return None
 
         return message_id
+
+    def _send_direct_message(self, message: str, recipient_id: int) -> Optional[int]:
+        """Send a direct message to a Twitter user."""
+
+        if self._is_production():
+            new_message = self._get_twitter_application_api().send_direct_message(
+                recipient_id=recipient_id,
+                text=message)
+            return new_message.id
+        else:
+            LOG.debug(
+                "This is where 'self._get_twitter_application_api()"
+                ".send_direct_message(recipient_id=recipient_id, "
+                "text=message)' would be called in production.")
+            return None

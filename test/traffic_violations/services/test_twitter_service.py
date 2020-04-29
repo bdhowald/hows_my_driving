@@ -630,7 +630,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         recursively_process_status_updates_mock.assert_called_with(
             response_parts=response_parts, message_id=message_id)
 
-    def test_recursively_process_direct_messages(self):
+    def test_recursively_compile_direct_messages(self):
         str1 = 'Some stuff\n'
         str2 = 'Some other stuff\nSome more Stuff'
         str3 = 'Yet more stuff'
@@ -641,7 +641,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         result_str = "\n".join([str1, str2, str3])
 
-        self.assertEqual(self.tweeter._recursively_process_direct_messages(
+        self.assertEqual(self.tweeter._recursively_compile_direct_messages(
             response_parts), result_str)
 
     def test_recursively_process_status_updates(self):
