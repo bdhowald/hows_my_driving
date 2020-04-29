@@ -304,7 +304,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_text=event_text,
                 event_type=event_type,
                 user_handle=user_handle,
-                user_id=user_id),
+                user_id=user_id,
+                user_favorited_non_follower_reply=False),
             message_source=event_type)
 
         twitter_event_mock.get_all_by.return_value = [twitter_event]
@@ -318,8 +319,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.reply_argument_builder.build_reply_data = build_reply_data_mock
 
         application_api_mock = MagicMock(name='application_api')
-        application_api_mock.followers_ids.return_value = [
-            user_id if is_follower else (user_id + 1)]
+        application_api_mock.followers_ids.return_value = ([
+            user_id if is_follower else (user_id + 1)], (123, 0))
         self.tweeter._app_api = application_api_mock
 
         process_response_mock = MagicMock(name='process_response')

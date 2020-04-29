@@ -355,7 +355,16 @@ class TrafficViolationsTweeter:
             ((now - self.follower_ids_last_fetched).seconds
                 > self.FOLLOWERS_RATE_LIMITING_INTERVAL_IN_MILLISECONDS)):
 
-            self.follower_ids = sorted(self._get_twitter_application_api().followers_ids())
+            follower_ids = []
+            next_cursor: int = -1
+
+            while next_cursor:
+                results, cursors = self._get_twitter_application_api().followers_ids(cursor=next_cursor)
+                next_cursor = cursors[1]
+                follower_ids += results
+
+            # set follower_ids
+            self.follower_ids = follower_ids
 
             # cache current time
             self.follower_ids_last_fetched = now
@@ -453,7 +462,7 @@ class TrafficViolationsTweeter:
                     message_source=message_source)
 
                 user_is_follower = lookup_request.requesting_user_is_follower(
-                    self._get_follower_ids())
+                    follower_ids=self._get_follower_ids())
 
                 perform_lookup_for_user: bool = (user_is_follower or
                     event.user_favorited_non_follower_reply)
