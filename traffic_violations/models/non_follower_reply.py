@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String
 from sqlalchemy.dialects.mysql import BIGINT
 
 from traffic_violations.models.base import Base
@@ -17,6 +17,7 @@ class NonFollowerReply(Base):
     created_at = Column(BIGINT, nullable=False)
     event_type = Column(String(20), nullable=False)
     event_id = Column(BIGINT, nullable=False)
+    favorited = Column(Boolean, default=False, nullable=False)
     in_reply_to_message_id = Column(BIGINT, nullable=True)
     user_handle = Column(String(30), nullable=False)
     user_id = Column(BIGINT, nullable=False)
