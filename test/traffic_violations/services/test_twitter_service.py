@@ -6,7 +6,7 @@ import random
 import statistics
 import unittest
 
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
 from typing import List, Optional
@@ -337,6 +337,30 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             self.tweeter._process_response.assert_called_with(
                 request_object=lookup_request,
                 response_parts=response_parts)
+
+    @ddt.data({
+        'expect_called': True,
+        'minutes_ago': 20
+    }, {
+        'expect_called': False,
+        'minutes_ago': 10
+    })
+    @ddt.unpack
+    def test_get_follower_ids(self, expect_called: bool, minutes_ago: int):
+        application_api_mock = MagicMock(name='application_api')
+        application_api_mock.followers_ids.return_value = ([1], (0, 0))
+        self.tweeter._app_api = application_api_mock
+
+        self.tweeter._follower_ids_last_fetched = datetime.utcnow() - timedelta(
+            minutes=minutes_ago)
+
+        self.tweeter._get_follower_ids()
+
+        if expect_called:
+            application_api_mock.followers_ids.assert_called_with(cursor=-1)
+        else:
+            application_api_mock.followers_ids.assert_not_called()
+
 
     def test_is_production(self):
         self.assertEqual(self.tweeter._is_production(),

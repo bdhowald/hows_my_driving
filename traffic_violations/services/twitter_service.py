@@ -31,8 +31,7 @@ class TrafficViolationsTweeter:
     DEVELOPMENT_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS = 3000.0
     PRODUCTION_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS = 300.0
 
-    FOLLOWERS_RATE_LIMITING_INTERVAL_IN_MILLISECONDS = (
-        15 * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND)
+    FOLLOWERS_RATE_LIMITING_INTERVAL_IN_SECONDS = 15 * SECONDS_PER_MINUTE
 
     MAX_DIRECT_MESSAGES_RETURNED = 50
 
@@ -53,8 +52,9 @@ class TrafficViolationsTweeter:
         self.events_iteration = 0
         self.statuses_iteration = 0
 
-        # Initialize cached value to None
-        self.follower_ids_last_fetched: Optional[datetime] = None
+        # Initialize cached values to None
+        self._follower_ids: Optional[List[int]] = None
+        self._follower_ids_last_fetched: Optional[datetime] = None
 
     def send_status(self,
                     message_parts: Union[List[any], List[str]],
@@ -351,9 +351,9 @@ class TrafficViolationsTweeter:
         now = datetime.utcnow()
 
         # If cache is empty or stale, refetch.
-        if not self.follower_ids_last_fetched or (
-            ((now - self.follower_ids_last_fetched).seconds
-                > self.FOLLOWERS_RATE_LIMITING_INTERVAL_IN_MILLISECONDS)):
+        if not self._follower_ids_last_fetched or (
+            ((now - self._follower_ids_last_fetched).seconds
+                > self.FOLLOWERS_RATE_LIMITING_INTERVAL_IN_SECONDS)):
 
             follower_ids = []
             next_cursor: int = -1
@@ -364,13 +364,13 @@ class TrafficViolationsTweeter:
                 follower_ids += results
 
             # set follower_ids
-            self.follower_ids = follower_ids
+            self._follower_ids = follower_ids
 
             # cache current time
-            self.follower_ids_last_fetched = now
+            self._follower_ids_last_fetched = now
 
         # Return cached or fetched value.
-        return self.follower_ids
+        return self._follower_ids
 
     def _is_production(self):
         """Determines if we are running in production to see if we can create
