@@ -25,3 +25,4 @@ class TwitterEvent(Base):
     error_on_lookup = Column(Boolean, default=False, nullable=False)
     is_duplicate = Column(Boolean, default=False, nullable=False)
     detected_via_account_activity_api = Column(Boolean, default=True, nullable=False)
+    user_favorited_non_follower_reply = Column(Boolean, default=False, nullable=False)

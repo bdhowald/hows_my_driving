@@ -455,8 +455,11 @@ class TrafficViolationsTweeter:
                 user_is_follower = lookup_request.requesting_user_is_follower(
                     self._get_follower_ids())
 
+                perform_lookup_for_user: bool = (user_is_follower or
+                    event.user_favorited_non_follower_reply)
+
                 if self.aggregator.lookup_has_valid_plates(
-                    lookup_request=lookup_request) and not user_is_follower:
+                    lookup_request=lookup_request) and not perform_lookup_for_user:
 
                     response_parts: List[Any]
 
@@ -477,7 +480,7 @@ class TrafficViolationsTweeter:
                                 MILLISECONDS_PER_SECOND)),
                             event_type=event.event_type,
                             event_id=reply_message_id,
-                            in_reply_to_message_id=event.id,
+                            in_reply_to_message_id=event.event_id,
                             user_handle=event.user_handle,
                             user_id=event.user_id)
 
@@ -486,7 +489,7 @@ class TrafficViolationsTweeter:
                         NonFollowerReply.query.session.commit()
 
                     except tweepy.error.TweepError as e:
-                        reply_to_event['error_on_lookup'] = True
+                        event.error_on_lookup = True
                 else:
                     # Reply to the event.
                     reply_to_event = self.aggregator.initiate_reply(
