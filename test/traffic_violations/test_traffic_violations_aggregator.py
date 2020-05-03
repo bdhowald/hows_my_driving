@@ -371,20 +371,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
                 '\n'
-                '14 | No Standing - Day/Time Limits\n',
+                '14 | No Standing - Day/Time Limits\n'
+                '3   | No Parking - Street Cleaning\n',
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
-                '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
                 '1   | Failure To Stop At Red Light\n'
-                '1   | No Standing - Commercial Meter Zone\n',
+                '1   | No Standing - Commercial Meter Zone\n'
+                '1   | Expired Meter\n',
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
-                '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
                 'Violations by year for #NY_HME6483:\n'
@@ -511,7 +511,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         mocked_tweet_exists.return_value = True
 
-        self.assertEqual(self.aggregator._form_plate_lookup_response_parts(
+        parts = self.aggregator._form_plate_lookup_response_parts(
             borough_data=data['boroughs'],
             camera_streak_data=data['camera_streak_data'],
             fine_data=data['fines'],
@@ -523,7 +523,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             unique_identifier=data['unique_identifier'],
             username=username,
             violations=data['violations'],
-            year_data=data['years']), response)
+            year_data=data['years'])
+
+        self.assertEqual(parts, response)
 
     def test_form_summary_string(self):
 

@@ -36,7 +36,7 @@ class BackfillCameraViolationsJob(BaseJob):
                 count_towards_frequency=True)
         else:
             plate_lookups = PlateLookup.get_all_by(
-                boot_eligible=True,
+                boot_eligible_under_rdaa_threshold=True,
                 count_towards_frequency=True)
 
         threads = []

@@ -80,12 +80,12 @@ class RecklessDriverRetrospectiveJob(BaseJob):
             or_(
                   and_(PlateLookup.created_at >= top_of_the_hour_last_year,
                        PlateLookup.created_at < top_of_the_next_hour_last_year,
-                       PlateLookup.boot_eligible == True,
+                       PlateLookup.boot_eligible_under_rdaa_threshold == True,
                        PlateLookup.count_towards_frequency == True),
                   and_(one_year_after_leap_day,
                        PlateLookup.created_at >= (top_of_the_hour_last_year - relativedelta(days=1)),
                        PlateLookup.created_at < (top_of_the_next_hour_last_year - relativedelta(days=1)),
-                       PlateLookup.boot_eligible == True,
+                       PlateLookup.boot_eligible_under_rdaa_threshold == True,
                        PlateLookup.count_towards_frequency == True)
                 )
         ).group_by(

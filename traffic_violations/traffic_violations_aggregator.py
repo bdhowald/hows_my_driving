@@ -790,7 +790,8 @@ class TrafficViolationsAggregator:
             # If this came from message, add it to the plate_lookups table.
             if plate_query.message_source and plate_query.message_id and plate_query.created_at:
                 new_lookup = PlateLookup(
-                    boot_eligible=camera_streak_data.max_streak >= 5 if camera_streak_data else False,
+                    boot_eligible_under_rdaa_threshold=(
+                      camera_streak_data.max_streak >= 5 if camera_streak_data else False),
                     bus_lane_camera_violations=bus_lane_camera_violations,
                     created_at=plate_query.created_at,
                     message_id=plate_query.message_id,

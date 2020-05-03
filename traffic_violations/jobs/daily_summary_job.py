@@ -66,12 +66,12 @@ class DailySummaryJob(BaseJob):
         num_empty_lookups: int = len([
             lookup for lookup in yesterdays_lookups if lookup.num_tickets == 0])
         num_reckless_drivers: int = len([
-            lookup for lookup in yesterdays_lookups if lookup.boot_eligible == True])
+            lookup for lookup in yesterdays_lookups if lookup.boot_eligible_under_rdaa_threshold == True])
 
         total_reckless_drivers = PlateLookup.query.session.query(
             PlateLookup.plate, PlateLookup.state
         ).distinct().filter(
-            and_(PlateLookup.boot_eligible == True,
+            and_(PlateLookup.boot_eligible_under_rdaa_threshold == True,
                  PlateLookup.count_towards_frequency)).count()
 
         lookups_summary_string = (

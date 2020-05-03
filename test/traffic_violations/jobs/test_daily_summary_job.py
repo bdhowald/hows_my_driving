@@ -48,7 +48,7 @@ class TestDailySummaryJob(unittest.TestCase):
         for _ in range(random.randint(5, 20)):
             lookup = MagicMock()
             lookup.num_tickets = random.randint(1, 200)
-            lookup.boot_eligible = random.random() >= 0.5
+            lookup.boot_eligible_under_rdaa_threshold = random.random() >= 0.5
             plate_lookups.append(lookup)
 
         num_lookups = len(plate_lookups)
@@ -58,7 +58,7 @@ class TestDailySummaryJob(unittest.TestCase):
         num_empty_lookups = len([
             lookup for lookup in plate_lookups if lookup.num_tickets == 0])
         num_reckless_drivers = len([
-            lookup for lookup in plate_lookups if lookup.boot_eligible == True])
+            lookup for lookup in plate_lookups if lookup.boot_eligible_under_rdaa_threshold == True])
 
         mocked_plate_lookup_query.join().all.return_value = plate_lookups
 
