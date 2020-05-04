@@ -273,7 +273,7 @@ def parse_args():
 
     parser.add_argument(
         '--use-dvaa-thresholds',
-        '-d',
+        '-h',
         action='store_true',
         help="Use the higher thresholds (5/15) of the law as signed rather than as proposed (5 combined)")
 
