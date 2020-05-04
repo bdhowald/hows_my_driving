@@ -8,7 +8,7 @@ DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING = (
   'this vehicle could have been booted or impounded '
   'due to its {} {} camera violations '
   '(>= {}/year) from {} '
-  'to {}.')
+  'to {}.\n')
 
 LAST_QUERIED_STRING = "This vehicle was last queried on {} at {}"
 
@@ -41,7 +41,7 @@ RECKLESS_DRIVER_ACCOUNTABILITY_ACT_REPEAT_OFFENDER_STRING = (
     'this vehicle could have been booted or impounded '
     'due to its {} camera violations '
     '(>= 5/year) from {} '
-    'to {}.')
+    'to {}.\n')
 
 REPEAT_CAMERA_OFFENDER_STRING = (
     'Featured #RepeatCameraOffender:\n\n'

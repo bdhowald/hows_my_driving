@@ -416,7 +416,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '$30.00   | Outstanding\n',
                 'Under the Reckless Driver Accountability Act, this vehicle could have been '
                 'booted or impounded due to its 18 camera violations (>= 5/year) '
-                'from September 7, 2015 to August 5, 2016.',
+                'from September 7, 2015 to August 5, 2016.\n',
                 'View more details at https://howsmydrivingny.nyc/a1b2c3d4.'
             ],
             'username': 'bdhowald'
@@ -517,15 +517,15 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '13 | Staten Island\n',
                 'Under the Reckless Driver Accountability Act, this vehicle could have been '
                 'booted or impounded due to its 20 camera violations (>= 5/year) from '
-                'September 7, 2015 to August 5, 2016.',
+                'September 7, 2015 to August 5, 2016.\n',
                 'Under the Dangerous Vehicle Abatement Act, (which will take effect on '
                 '10/26/2020), this vehicle could have been booted or impounded due to its 5 '
                 'red light camera violations (>= 5/year) from September 7, 2015 to June 5, '
-                '2016.',
+                '2016.\n',
                 'Under the Dangerous Vehicle Abatement Act, (which will take effect on '
                 '10/26/2020), this vehicle could have been booted or impounded due to its 15 '
                 'school zone speed camera violations (>= 15/year) from October 14, 2015 to '
-                'August 5, 2016.',
+                'August 5, 2016.\n',
                 'View more details at https://howsmydrivingny.nyc/abcd1234.'
             ],
             'username': 'bdhowald'
