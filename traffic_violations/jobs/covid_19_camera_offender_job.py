@@ -56,7 +56,7 @@ class Covid19CameraOffenderJob(BaseJob):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
         start_date = datetime(2020, 3, 10, 0, 0, 0, 0)
-        end_date = datetime(2020, 4, 20, 23, 59, 59, 999999)
+        end_date = datetime(2020, 4, 27, 23, 59, 59, 999999)
 
         days_in_period = math.ceil((end_date - start_date).total_seconds() / self.SECONDS_IN_A_DAY)
         days_in_year = 366.0
