@@ -838,6 +838,7 @@ class TrafficViolationsAggregator:
                     plate=plate_query.plate,
                     plate_types=plate_query.plate_types,
                     red_light_camera_violations=red_light_camera_violations,
+                    responded_to=True,
                     speed_camera_violations=speed_camera_violations,
                     state=plate_query.state,
                     unique_identifier=unique_identifier,
