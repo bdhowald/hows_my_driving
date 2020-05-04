@@ -267,13 +267,11 @@ def parse_args():
 
     parser.add_argument(
         '--only-visible-tweets',
-        '-o',
         action='store_true',
         help="Only quote still publicly visible tweets.")
 
     parser.add_argument(
         '--use-dvaa-thresholds',
-        '-h',
         action='store_true',
         help="Use the higher thresholds (5/15) of the law as signed rather than as proposed (5 combined)")
 
