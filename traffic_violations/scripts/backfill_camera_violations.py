@@ -5,11 +5,13 @@ import os
 import logging
 import threading
 
-from datetime import datetime
 from typing import List
+
+from traffic_violations.constants import thresholds
 
 from traffic_violations.jobs.base_job import BaseJob
 
+from traffic_violations.models.campaign import Campaign
 from traffic_violations.models.plate_lookup import PlateLookup
 from traffic_violations.models.plate_query import PlateQuery
 from traffic_violations.models.response.open_data_service_response \
@@ -37,6 +39,7 @@ class BackfillCameraViolationsJob(BaseJob):
         else:
             plate_lookups = PlateLookup.get_all_by(
                 boot_eligible_under_rdaa_threshold=True,
+                boot_eligible_under_dvaa_threshold=False,
                 count_towards_frequency=True)
 
         threads = []
@@ -61,8 +64,7 @@ class BackfillCameraViolationsJob(BaseJob):
     def update_lookups(self, lookups: List[PlateLookup]):
 
         for previous_lookup in lookups:
-            now = datetime.utcnow()
-            plate_query: PlateQuery = PlateQuery(created_at=now,
+            plate_query: PlateQuery = PlateQuery(created_at=previous_lookup.created_at,
                                                  message_source=previous_lookup.message_source,
                                                  plate=previous_lookup.plate,
                                                  plate_types=previous_lookup.plate_types,
@@ -94,6 +96,24 @@ class BackfillCameraViolationsJob(BaseJob):
 
             if not previous_lookup.speed_camera_violations:
                 previous_lookup.speed_camera_violations = 0
+
+            if not previous_lookup.boot_eligible_under_dvaa_threshold or True:
+                camera_streak_data = open_data_plate_lookup.camera_streak_data
+
+                red_light_camera_streak_data = camera_streak_data.get('Failure to Stop at Red Light')
+                speed_camera_streak_data = camera_streak_data.get('School Zone Speed Camera Violation')
+
+                eligible_to_be_booted_for_red_light_violations_under_dvaa = (
+                    red_light_camera_streak_data is not None and red_light_camera_streak_data.max_streak >=
+                        thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD)
+
+                eligible_to_be_booted_for_speed_camera_violations_under_dvaa = (
+                    speed_camera_streak_data is not None and speed_camera_streak_data.max_streak >=
+                        thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_SCHOOL_ZONE_SPEED_CAMERA_THRESHOLD)
+
+                previous_lookup.boot_eligible_under_dvaa_threshold = (
+                  eligible_to_be_booted_for_red_light_violations_under_dvaa or
+                      eligible_to_be_booted_for_speed_camera_violations_under_dvaa)
 
             LOG.debug(f'updating lookup {previous_lookup.id}')
             print(f'updating lookup {previous_lookup.id}')

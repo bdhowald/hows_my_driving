@@ -120,7 +120,7 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                 until=previous_lookup.created_at)
 
             lookup_before_query: OpenDataServicePlateLookup = data_before_query.data
-            camera_streak_data_before_query: CameraStreakData = lookup_before_query.camera_streak_data
+            camera_streak_data_before_query: CameraStreakData = lookup_before_query.camera_streak_data['Mixed']
 
             data_after_query: OpenDataServiceResponse = nyc_open_data_service.look_up_vehicle(
                 plate_query=plate_query,

@@ -89,9 +89,17 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
         previous_num_tickets = 123
         previous_username = 'BarackObama'
 
-        max_streak = 20
-        min_streak_date = datetime(2018, 11, 26, 0, 0, 0).strftime('%B %-d, %Y')
-        max_streak_date = datetime(2019, 11, 22, 0, 0, 0).strftime('%B %-d, %Y')
+        rdaa_max_streak = 20
+        rdaa_min_streak_date = datetime(2018, 11, 26, 0, 0, 0).strftime('%B %-d, %Y')
+        rdaa_max_streak_date = datetime(2019, 11, 22, 0, 0, 0).strftime('%B %-d, %Y')
+
+        dvaa_red_light_camera_max_streak = 15
+        dvaa_red_light_camera_min_streak_date = datetime(2018, 9, 14, 0, 0, 0).strftime('%B %-d, %Y')
+        dvaa_red_light_camera_max_streak_date = datetime(2019, 12, 17, 0, 0, 0).strftime('%B %-d, %Y')
+
+        dvaa_speed_camera_max_streak = 15
+        dvaa_speed_camera_min_streak_date = datetime(2018, 11, 26, 0, 0, 0).strftime('%B %-d, %Y')
+        dvaa_speed_camera_max_streak_date = datetime(2019, 11, 22, 0, 0, 0).strftime('%B %-d, %Y')
 
         plate_lookups = [
             PlateLookup(
@@ -111,10 +119,20 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
 
         open_data_plate_lookup_before_previous_lookup = OpenDataServicePlateLookup(
             boroughs=[],
-            camera_streak_data=CameraStreakData(
-                min_streak_date=min_streak_date,
-                max_streak=max_streak,
-                max_streak_date=max_streak_date),
+            camera_streak_data={
+                'Failure to Stop at Red Light': CameraStreakData(
+                    min_streak_date=dvaa_red_light_camera_min_streak_date,
+                    max_streak=dvaa_red_light_camera_max_streak,
+                    max_streak_date=dvaa_red_light_camera_max_streak_date),
+                'Mixed': CameraStreakData(
+                    min_streak_date=rdaa_min_streak_date,
+                    max_streak=rdaa_max_streak,
+                    max_streak_date=rdaa_max_streak_date),
+                'School Zone Speed Camera Violation': CameraStreakData(
+                    min_streak_date=dvaa_speed_camera_min_streak_date,
+                    max_streak=dvaa_speed_camera_max_streak,
+                    max_streak_date=dvaa_speed_camera_max_streak_date),
+            },
             fines=FineData(),
             num_violations=150,
             plate=plate,
@@ -134,10 +152,20 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
 
         open_data_plate_lookup_after_previous_lookup = OpenDataServicePlateLookup(
             boroughs=[],
-            camera_streak_data=CameraStreakData(
-                min_streak_date=min_streak_date,
-                max_streak=max_streak,
-                max_streak_date=max_streak_date),
+            camera_streak_data={
+                'Failure to Stop at Red Light': CameraStreakData(
+                    min_streak_date=dvaa_red_light_camera_min_streak_date,
+                    max_streak=dvaa_red_light_camera_max_streak,
+                    max_streak_date=dvaa_red_light_camera_max_streak_date),
+                'Mixed': CameraStreakData(
+                    min_streak_date=rdaa_min_streak_date,
+                    max_streak=rdaa_max_streak,
+                    max_streak_date=rdaa_max_streak_date),
+                'School Zone Speed Camera Violation': CameraStreakData(
+                    min_streak_date=dvaa_speed_camera_min_streak_date,
+                    max_streak=dvaa_speed_camera_max_streak,
+                    max_streak_date=dvaa_speed_camera_max_streak_date),
+            },
             fines=FineData(),
             num_violations=150,
             plate=plate,

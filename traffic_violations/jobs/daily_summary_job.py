@@ -65,13 +65,21 @@ class DailySummaryJob(BaseJob):
         total_tickets: int = sum(ticket_counts)
         num_empty_lookups: int = len([
             lookup for lookup in yesterdays_lookups if lookup.num_tickets == 0])
-        num_reckless_drivers: int = len([
+        num_rdaa_drivers: int = len([
             lookup for lookup in yesterdays_lookups if lookup.boot_eligible_under_rdaa_threshold == True])
+        num_dvaa_drivers: int = len([
+            lookup for lookup in yesterdays_lookups if lookup.boot_eligible_under_dvaa_threshold == True])
 
-        total_reckless_drivers = PlateLookup.query.session.query(
+        base_query = PlateLookup.query.session.query(
             PlateLookup.plate, PlateLookup.state
-        ).distinct().filter(
+        ).distinct()
+
+        total_rdaa_drivers = base_query.filter(
             and_(PlateLookup.boot_eligible_under_rdaa_threshold == True,
+                 PlateLookup.count_towards_frequency)).count()
+
+        total_dvaa_drivers = base_query.filter(
+            and_(PlateLookup.boot_eligible_under_dvaa_threshold == True,
                  PlateLookup.count_towards_frequency)).count()
 
         lookups_summary_string = (
@@ -89,15 +97,24 @@ class DailySummaryJob(BaseJob):
                 f"and a median of {median} ticket{L10N.pluralize(median)} per vehicle. "
                 f"{num_empty_lookups} lookup{L10N.pluralize(num_empty_lookups)} returned no tickets.")
 
-        reckless_drivers_summary_string = (
-            f"{num_reckless_drivers} {'vehicle was' if num_reckless_drivers == 1 else 'vehicles were'} "
-            f"eligible to be booted or impounded under @bradlander's "
-            f"proposed legislation ({'{:,}'.format(total_reckless_drivers)} such lookups "
-            f"since June 6, 2018).")
+        rdaa_summary_string = (
+            f"{num_rdaa_drivers} {'vehicle was' if num_rdaa_drivers == 1 else 'vehicles were'} "
+            f"eligible to be booted or impounded under the Reckless Driver Accountability Act "
+            f"(>= 5 camera violations in 12 months). "
+            f"There have been {'{:,}'.format(total_rdaa_drivers)} such vehicles queried "
+            f"since June 6, 2018.")
+
+        dvaa_summary_string = (
+            f"{num_dvaa_drivers} {'vehicle was' if num_dvaa_drivers == 1 else 'vehicles were'} "
+            f"eligible to be booted or impounded under @bradlander's Dangerous Vehicle Abatement Act "
+            f"(>= 5 red light camera violations or >= 15 speed camera violations in 12 months). "
+            f"There have been {'{:,}'.format(total_dvaa_drivers)} such vehicles queried "
+            f"since June 6, 2018.")
 
         messages: List[str] = [
-          lookups_summary_string,
-          reckless_drivers_summary_string]
+            lookups_summary_string,
+            rdaa_summary_string,
+            dvaa_summary_string]
 
         if not is_dry_run:
             success: bool = tweeter.send_status(
@@ -108,6 +125,9 @@ class DailySummaryJob(BaseJob):
 
             if success:
                 LOG.debug('Daily summary plate ran successfully.')
+
+        else:
+            print(messages)
 
 def parse_args():
     parser = argparse.ArgumentParser(

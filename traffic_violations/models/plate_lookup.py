@@ -16,6 +16,7 @@ class PlateLookup(Base):
 
     # columns
     id = Column(Integer, primary_key=True)
+    boot_eligible_under_dvaa_threshold = Column(Boolean, default=False, nullable=False)
     boot_eligible_under_rdaa_threshold = Column(Boolean, default=False, nullable=False)
     bus_lane_camera_violations = Column(INTEGER(unsigned=True), nullable=True)
     count_towards_frequency = Column(Boolean, default=True, nullable=False)

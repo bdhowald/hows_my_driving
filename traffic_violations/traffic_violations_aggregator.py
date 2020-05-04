@@ -13,7 +13,7 @@ from sqlalchemy import and_, func
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from traffic_violations.constants import (L10N, endpoints, lookup_sources,
-    twitter as twitter_constants, regexps as regexp_constants)
+    thresholds, twitter as twitter_constants, regexps as regexp_constants)
 
 from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.campaign import Campaign
@@ -46,6 +46,14 @@ LOG = logging.getLogger(__name__)
 
 class TrafficViolationsAggregator:
 
+    CAMERA_THRESHOLDS = {
+        'Mixed': thresholds.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_THRESHOLD,
+        'Failure to Stop at Red Light':
+            thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD,
+        'School Zone Speed Camera Violation':
+            thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_SCHOOL_ZONE_SPEED_CAMERA_THRESHOLD
+    }
+
     CAMERA_VIOLATIONS = ['Bus Lane Violation',
                          'Failure To Stop At Red Light',
                          'School Zone Speed Camera Violation']
@@ -73,7 +81,7 @@ class TrafficViolationsAggregator:
 
         potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
             lookup_request.string_tokens())
-        
+
         return any(potential_vehicle.valid_plate for potential_vehicle
             in potential_vehicles)
 
@@ -141,7 +149,7 @@ class TrafficViolationsAggregator:
 
         # Collect response parts here.
         response_parts: List[Any] = []
-        
+
         # We need to know if any lookups errored out or were successful.
         error_on_any_lookup = False
         success_on_any_lookup = False
@@ -376,7 +384,7 @@ class TrafficViolationsAggregator:
             username: str,
             violations: List[Tuple[str, int]],
             year_data: List[Tuple[str, int]],
-            camera_streak_data: Optional[CameraStreakData] = None,
+            camera_streak_data: Dict[str, CameraStreakData] = None,
             previous_lookup: Optional[PlateLookup] = None):
 
         # response_chunks holds tweet-length-sized parts of the response
@@ -480,20 +488,41 @@ class TrafficViolationsAggregator:
             # add to container
             response_chunks.append(cur_string)
 
-        if camera_streak_data:
+        for camera_violation_type, threshold in self.CAMERA_THRESHOLDS.items():
+            violation_type_data = camera_streak_data[camera_violation_type]
 
-            if camera_streak_data.max_streak and camera_streak_data.max_streak >= 5:
+            if violation_type_data:
 
-                # formulate streak string
-                streak_string = (
-                    f"Under @bradlander's proposed legislation, "
-                    f"this vehicle could have been booted or impounded "
-                    f"due to its {camera_streak_data.max_streak} camera violations "
-                    f"(>= 5/year) from {camera_streak_data.min_streak_date}"
-                    f" to {camera_streak_data.max_streak_date}.\n")
+                if (camera_violation_type == 'Mixed' and
+                    violation_type_data.max_streak >= threshold):
 
-                # add to container
-                response_chunks.append(streak_string)
+                    # add to container
+                    response_chunks.append(L10N.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_REPEAT_OFFENDER_STRING.format(
+                        violation_type_data.max_streak, violation_type_data.min_streak_date,
+                        violation_type_data.max_streak_date))
+
+                elif (camera_violation_type == 'Failure to Stop at Red Light' and
+                    violation_type_data.max_streak >= threshold):
+
+                    # add to container
+                    response_chunks.append(L10N.DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING.format(
+                        violation_type_data.max_streak,
+                        'red light',
+                        threshold,
+                        violation_type_data.min_streak_date,
+                        violation_type_data.max_streak_date))
+
+                elif (camera_violation_type == 'School Zone Speed Camera Violation' and
+                    violation_type_data.max_streak >= threshold):
+
+                    # add to container
+                    response_chunks.append(L10N.DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING.format(
+                        violation_type_data.max_streak,
+                        'school zone speed',
+                        threshold,
+                        violation_type_data.min_streak_date,
+                        violation_type_data.max_streak_date))
+
 
         unique_link: str = self._get_website_plate_lookup_link(unique_identifier)
 
@@ -790,8 +819,17 @@ class TrafficViolationsAggregator:
             # If this came from message, add it to the plate_lookups table.
             if plate_query.message_source and plate_query.message_id and plate_query.created_at:
                 new_lookup = PlateLookup(
+                    boot_eligible_under_dvaa_threshold=(
+                        camera_streak_data['Failure to Stop at Red Light'].max_streak >=
+                            thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
+                                if camera_streak_data['Failure to Stop at Red Light'] else False or
+                        camera_streak_data['School Zone Speed Camera Violation'].max_streak >=
+                            thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
+                                if camera_streak_data['School Zone Speed Camera Violation'] else False),
                     boot_eligible_under_rdaa_threshold=(
-                      camera_streak_data.max_streak >= 5 if camera_streak_data else False),
+                      camera_streak_data['Mixed'].max_streak >=
+                          thresholds.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_THRESHOLD
+                              if camera_streak_data['Mixed'] else False),
                     bus_lane_camera_violations=bus_lane_camera_violations,
                     created_at=plate_query.created_at,
                     message_id=plate_query.message_id,

@@ -355,10 +355,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ],
                 'fines': FineData(**{'fined': 180.0, 'reduced': 50.0,
                                      'paid': 100.0, 'outstanding': 30.0}),
-                'camera_streak_data':
-                    CameraStreakData(**{'min_streak_date': 'September 7, 2015',
-                                        'max_streak': 4,
-                                        'max_streak_date': 'November 5, 2015'}),
+                'camera_streak_data': {
+                    'Failure to Stop at Red Light': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 4,
+                        'max_streak_date': 'June 5, 2016'}),
+                    'Mixed': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 18,
+                        'max_streak_date': 'August 5, 2016'}),
+                    'School Zone Speed Camera Violation': CameraStreakData(**{
+                        'min_streak_date': 'October 14, 2015',
+                        'max_streak': 14,
+                        'max_streak_date': 'August 5, 2016'}),
+                },
                 'unique_identifier': 'a1b2c3d4',
             },
             'response': [
@@ -404,6 +414,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '$50.00   | Reduced\n'
                 '$100.00 | Paid\n'
                 '$30.00   | Outstanding\n',
+                'Under the Reckless Driver Accountability Act, this vehicle could have been '
+                'booted or impounded due to its 18 camera violations (>= 5/year) '
+                'from September 7, 2015 to August 5, 2016.',
                 'View more details at https://howsmydrivingny.nyc/a1b2c3d4.'
             ],
             'username': 'bdhowald'
@@ -448,10 +461,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ],
                 'fines': FineData(**{'fined': 0.0, 'reduced': 0.0,
                                      'paid': 0.0, 'outstanding': 0.0}),
-                'camera_streak_data':
-                    CameraStreakData(**{'min_streak_date': 'September 7, 2015',
-                                        'max_streak': 5,
-                                        'max_streak_date': 'November 5, 2015'}),
+                'camera_streak_data': {
+                    'Failure to Stop at Red Light': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 5,
+                        'max_streak_date': 'June 5, 2016'}),
+                    'Mixed': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 20,
+                        'max_streak_date': 'August 5, 2016'}),
+                    'School Zone Speed Camera Violation': CameraStreakData(**{
+                        'min_streak_date': 'October 14, 2015',
+                        'max_streak': 15,
+                        'max_streak_date': 'August 5, 2016'}),
+                },
                 'unique_identifier': 'abcd1234',
             },
             'response': [
@@ -492,9 +515,17 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '7   | Brooklyn\n'
                 '2   | Queens\n'
                 '13 | Staten Island\n',
-                "Under @bradlander's proposed legislation, this vehicle could "
-                "have been booted or impounded due to its 5 camera violations "
-                "(>= 5/year) from September 7, 2015 to November 5, 2015.\n",
+                'Under the Reckless Driver Accountability Act, this vehicle could have been '
+                'booted or impounded due to its 20 camera violations (>= 5/year) from '
+                'September 7, 2015 to August 5, 2016.',
+                'Under the Dangerous Vehicle Abatement Act, (which will take effect on '
+                '10/26/2020), this vehicle could have been booted or impounded due to its 5 '
+                'red light camera violations (>= 5/year) from September 7, 2015 to June 5, '
+                '2016.',
+                'Under the Dangerous Vehicle Abatement Act, (which will take effect on '
+                '10/26/2020), this vehicle could have been booted or impounded due to its 15 '
+                'school zone speed camera violations (>= 15/year) from October 14, 2015 to '
+                'August 5, 2016.',
                 'View more details at https://howsmydrivingny.nyc/abcd1234.'
             ],
             'username': 'bdhowald'
@@ -861,7 +892,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'county': 'MN',
                 'fine_amount': '50',
                 'interest_amount': '0',
-                'issue_date': '01/27/2018',
+                'issue_date': '01/29/2018',
                 'issuing_agency': 'DEPARTMENT OF TRANSPORTATION',
                 'license_type': 'SRF',
                 'payment_amount': '75',
@@ -889,6 +920,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 **{'max_streak': 2,
                    'min_streak_date': 'January 27, 2018',
                    'max_streak_date': 'January 27, 2018'}),
+            'camera_streak_data': {
+                'Failure to Stop at Red Light': CameraStreakData(**{
+                    'min_streak_date': 'January 29, 2018',
+                    'max_streak': 1,
+                    'max_streak_date': 'January 29, 2018'}),
+                'Mixed': CameraStreakData(**{
+                    'min_streak_date': 'January 27, 2018',
+                    'max_streak': 2,
+                    'max_streak_date': 'January 29, 2018'}),
+                'School Zone Speed Camera Violation': CameraStreakData(**{
+                    'min_streak_date': 'January 27, 2018',
+                    'max_streak': 1,
+                    'max_streak_date': 'January 27, 2018'}),
+            },
             'fines': FineData(**{'fined': 275.0, 'reduced': 20.0,
                                  'paid': 125.0, 'outstanding': 180.0}),
             'num_violations': 4,
@@ -1013,6 +1058,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 {'count': 4, 'title': 'Queens'},
                 {'count': 5, 'title': 'Staten Island'}
             ],
+            'camera_streak_data': {
+                'Failure to Stop at Red Light': None,
+                'Mixed': None,
+                'School Zone Speed Camera Violation': None
+            },
             'fines': FineData(**{'fined': 200.0, 'paid': 75.0,
                                  'outstanding': 125.0}),
             'num_violations': num_tickets,
@@ -1133,6 +1183,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         )
         plate_lookup_data = {
             'boroughs': [],
+            'camera_streak_data': {
+                'Failure to Stop at Red Light': CameraStreakData(**{
+                    'min_streak_date': 'September 7, 2015',
+                    'max_streak': 1,
+                    'max_streak_date': 'June 5, 2016'}),
+                'Mixed': CameraStreakData(**{
+                    'min_streak_date': 'September 7, 2015',
+                    'max_streak': 2,
+                    'max_streak_date': 'August 5, 2016'}),
+                'School Zone Speed Camera Violation': CameraStreakData(**{
+                    'min_streak_date': 'October 14, 2015',
+                    'max_streak': 2,
+                    'max_streak_date': 'August 5, 2016'}),
+            },
             'fines': FineData(**{'fined': 1000.0, 'reduced': 0.0,
                                  'paid': 775.0, 'outstanding': 225.0}),
             'num_violations': 44,
@@ -1217,8 +1281,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         mocked_perform_plate_lookup.return_value = plate_lookup
         mocked_query_for_lookup_frequency.return_value = 2
 
-        self.assertEqual(self.aggregator._create_response(
-            request_object), response)
+        parts = self.aggregator._create_response(request_object)
+
+        self.assertEqual(parts, response)
 
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_campaign_lookup')

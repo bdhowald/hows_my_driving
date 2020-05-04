@@ -19,6 +19,7 @@ from traffic_violations.constants.open_data.needed_fields import \
     OPEN_PARKING_AND_CAMERA_VIOLATIONS_NEEDED_FIELDS, \
     OPEN_PARKING_AND_CAMERA_VIOLATIONS_FINE_KEYS
 from traffic_violations.constants.open_data.violations import \
+    CAMERA_VIOLATIONS, CAMERA_STREAK_DATA_TYPES, \
     HUMANIZED_NAMES_FOR_OPEN_PARKING_AND_CAMERA_VIOLATIONS, \
     HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS
 from traffic_violations.constants.precincts import PRECINCTS_BY_BOROUGH
@@ -41,9 +42,6 @@ LOG = logging.getLogger(__name__)
 
 
 class OpenDataService:
-
-    CAMERA_VIOLATIONS = ['Failure to Stop at Red Light',
-                         'School Zone Speed Camera Violation']
 
     MAX_RESULTS = 10_000
 
@@ -178,13 +176,17 @@ class OpenDataService:
         boroughs: List[Tuple[str, int]] = Counter([v['borough'].title() for v in violations.values(
         ) if v.get('borough')]).most_common()
 
-        camera_streak_data: Optional[CameraStreakData] = self._find_max_camera_violations_streak(
+        camera_violations_by_type: Dict[str, CameraStreakData] = { violation_type: self._find_max_camera_violations_streak(
             sorted([datetime.strptime(v['issue_date'], self.TIME_FORMAT) for v in violations.values(
-            ) if v.get('violation') and v['violation'] in self.CAMERA_VIOLATIONS]))
+            ) if v.get('violation') == violation_type])) for violation_type in CAMERA_VIOLATIONS }
+
+        camera_violations_by_type['Mixed'] = self._find_max_camera_violations_streak(
+            sorted([datetime.strptime(v['issue_date'], self.TIME_FORMAT) for v in violations.values(
+            ) if v.get('violation') and v['violation'] in CAMERA_VIOLATIONS]))
 
         return OpenDataServicePlateLookup(
             boroughs=[{'count': v, 'title': k.title()} for k, v in boroughs],
-            camera_streak_data=camera_streak_data,
+            camera_streak_data=camera_violations_by_type,
             fines=fines,
             num_violations=len(violations),
             plate=plate_query.plate,
