@@ -45,6 +45,8 @@ class RecklessDriverRetrospectiveJob(BaseJob):
 
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
+        use_dvaa_thresholds: bool = kwargs.get('use_dvaa_thresholds') or False
+        use_only_visible_tweets: bool = kwargs.get('use_only_visible_tweets') or False
 
         tweet_detection_service = TweetDetectionService()
         tweeter = TrafficViolationsTweeter()
@@ -74,21 +76,32 @@ class RecklessDriverRetrospectiveJob(BaseJob):
         top_of_the_next_hour_last_year = (
             top_of_the_hour_last_year + relativedelta(hours=1))
 
-        recent_plate_lookup_ids: List[Tuple[int]] = PlateLookup.query.session.query(
+        if use_dvaa_thresholds:
+            threshold_attribute: str = 'boot_eligible_under_dvaa_threshold'
+        else:
+            threshold_attribute: str = 'boot_eligible_under_rdaa_threshold'
+
+        base_query: List[Tuple[int]] = PlateLookup.query.session.query(
             func.max(PlateLookup.id).label('most_recent_vehicle_lookup')
         ).filter(
             or_(
                   and_(PlateLookup.created_at >= top_of_the_hour_last_year,
                        PlateLookup.created_at < top_of_the_next_hour_last_year,
-                       PlateLookup.boot_eligible_under_rdaa_threshold == True,
+                       getattr(PlateLookup, threshold_attribute) == True,
                        PlateLookup.count_towards_frequency == True),
                   and_(one_year_after_leap_day,
                        PlateLookup.created_at >= (top_of_the_hour_last_year - relativedelta(days=1)),
                        PlateLookup.created_at < (top_of_the_next_hour_last_year - relativedelta(days=1)),
-                       PlateLookup.boot_eligible_under_rdaa_threshold == True,
+                       getattr(PlateLookup, threshold_attribute) == True,
                        PlateLookup.count_towards_frequency == True)
                 )
-        ).group_by(
+        )
+
+        if use_only_visible_tweets:
+            base_query = base_query.filter(
+                PlateLookup.message_source == lookup_sources.LookupSource.STATUS.value)
+
+        recent_plate_lookup_ids = base_query.group_by(
             PlateLookup.plate,
             PlateLookup.state
         ).all()
@@ -198,6 +211,11 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                 else:
                     reckless_driver_summary_string += '.'
 
+                if use_only_visible_tweets and not can_link_tweet:
+                    # If we're only displaying tweets we can quote tweet,
+                    # skip this one since we can'tt.
+                    continue
+
                 reckless_driver_update_string = (
                     f'From {camera_streak_data_before_query.min_streak_date} to '
                     f'{camera_streak_data_before_query.max_streak_date}, this vehicle '
@@ -247,6 +265,18 @@ def parse_args():
         action='store_true',
         help="Don't tweet results")
 
+    parser.add_argument(
+        '--only-visible-tweets',
+        '-o',
+        action='store_true',
+        help="Only quote still publicly visible tweets.")
+
+    parser.add_argument(
+        '--use-dvaa-thresholds',
+        '-d',
+        action='store_true',
+        help="Use the higher thresholds (5/15) of the law as signed rather than as proposed (5 combined)")
+
     return parser.parse_args()
 
 
@@ -254,4 +284,7 @@ if __name__ == '__main__':
     arguments = parse_args()
 
     job = RecklessDriverRetrospectiveJob()
-    job.run(is_dry_run=arguments.dry_run)
+    job.run(
+        is_dry_run=arguments.dry_run,
+        use_dvaa_thresholds=arguments.use_dvaa_thresholds,
+        use_only_visible_tweets=arguments.only_visible_tweets)
