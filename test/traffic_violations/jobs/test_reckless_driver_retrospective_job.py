@@ -262,15 +262,11 @@ class TestRecklessDriverRetrospectiveJob(unittest.TestCase):
             f'{red_light_camera_tickets_diff_string}'
             f'{speed_camera_tickets_diff_string}')
 
-        reckless_string = (
-            f'Thank you to @bradlander for making the Dangerous Driver '
-            f'Abatement Act a reality.')
-
         job.run(is_dry_run=dry_run, use_only_visible_tweets=use_only_visible_tweets)
 
         if expect_response:
             mocked_traffic_violations_tweeter().send_status.assert_called_with(
-                message_parts=[summary_string, update_string, reckless_string],
+                message_parts=[summary_string, update_string],
                 on_error_message=(
                     f'Error printing reckless driver update. '
                     f'Tagging @bdhowald.'))

@@ -226,14 +226,9 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     f'{red_light_camera_violations_string}'
                     f'{speed_camera_violations_string}')
 
-                advocacy_string = (
-                    f'Thank you to @bradlander for making the Dangerous Driver '
-                    f'Abatement Act a reality.')
-
                 messages: List[str] = [
                     reckless_driver_summary_string,
-                    reckless_driver_update_string,
-                    advocacy_string]
+                    reckless_driver_update_string]
 
                 if not is_dry_run:
                     success: bool = tweeter.send_status(
@@ -247,7 +242,6 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                                   'ran successfully.')
                 else:
                     print(reckless_driver_update_string)
-                    print(advocacy_string)
 
     def _is_leap_year(self, year):
         if (year % 400 == 0) or (year % 4 == 0 and year % 100 != 0):
