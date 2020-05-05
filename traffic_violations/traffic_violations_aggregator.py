@@ -537,8 +537,9 @@ class TrafficViolationsAggregator:
                              ) -> Optional[str]:
 
         num_vehicles = len(summary.plate_lookups)
-        vehicle_tickets = [len(lookup.violations)
-                           for lookup in summary.plate_lookups]
+        vehicle_tickets = [sum(
+            violation_type['count'] for violation_type in vehicle.violations)
+                for vehicle in summary.plate_lookups]
         total_tickets = sum(vehicle_tickets)
 
         fines_by_vehicle: List[FineData] = [lookup.fines for lookup in summary.plate_lookups]

@@ -571,7 +571,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         vehicle1_mock = MagicMock(name='vehicle1')
         vehicle1_mock.fines = vehicle1_fine_data
-        vehicle1_mock.violations = [{} for _ in range(random.randint(10, 20))]
+        vehicle1_mock.violations = [{'count': x} for x in range(random.randint(10, 20))]
 
         vehicle2_fined = random.randint(10, 20000)
         vehicle2_reduced = random.randint(0, vehicle2_fined)
@@ -583,7 +583,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             reduced=vehicle2_reduced)
         vehicle2_mock = MagicMock(name='vehicle2')
         vehicle2_mock.fines = vehicle2_fine_data
-        vehicle2_mock.violations = [{} for _ in range(random.randint(10, 20))]
+        vehicle2_mock.violations = [{'count': x} for x in range(random.randint(10, 20))]
 
         vehicle3_mock = MagicMock(name='vehicle3')
         vehicle3_mock.fines = FineData(
@@ -598,7 +598,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         summary: TrafficViolationsAggregatorResponse = TrafficViolationsAggregatorResponse(
             plate_lookups=[vehicle1_mock, vehicle2_mock, vehicle3_mock])
 
-        total_tickets = sum(len(lookup.violations)
+        total_tickets = sum(sum(violation_type['count'] for violation_type in lookup.violations)
                             for lookup in summary.plate_lookups)
 
         self.assertEqual(
