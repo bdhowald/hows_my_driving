@@ -509,7 +509,7 @@ class TrafficViolationsTweeter:
                         # There's no need to tell people that
                         # there was an error more than once.
                         if not (reply_to_event[
-                            'error_on_lookup'] and event.error_on_lookup):
+                                'error_on_lookup'] and event.error_on_lookup):
 
                             try:
                                 self._process_response(

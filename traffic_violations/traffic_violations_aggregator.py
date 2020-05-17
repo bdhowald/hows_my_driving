@@ -165,9 +165,9 @@ class TrafficViolationsAggregator:
         LOG.debug(f'included_campaigns: {included_campaigns}')
 
         try:
-            # for each vehicle, we need to determine if the supplied information amounts to a valid plate
-            # then we need to look up each valid plate
-            # then we need to respond in a single thread in order with the responses
+            # for each vehicle, we determine if the supplied information amounts to a valid plate
+            # then we look up each valid plate
+            # then we respond in a single thread in order with the responses
 
             summary: TrafficViolationsAggregatorResponse = TrafficViolationsAggregatorResponse()
 
@@ -176,13 +176,13 @@ class TrafficViolationsAggregator:
                 if potential_vehicle.valid_plate:
                     # If the plate is valid, process it by doing a lookup.
                     vehicle_response: ValidVehicleResponse = self._process_valid_vehicle(
-                                            campaigns=included_campaigns,
-                                            lookup_summary=summary,
-                                            request_object=request_object,
-                                            vehicle=potential_vehicle)
+                        campaigns=included_campaigns,
+                        request_object=request_object,
+                        vehicle=potential_vehicle)
 
                     # Add lookup to summary
-                    summary.plate_lookups.append(vehicle_response.plate_lookup)
+                    if vehicle_response.plate_lookup:
+                        summary.plate_lookups.append(vehicle_response.plate_lookup)
 
                     # Keep track of any error while looking up a plate.
                     error_on_any_lookup = error_on_any_lookup or vehicle_response.error_on_lookup
@@ -193,8 +193,8 @@ class TrafficViolationsAggregator:
                 else:
                     # If the plate is invalid, process it by gathering response parts.
                     vehicle_response: InvalidVehicleResponse = self._process_invalid_vehicle(
-                                            request_object=request_object,
-                                            invalid_vehicle=potential_vehicle)
+                        request_object=request_object,
+                        invalid_vehicle=potential_vehicle)
 
                 # Add response parts.
                 response_parts.append(vehicle_response.response_parts)
@@ -513,7 +513,7 @@ class TrafficViolationsAggregator:
                         violation_type_data.max_streak_date))
 
                 elif (camera_violation_type == 'School Zone Speed Camera Violation' and
-                    violation_type_data.max_streak >= threshold):
+                      violation_type_data.max_streak >= threshold):
 
                     # add to container
                     response_chunks.append(L10N.DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING.format(
@@ -539,7 +539,7 @@ class TrafficViolationsAggregator:
         num_vehicles = len(summary.plate_lookups)
         vehicle_tickets = [sum(
             violation_type['count'] for violation_type in vehicle.violations)
-                for vehicle in summary.plate_lookups]
+                           for vehicle in summary.plate_lookups]
         total_tickets = sum(vehicle_tickets)
 
         fines_by_vehicle: List[FineData] = [lookup.fines for lookup in summary.plate_lookups]
@@ -547,7 +547,9 @@ class TrafficViolationsAggregator:
         vehicles_with_fines: int = len([
             fine_data for fine_data in fines_by_vehicle if fine_data.fined > 0])
 
-        aggregate_fines: FineData = FineData(**{field: sum(getattr(lookup.fines, field) for lookup in summary.plate_lookups) for field in FineData.FINE_FIELDS})
+        aggregate_fines: FineData = FineData(**{
+            field: sum(getattr(lookup.fines, field) for lookup
+                       in summary.plate_lookups) for field in FineData.FINE_FIELDS})
 
         if aggregate_fines.fined > 0:
             return [
@@ -822,15 +824,15 @@ class TrafficViolationsAggregator:
                 new_lookup = PlateLookup(
                     boot_eligible_under_dvaa_threshold=(
                         camera_streak_data['Failure to Stop at Red Light'].max_streak >=
-                            thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
-                                if camera_streak_data['Failure to Stop at Red Light'] else False or
+                        thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
+                        if camera_streak_data['Failure to Stop at Red Light'] else False or
                         camera_streak_data['School Zone Speed Camera Violation'].max_streak >=
-                            thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
-                                if camera_streak_data['School Zone Speed Camera Violation'] else False),
+                        thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
+                        if camera_streak_data['School Zone Speed Camera Violation'] else False),
                     boot_eligible_under_rdaa_threshold=(
-                      camera_streak_data['Mixed'].max_streak >=
-                          thresholds.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_THRESHOLD
-                              if camera_streak_data['Mixed'] else False),
+                        camera_streak_data['Mixed'].max_streak >=
+                        thresholds.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_THRESHOLD
+                        if camera_streak_data['Mixed'] else False),
                     bus_lane_camera_violations=bus_lane_camera_violations,
                     created_at=plate_query.created_at,
                     message_id=plate_query.message_id,
@@ -855,7 +857,7 @@ class TrafficViolationsAggregator:
                 PlateLookup.query.session.commit()
 
         else:
-            LOG.info(f'open data plate lookup failed')
+            LOG.info('open data plate lookup failed')
 
         return open_data_response
 
@@ -906,7 +908,7 @@ class TrafficViolationsAggregator:
         return InvalidVehicleResponse(response_parts=plate_lookup_response_parts)
 
     def _process_lookup_without_detected_vehicles(self,
-        request_object: BaseLookupRequest) -> NonVehicleResponse:
+                                                  request_object: BaseLookupRequest) -> NonVehicleResponse:
 
         """Process a lookup that had no detected vehicles, either partial or
         complete, by determining if the user was likely trying to submit a
@@ -972,10 +974,9 @@ class TrafficViolationsAggregator:
 
 
     def _process_valid_vehicle(self,
-                             campaigns: List[Campaign],
-                             lookup_summary: TrafficViolationsAggregatorResponse,
-                             request_object: BaseLookupRequest,
-                             vehicle: Vehicle) -> ValidVehicleResponse:
+                               campaigns: List[Campaign],
+                               request_object: BaseLookupRequest,
+                               vehicle: Vehicle) -> ValidVehicleResponse:
 
         """Process a valid plate by:
 
@@ -988,6 +989,7 @@ class TrafficViolationsAggregator:
         error_on_plate_lookup: bool = False
         plate_lookup_response_parts: List[Any]
         success_on_plate_lookup: bool = False
+        plate_lookup: Optional[OpenDataServicePlateLookup] = None
 
         plate_query: PlateQuery = self._get_plate_query(vehicle=vehicle,
                                                         request_object=request_object)
@@ -1038,9 +1040,9 @@ class TrafficViolationsAggregator:
                     f' (types: {plate_query.plate_types})') if plate_lookup.plate_types else ''
 
                 plate_lookup_response_parts = L10N.NO_TICKETS_FOUND_STRING.format(
-                        plate_query.state,
-                        plate_lookup.plate,
-                        plate_types_string)
+                    plate_query.state,
+                    plate_lookup.plate,
+                    plate_types_string)
 
         else:
             # Record lookup error.

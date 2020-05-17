@@ -325,11 +325,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': 'No Parking - Street Cleaning', 'count': 3},
                     {'title': 'Failure To Display Meter Receipt', 'count': 1},
                     {'title': 'No Violation Description Available',
-                        'count': 1},
+                     'count': 1},
                     {'title': 'Bus Lane Violation', 'count': 1},
                     {'title': 'Failure To Stop At Red Light', 'count': 1},
                     {'title': 'No Standing - Commercial Meter Zone',
-                        'count': 1},
+                     'count': 1},
                     {'title': 'Expired Meter', 'count': 1},
                     {'title': 'Double Parking', 'count': 1},
                     {'title': 'No Angle Parking', 'count': 1}
@@ -381,20 +381,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '\n'
                 'Total parking and camera violation tickets: 25\n'
                 '\n'
-                '14 | No Standing - Day/Time Limits\n'
-                '3   | No Parking - Street Cleaning\n',
+                '14 | No Standing - Day/Time Limits\n',
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
+                '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
                 '1   | Failure To Stop At Red Light\n'
-                '1   | No Standing - Commercial Meter Zone\n'
-                '1   | Expired Meter\n',
+                '1   | No Standing - Commercial Meter Zone\n',
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
+                '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
                 'Violations by year for #NY_HME6483:\n'
@@ -431,11 +431,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': 'No Parking - Street Cleaning', 'count': 3},
                     {'title': 'Failure To Display Meter Receipt', 'count': 1},
                     {'title': 'No Violation Description Available',
-                        'count': 1},
+                     'count': 1},
                     {'title': 'Bus Lane Violation', 'count': 1},
                     {'title': 'Failure To Stop At Red Light', 'count': 1},
                     {'title': 'No Standing - Commercial Meter Zone',
-                        'count': 1},
+                     'count': 1},
                     {'title': 'Expired Meter', 'count': 1},
                     {'title': 'Double Parking', 'count': 1},
                     {'title': 'No Angle Parking', 'count': 1}
