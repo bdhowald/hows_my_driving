@@ -87,7 +87,8 @@ class OpenDataService:
              'issue_date%20LIKE%20%2703/1_/2020%27%20or%20'
              'issue_date%20LIKE%20%2703/2_/2020%27%20or%20'
              'issue_date%20LIKE%20%2703/3_/2020%27%20or%20'
-             'issue_date%20LIKE%20%2704/__/2020%27'
+             'issue_date%20LIKE%20%2704/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2705/__/2020%27'
              ')&'
              '$group=plate,state&$order=count%20desc')
 
