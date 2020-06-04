@@ -130,23 +130,24 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
             'requiring its driver to take a course on the consequences '
             'of reckless driving.')
 
-        speeding_string = (
-            'With such little traffic, many drivers are speeding '
-            'regularly, putting New Yorkers at increased risk of '
-            'ending up in a hospital at a time our hospitals are '
-            'stretched to their limits. It\'s also hard to practice '
-            'social distancing when walking on our narrow sidewalks.')
+        # speeding_string = (
+        #     'With such little traffic, many drivers are speeding '
+        #     'regularly, putting New Yorkers at increased risk of '
+        #     'ending up in a hospital at a time our hospitals are '
+        #     'stretched to their limits. It\'s also hard to practice '
+        #     'social distancing when walking on our narrow sidewalks.')
 
-        open_streets_string = (
-            'Other cities are eating our lunch, @NYCMayor:\n\n'
-           f'{open_streets_tweet}')
+        # open_streets_string = (
+        #     'Other cities are eating our lunch, @NYCMayor:\n\n'
+        #    f'{open_streets_tweet}')
 
         job.run(is_dry_run=dry_run)
 
         if not dry_run:
             mocked_traffic_violations_tweeter_send_status.assert_called_with(
-                message_parts=[covid_19_reckless_driver_string, dval_string,
-                    [speeding_string, open_streets_string]],
+                # message_parts=[covid_19_reckless_driver_string, dval_string,
+                #     [speeding_string, open_streets_string]],
+                message_parts=[covid_19_reckless_driver_string, dval_string],
                 on_error_message=(
                     f'Error printing COVID-19 reckless driver update. '
                     f'Tagging @bdhowald.'))

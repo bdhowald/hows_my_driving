@@ -151,10 +151,12 @@ class Covid19CameraOffenderJob(BaseJob):
                 'Other cities are eating our lunch, @NYCMayor:\n\n'
                 f'{random.choice(self.COVID_19_OPEN_STREETS_TWEETS)}')
 
-            messages: List[str] = [
-                covid_19_reckless_driver_string,
-                dval_string,
-                [speeding_string, open_streets_string]]
+            # messages: List[str] = [
+            #     covid_19_reckless_driver_string,
+            #     dval_string,
+            #     [speeding_string, open_streets_string]]
+
+            messages: List[str] = [covid_19_reckless_driver_string, dval_string]
 
             if not is_dry_run:
                 success: bool = tweeter.send_status(
@@ -186,8 +188,8 @@ class Covid19CameraOffenderJob(BaseJob):
             else:
                 print(covid_19_reckless_driver_string)
                 print(dval_string)
-                print(speeding_string)
-                print(open_streets_string)
+                # print(speeding_string)
+                # print(open_streets_string)
                 break
 
 
