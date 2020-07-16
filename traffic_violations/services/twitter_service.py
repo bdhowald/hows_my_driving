@@ -18,8 +18,10 @@ from traffic_violations.models.lookup_requests import BaseLookupRequest
 from traffic_violations.models.non_follower_reply import NonFollowerReply
 from traffic_violations.models.twitter_event import TwitterEvent
 from traffic_violations.reply_argument_builder import ReplyArgumentBuilder
-from traffic_violations.traffic_violations_aggregator import \
-    TrafficViolationsAggregator
+from traffic_violations.services.apis.tweet_detection_service import (
+    TweetDetectionService)
+from traffic_violations.traffic_violations_aggregator import (
+    TrafficViolationsAggregator)
 
 LOG = logging.getLogger(__name__)
 
@@ -46,6 +48,9 @@ class TrafficViolationsTweeter:
 
         # Create new aggregator
         self.aggregator = TrafficViolationsAggregator()
+
+        # Need to find if unanswered statuses have been deleted
+        self.tweet_detection_service = TweetDetectionService()
 
         # Log how many times we've called the apis
         self.direct_messages_iteration = 0
@@ -266,22 +271,34 @@ class TrafficViolationsTweeter:
             interval, self._find_and_respond_to_twitter_events).start()
 
         try:
-            new_events: [List[TwitterEvent]] = TwitterEvent.get_all_by(
+            new_events: List[TwitterEvent] = TwitterEvent.get_all_by(
                 is_duplicate=False,
                 responded_to=False,
                 response_in_progress=False)
 
             LOG.debug(f'new events: {new_events}')
 
-            failed_events: [List[TwitterEvent]] = TwitterEvent.get_all_by(
+            failed_events: List[TwitterEvent] = TwitterEvent.get_all_by(
                 is_duplicate=False,
                 error_on_lookup=True,
                 responded_to=True,
                 response_in_progress=False)
 
+            failed_events_that_need_response: List[TwitterEvent] = []
+
+            for failed_event in failed_events:
+                if (failed_event.event_type == TwitterMessageType.STATUS.value and
+                    self.tweet_detection_service.tweet_exists(id=failed_event.event_id,
+                                                              username=failed_event.user_handle)):
+
+                    failed_events_that_need_response.append(failed_event)
+                else:
+                    failed_event.error_on_lookup = False
+                    failed_event.query.session.commit()
+
             LOG.debug(f'failed events: {failed_events}')
 
-            events_to_respond_to: [List[TwitterEvent]] = new_events + failed_events
+            events_to_respond_to: [List[TwitterEvent]] = new_events + failed_events_that_need_response
 
             LOG.debug(f'events to respond to: {events_to_respond_to}')
 
@@ -449,6 +466,7 @@ class TrafficViolationsTweeter:
             LOG.info(f'Event {event.id} is a duplicate, skipping.')
 
         else:
+
             event.response_in_progress = True
             TwitterEvent.query.session.commit()
 
