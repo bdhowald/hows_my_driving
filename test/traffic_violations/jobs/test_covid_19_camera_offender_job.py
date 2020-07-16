@@ -116,14 +116,14 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
             if int(offender['count']) else '')
 
         covid_19_reckless_driver_string = (
-            'From March 10, 2020 to June 1, 2020, '
+            'From March 10, 2020 to July 6, 2020, '
             f"#{offender['state']}_{offender['plate']} "
             f"received {offender['count']} camera violations:\n\n"
             f'{speed_camera_violations_string}')
 
         dval_string = (
             'At this rate, this vehicle will receive '
-            f"{round(366.0/84 * int(offender['count']))} "
+            f"{round(366.0/119 * int(offender['count']))} "
             'speed safety camera violations over '
             'a year, qualifying it for towing or booting under '
             '@bradlander\'s Dangerous Vehicle Abatement Law and '
