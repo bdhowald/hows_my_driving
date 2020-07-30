@@ -290,7 +290,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             event_text=event_text,
             event_type=event_type,
             in_reply_to_message_id=in_reply_to_message_id,
+            last_failed_at_time=None,
             location=location,
+            num_times_failed=0,
             responded_to=responded_to,
             user_handle=user_handle,
             user_id=user_id,
@@ -337,6 +339,160 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             self.tweeter._process_response.assert_called_with(
                 request_object=lookup_request,
                 response_parts=response_parts)
+
+    @ddt.data({
+        'event_type': 'direct_message',
+        'expect_called': True,
+        'num_times_failed': 0
+    }, {
+        'event_type': 'direct_message',
+        'expect_called': True,
+        'num_times_failed': 0
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'num_times_failed': 0,
+        'tweet_exists': False,
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(minutes=4),
+        'num_times_failed': 1
+    }, {
+        'event_type': 'status',
+        'expect_called': True,
+        'last_failed_time': timedelta(minutes=6),
+        'num_times_failed': 1
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(minutes=59),
+        'num_times_failed': 2
+    }, {
+        'event_type': 'status',
+        'expect_called': True,
+        'last_failed_time': timedelta(minutes=61),
+        'num_times_failed': 2
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(hours=2),
+        'num_times_failed': 3
+    }, {
+        'event_type': 'status',
+        'expect_called': True,
+        'last_failed_time': timedelta(hours=4),
+        'num_times_failed': 3
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(hours=23),
+        'num_times_failed': 4
+    }, {
+        'event_type': 'status',
+        'expect_called': True,
+        'last_failed_time': timedelta(hours=25),
+        'num_times_failed': 4
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(hours=25),
+        'num_times_failed': 5
+    })
+    @ddt.unpack
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TwitterEvent')
+    def test_find_and_respond_to_failed_twitter_events(self,
+                                                       twitter_event_mock: MagicMock,
+                                                       event_type: str,
+                                                       expect_called: bool,
+                                                       num_times_failed: int,
+                                                       last_failed_time: timedelta = timedelta(minutes=0),
+                                                       tweet_exists: bool = True):
+        db_id = 1
+        random_id = random.randint(1000000000000000000, 2000000000000000000)
+        user_handle = 'bdhowald'
+        user_id = random.randint(1000000000, 2000000000)
+        event_text = '@HowsMyDrivingNY abc1234:ny'
+        timestamp = random.randint(1500000000000, 1700000000000)
+        in_reply_to_message_id = random.randint(
+            10000000000000000000, 20000000000000000000)
+        location = 'Queens, NY'
+        responded_to = 0
+        user_mentions = '@HowsMyDrivingNY'
+
+        twitter_event = TwitterEvent(
+            id=db_id,
+            created_at=timestamp,
+            event_id=random_id,
+            event_text=event_text,
+            event_type=event_type,
+            in_reply_to_message_id=in_reply_to_message_id,
+            last_failed_at_time=(datetime.utcnow() - last_failed_time),
+            location=location,
+            num_times_failed=num_times_failed,
+            responded_to=responded_to,
+            user_handle=user_handle,
+            user_id=user_id,
+            user_mentions=user_mentions)
+
+        direct_message_lookup_request = AccountActivityAPIDirectMessage(
+            message=TwitterEvent(
+                id=1,
+                created_at=timestamp,
+                event_id=random_id,
+                event_text=event_text,
+                event_type=event_type,
+                user_handle=user_handle,
+                user_id=user_id,
+                user_favorited_non_follower_reply=False),
+            message_source=event_type)
+
+        status_lookup_request = AccountActivityAPIStatus(
+            message=TwitterEvent(
+                id=1,
+                created_at=timestamp,
+                event_id=random_id,
+                event_text=event_text,
+                event_type=event_type,
+                user_handle=user_handle,
+                user_id=user_id,
+                user_favorited_non_follower_reply=False),
+            message_source=event_type)
+
+        lookup_request = (direct_message_lookup_request if
+            event_type == 'direct_message' else status_lookup_request)
+
+        twitter_event_mock.get_all_by.side_effect = [[], [twitter_event]]
+        twitter_event_mock.query.filter_by().filter().count.return_value = 0
+
+        tweet_exists_mock = MagicMock(name='tweet_exists')
+        tweet_exists_mock.return_value = True if tweet_exists else False
+        self.tweeter.tweet_detection_service.tweet_exists = tweet_exists_mock
+
+        initiate_reply_mock = MagicMock(name='initiate_reply')
+        self.tweeter.aggregator.initiate_reply = initiate_reply_mock
+
+        build_reply_data_mock = MagicMock(name='build_reply_data')
+        build_reply_data_mock.return_value = lookup_request
+        self.tweeter.reply_argument_builder.build_reply_data = build_reply_data_mock
+
+        application_api_mock = MagicMock(name='application_api')
+        application_api_mock.followers_ids.return_value = ([user_id], (123, 0))
+        self.tweeter._app_api = application_api_mock
+
+        process_response_mock = MagicMock(name='process_response')
+        process_response_mock.return_value = random_id
+        self.tweeter._process_response = process_response_mock
+
+        self.tweeter._find_and_respond_to_twitter_events()
+
+        if expect_called:
+            self.tweeter.aggregator.initiate_reply.assert_called_with(
+                lookup_request=lookup_request)
+        else:
+            self.tweeter.aggregator.initiate_reply.assert_not_called()
+
 
     @ddt.data({
         'expect_called': True,

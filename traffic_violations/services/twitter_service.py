@@ -4,7 +4,7 @@ import pytz
 import threading
 import tweepy
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import and_
 from typing import Any, List, Optional, Type, Union
 
@@ -155,6 +155,55 @@ class TrafficViolationsTweeter:
             f"Found {undetected_messages} status{'' if undetected_messages == 1 else 'es'} that "
             f"{'was' if undetected_messages == 1 else 'were'} previously undetected.")
 
+    def _filter_failed_twitter_events(self, failed_events: List[TwitterEvent]) -> List[TwitterEvent]:
+        failed_events_that_need_response: List[TwitterEvent] = []
+
+        for failed_event in failed_events:
+            # If event is a tweet, but can no longer be found, there's nothing we can do.
+            if (failed_event.event_type == TwitterMessageType.STATUS.value and
+                not self.tweet_detection_service.tweet_exists(id=failed_event.event_id,
+                                                          username=failed_event.user_handle)):
+
+                failed_event.error_on_lookup = False
+                failed_event.num_times_failed = 0
+                failed_event.last_failed_at_time = None
+
+                failed_event.query.session.commit()
+
+                continue
+
+            if failed_event.num_times_failed == 0:
+                failed_events_that_need_response.append(failed_event)
+
+            elif failed_event.num_times_failed == 1:
+                time_to_retry = failed_event.last_failed_at_time + timedelta(minutes=5)
+                if time_to_retry <= datetime.utcnow():
+                    failed_events_that_need_response.append(failed_event)
+
+            elif failed_event.num_times_failed == 2:
+                time_to_retry = failed_event.last_failed_at_time + timedelta(hours=1)
+                if time_to_retry <= datetime.utcnow():
+                    failed_events_that_need_response.append(failed_event)
+
+            elif failed_event.num_times_failed == 3:
+                time_to_retry = failed_event.last_failed_at_time + timedelta(hours=3)
+                if time_to_retry <= datetime.utcnow():
+                    failed_events_that_need_response.append(failed_event)
+
+            elif failed_event.num_times_failed == 4:
+                time_to_retry = failed_event.last_failed_at_time + timedelta(days=1)
+                if time_to_retry <= datetime.utcnow():
+                    failed_events_that_need_response.append(failed_event)
+
+            else:
+                LOG.debug(f'Event response cannot be retried automatically.')
+
+
+        LOG.debug(f'failed events to retry: {failed_events_that_need_response}')
+
+        return failed_events_that_need_response
+
+
     def _find_and_respond_to_missed_direct_messages(self) -> None:
         """Uses Tweepy to call the Twitter Search API to find direct messages to/from
         HowsMyDrivingNY. It then passes this data to a function that creates
@@ -284,19 +333,7 @@ class TrafficViolationsTweeter:
                 responded_to=True,
                 response_in_progress=False)
 
-            failed_events_that_need_response: List[TwitterEvent] = []
-
-            for failed_event in failed_events:
-                if (failed_event.event_type == TwitterMessageType.STATUS.value and
-                    self.tweet_detection_service.tweet_exists(id=failed_event.event_id,
-                                                              username=failed_event.user_handle)):
-
-                    failed_events_that_need_response.append(failed_event)
-                else:
-                    failed_event.error_on_lookup = False
-                    failed_event.query.session.commit()
-
-            LOG.debug(f'failed events: {failed_events}')
+            failed_events_that_need_response: List[TwitterEvent] = self._filter_failed_twitter_events(failed_events)
 
             events_to_respond_to: [List[TwitterEvent]] = new_events + failed_events_that_need_response
 
@@ -516,6 +553,9 @@ class TrafficViolationsTweeter:
 
                     except tweepy.error.TweepError as e:
                         event.error_on_lookup = True
+                        event.num_times_failed += 1
+                        event.last_failed_at_time = datetime.utcnow()
+
                 else:
                     # Reply to the event.
                     reply_to_event = self.aggregator.initiate_reply(
@@ -540,8 +580,12 @@ class TrafficViolationsTweeter:
                     # Update error status
                     if reply_to_event['error_on_lookup']:
                         event.error_on_lookup = True
+                        event.num_times_failed += 1
+                        event.last_failed_at_time = datetime.utcnow()
                     else:
                         event.error_on_lookup = False
+                        event.num_times_failed = 0
+                        event.last_failed_at_time = None
 
                 # We've responded!
                 event.response_in_progress = False
