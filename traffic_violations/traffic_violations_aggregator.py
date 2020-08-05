@@ -827,7 +827,7 @@ class TrafficViolationsAggregator:
                         thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
                         if camera_streak_data['Failure to Stop at Red Light'] else False or
                         camera_streak_data['School Zone Speed Camera Violation'].max_streak >=
-                        thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
+                        thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_SCHOOL_ZONE_SPEED_CAMERA_THRESHOLD
                         if camera_streak_data['School Zone Speed Camera Violation'] else False),
                     boot_eligible_under_rdaa_threshold=(
                         camera_streak_data['Mixed'].max_streak >=

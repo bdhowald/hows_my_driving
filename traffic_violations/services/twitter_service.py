@@ -658,7 +658,7 @@ class TrafficViolationsTweeter:
                             status=part,
                             in_reply_to_status_id=message_id,
                             auto_populate_reply_metadata=True)
-                    LOG.info(f'new_message: {new_message}')
+
                     message_id = new_message.id
 
                     LOG.debug(f'message_id: {message_id}')
