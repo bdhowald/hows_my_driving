@@ -80,7 +80,7 @@ class TrafficViolationsAggregator:
         """Does the request have valid plates in it requiring a response."""
 
         potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
-            lookup_request.string_tokens())
+            lookup_request)
 
         return any(potential_vehicle.valid_plate for potential_vehicle
             in potential_vehicles)
@@ -156,7 +156,7 @@ class TrafficViolationsAggregator:
 
         # Find potential plates
         potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
-            request_object.string_tokens())
+            request_object)
         LOG.debug(f'potential_vehicles: {potential_vehicles}')
 
         # Find included campaign hashtags
@@ -295,16 +295,16 @@ class TrafficViolationsAggregator:
 
         return unique_vehicles
 
-    def _find_potential_vehicles(self, list_of_strings: List[str]) -> List[Vehicle]:
+    def _find_potential_vehicles(self, request_object: Type[BaseLookupRequest]) -> List[Vehicle]:
         """Parse tweet text for vehicles"""
 
         potential_vehicles: List[Vehicle] = []
 
         potential_vehicles += self._find_potential_vehicles_using_combined_fields(
-            list_of_strings=list_of_strings)
+            list_of_strings=request_object.string_tokens())
 
         potential_vehicles += self._find_potential_vehicles_using_separate_fields(
-            list_of_strings=list_of_strings)
+            list_of_strings=request_object.legacy_string_tokens())
 
         return self._ensure_unique_plates(
             vehicles=potential_vehicles)
