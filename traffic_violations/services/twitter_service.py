@@ -107,6 +107,7 @@ class TrafficViolationsTweeter:
                     created_at=message.created_timestamp,
                     in_reply_to_message_id=None,
                     location=None,
+                    user_mention_ids=' '.join([user['id'] for user in message.message_create['message_data']['entities']['user_mentions']]),
                     user_mentions=' '.join([user['screen_name'] for user in message.message_create['message_data']['entities']['user_mentions']]),
                     detected_via_account_activity_api=False)
 
@@ -144,6 +145,7 @@ class TrafficViolationsTweeter:
                     created_at=message.created_at.replace(tzinfo=pytz.timezone('UTC')).timestamp() * MILLISECONDS_PER_SECOND,
                     in_reply_to_message_id=message.in_reply_to_status_id,
                     location=message.place and message.place.full_name,
+                    user_mention_ids=' '.join([user['id'] for user in message.entities['user_mentions']]),
                     user_mentions=' '.join([user['screen_name'] for user in message.entities['user_mentions']]),
                     detected_via_account_activity_api=False)
 
@@ -477,9 +479,13 @@ class TrafficViolationsTweeter:
 
             LOG.debug('responding as status update')
 
+            user_mention_ids = (request_object.mentioned_user_ids if
+                request_object.mentioned_user_ids else None)
+
             return self._recursively_process_status_updates(
                 response_parts=response_parts,
-                message_id=message_id)
+                message_id=message_id,
+                user_mention_ids=user_mention_ids)
 
         else:
             LOG.error('Unkown message source. Cannot respond.')
@@ -627,7 +633,8 @@ class TrafficViolationsTweeter:
 
     def _recursively_process_status_updates(self,
                                             response_parts: Union[List[any], List[str]],
-                                            message_id: Optional[int] = None) -> Optional[int]:
+                                            message_id: Optional[int] = None,
+                                            user_mention_ids: Optional[List[str]] = None) -> Optional[int]:
 
         """Status responses from the aggregator return lists
         of chunked information (by violation type, by borough, by year, etc.).
@@ -657,7 +664,8 @@ class TrafficViolationsTweeter:
                         ).update_status(
                             status=part,
                             in_reply_to_status_id=message_id,
-                            auto_populate_reply_metadata=True)
+                            auto_populate_reply_metadata=True,
+                            exclude_reply_user_ids=user_mention_ids)
 
                     message_id = new_message.id
 

@@ -1353,7 +1353,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         message_object.created_at = now
         message_object.entities = {}
         message_object.entities['user_mentions'] = [
-            {'screen_name': 'HowsMyDrivingNY'}]
+            {'id': '123', 'screen_name': 'HowsMyDrivingNY'}]
         message_object.id = message_id
         message_object.full_text = '@howsmydrivingny plate dkr9364 state ny'
         message_object.user.screen_name = user_handle

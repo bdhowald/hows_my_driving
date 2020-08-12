@@ -64,6 +64,8 @@ class AccountActivityAPIDirectMessage(BaseLookupRequest):
         self.id: str = message.event_id
         self.legacy_string_parts: List[str] = re.split(
             regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+        self.mentioned_user_ids: List[str] = re.split(
+            ',', message.user_mention_ids) if message.user_mention_ids is not None else []
         self.mentioned_users: List[str] = re.split(
             ' ', message.user_mentions) if message.user_mentions is not None else []
         self.needs_reply: bool = message.user_handle != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -87,6 +89,8 @@ class AccountActivityAPIStatus(BaseLookupRequest):
         self.id: int = message.event_id
         self.legacy_string_parts: List[str] = re.split(
             regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+        self.mentioned_user_ids: List[str] = re.split(
+            ',', message.user_mention_ids) if message.user_mention_ids is not None else []
         self.mentioned_users: List[str] = re.split(
             ' ', message.user_mentions) if message.user_mentions is not None else []
         self.needs_reply: bool = message.user_handle != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -140,7 +144,8 @@ class HowsMyDrivingAPIRequest(BaseLookupRequest):
         self.id: str = message['event_id']
         self.legacy_string_parts: List[str] = re.split(
             regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
-        self.mentioned_users: List[str] = []
+        self.mentioned_user_ids = []
+        self.mentioned_users = []
         self.needs_reply: bool = True
         self.string_parts: List[str] = re.split(
             ' ', modified_string.lower())
@@ -157,6 +162,8 @@ class SearchStatus(BaseLookupRequest):
         entities = message.entities
 
         if 'user_mentions' in entities:
+            array_of_user_ids = [v['id']
+                                  for v in entities['user_mentions']]
             array_of_usernames = [v['screen_name']
                                   for v in entities['user_mentions']]
 
@@ -172,6 +179,7 @@ class SearchStatus(BaseLookupRequest):
                 self.is_retweet: bool = hasattr( message, 'retweeted_status')
                 self.legacy_string_parts: List[str] = re.split(
                     regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+                self.mentioned_user_ids: List[str] = array_of_user_ids
                 self.mentioned_users: List[str] = [s.lower()
                                                      for s in array_of_usernames]
                 self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -193,6 +201,8 @@ class StreamExtendedStatus(BaseLookupRequest):
             entities = extended_tweet['entities']
 
             if 'user_mentions' in entities:
+                array_of_user_ids = [v['id']
+                                  for v in entities['user_mentions']]
                 array_of_usernames = [v['screen_name']
                                       for v in entities['user_mentions']]
 
@@ -205,6 +215,7 @@ class StreamExtendedStatus(BaseLookupRequest):
                     self.id: str = message.id
                     self.legacy_string_parts: List[str] = re.split(
                         regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+                    self.mentioned_user_ids: List[str] = array_of_user_ids
                     self.mentioned_users: List[str] = [
                         s.lower() for s in array_of_usernames]
                     self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -231,6 +242,7 @@ class StreamingDirectMessage(BaseLookupRequest):
             self.id: str = direct_message['id']
             self.legacy_string_parts: List[str] = re.split(
                 regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+            self.mentioned_user_ids = []
             self.mentioned_users = []
             self.needs_reply: bool = sender[
                 'screen_name'] != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -248,6 +260,8 @@ class StreamingStatus(BaseLookupRequest):
         entities = message.entities
 
         if 'user_mentions' in entities:
+            array_of_user_ids = [v['id']
+                                  for v in entities['user_mentions']]
             array_of_usernames = [v['screen_name']
                                   for v in entities['user_mentions']]
 
@@ -262,6 +276,7 @@ class StreamingStatus(BaseLookupRequest):
                     message, 'retweeted_status')
                 self.legacy_string_parts: List[str] = re.split(
                     regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
+                self.mentioned_user_ids: List[str] = array_of_user_ids
                 self.mentioned_users: List[str] = [s.lower()
                                                      for s in array_of_usernames]
                 self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE

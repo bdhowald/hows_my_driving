@@ -22,7 +22,7 @@ from traffic_violations.services.twitter_service import \
     TrafficViolationsTweeter
 
 
-def inc(status, in_reply_to_status_id: int, auto_populate_reply_metadata: bool):
+def inc(status, in_reply_to_status_id: int, auto_populate_reply_metadata: bool, exclude_reply_user_ids: bool):
     int_mock = MagicMock(name='api')
     int_mock.id = (in_reply_to_status_id + 1)
     return int_mock
@@ -96,6 +96,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 'entities': {
                   'user_mentions': [
                     {
+                      'id': '123',
                       'screen_name': user_handle
                     }
                   ]
@@ -112,7 +113,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             message_create={
                 'message_data': {
                     'entities': {
-                        'user_mentions': [{'screen_name': user_handle}]
+                        'user_mentions': [{'id': '123', 'screen_name': user_handle}]
                     },
                   'text': event_text,
                 },
@@ -176,6 +177,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             responded_to=True,
             user_handle=user_handle,
             user_id=user_id,
+            user_mention_ids=[user_id],
             user_mentions=user_handle)
 
         new_twitter_event = TwitterEvent(
@@ -189,6 +191,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             responded_to=False,
             user_handle=user_handle,
             user_id=user_id,
+            user_mention_ids=[user_id],
             user_mentions=user_handle)
 
         status_needing_event = MagicMock(
@@ -196,6 +199,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             created_at = now,
             entities={
                 'user_mentions': [{
+                    'id': '123',
                     'screen_name': user_handle
                 }]
             },
@@ -210,6 +214,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             created_at = now - relativedelta(minutes=1),
             entities={
                 'user_mentions': [{
+                    'id': '123',
                     'screen_name': user_handle
                 }]
             },
@@ -612,7 +617,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts, message_id=message_id, user_mention_ids=None)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -657,7 +662,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts, message_id=message_id, user_mention_ids=None)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -699,7 +704,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts, message_id=message_id, user_mention_ids=None)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -741,7 +746,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts, message_id=message_id, user_mention_ids=None)
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -784,7 +789,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts, message_id=message_id, user_mention_ids=None)
 
     def test_recursively_compile_direct_messages(self):
         str1 = 'Some stuff\n'
@@ -807,12 +812,13 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         original_id = 1
 
+        user_mention_ids = ['1','2','3']
+
         response_parts = [
             [str1], str2, str3
         ]
 
         application_api_mock = MagicMock(name='application_api')
-        application_api_mock.update_status = inc
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
@@ -820,8 +826,5 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._app_api = application_api_mock
         self.tweeter._is_production = is_production_mock
 
-        self.assertEqual(self.tweeter._recursively_process_status_updates(
-            response_parts, original_id), original_id + len(response_parts))
-
-        self.assertEqual(self.tweeter._recursively_process_status_updates(
-            response_parts, original_id), original_id + len(response_parts))
+        self.tweeter._recursively_process_status_updates(
+            response_parts, original_id, user_mention_ids)
