@@ -15,13 +15,14 @@ LOG = logging.getLogger(__name__)
 
 def run():
     tweeter = TrafficViolationsTweeter()
+    # if sys.argv[-1] == 'print_daily_summary':
+    #     tweeter.print_daily_summary()
+    # elif sys.argv[-1] == 'print_featured_plate':
+    #     tweeter.print_featured_plate()
+    # else:
+    #     tweeter.find_and_respond_to_requests()
 
-    if sys.argv[-1] == 'print_daily_summary':
-        tweeter._print_daily_summary()
-    elif sys.argv[-1] == 'print_featured_plate':
-        tweeter._print_featured_plate()
-    else:
-        tweeter._find_and_respond_to_requests()
+    tweeter.find_and_respond_to_requests()
 
 def parse_args():
     parser = argparse.ArgumentParser(

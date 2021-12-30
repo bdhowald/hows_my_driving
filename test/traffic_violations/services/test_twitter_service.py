@@ -58,7 +58,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._find_and_respond_to_missed_direct_messages = direct_messages_mock
         self.tweeter._find_and_respond_to_missed_statuses = statuses_mock
 
-        self.tweeter._find_and_respond_to_requests()
+        self.tweeter.find_and_respond_to_requests()
 
         direct_messages_mock.assert_called_with()
         statuses_mock.assert_called_with()
@@ -143,6 +143,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         twitter_event_mock.query.session.commit.assert_called_once_with()
 
         self.mocked_log.debug.assert_called_with('Found 1 direct message that was previously undetected.')
+
+        self.tweeter.terminate_lookups()
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
@@ -241,6 +243,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.mocked_log.debug.assert_called_with('Found 1 status that was previously undetected.')
 
+        self.tweeter.terminate_lookups()
+
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
     def test_find_and_respond_to_missed_statuses_with_no_undetected_events(self, twitter_event_mock):
@@ -250,6 +254,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         twitter_event_mock.query.session().add.assert_not_called()
         twitter_event_mock.query.session().commit.assert_not_called()
+
+        self.tweeter.terminate_lookups()
 
     @ddt.data({
         'event_type': 'direct_message',
@@ -344,6 +350,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             self.tweeter._process_response.assert_called_with(
                 request_object=lookup_request,
                 response_parts=response_parts)
+
+        self.tweeter.terminate_lookups()
 
     @ddt.data({
         'event_type': 'direct_message',
@@ -497,6 +505,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 lookup_request=lookup_request)
         else:
             self.tweeter.aggregator.initiate_reply.assert_not_called()
+
+        self.tweeter.terminate_lookups()
 
 
     @ddt.data({

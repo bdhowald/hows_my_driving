@@ -36,7 +36,8 @@ class PlateLookup(Base):
 
     # associations
     campaigns = relationship("Campaign",
-                    secondary=CampaignPlateLookup, backref='PlateLookup')
+                              secondary=CampaignPlateLookup,
+                              back_populates='plate_lookups')
 
     # indices
     __table_args__ = (
