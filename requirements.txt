@@ -36,7 +36,7 @@ tweepy==4.4.0
 typed-ast==1.5.1
 typing_extensions==4.0.1
 urllib3==1.26.7
-virtualenv==20.11.1
+virtualenv==20.11.2
 virtualenv-clone==0.5.7
 virtualenvwrapper==4.8.4
 wrapt==1.13.3
