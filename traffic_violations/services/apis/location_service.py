@@ -1,7 +1,9 @@
 import os
 import requests
 
-from typing import Dict, List, Optional
+from typing import Dict
+from typing import List
+from typing import Optional
 
 from traffic_violations.models.geocode import Geocode
 
@@ -71,7 +73,7 @@ class LocationService:
             return geocode.borough
 
 
-    def _make_geocoding_request(self, params) -> Dict[str, str]:
+    def _make_geocoding_request(self, params) -> Optional[Dict[str, str]]:
         req = requests.get(self.GEOCODING_SERVICE_ENDPOINT, params=params)
 
         if req.json().get(self.RESULTS_KEY):
