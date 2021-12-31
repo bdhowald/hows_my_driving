@@ -2,6 +2,7 @@ import abc
 import os
 import tweepy
 
+from traffic_violations import settings
 from traffic_violations.constants import environment
 
 
@@ -29,34 +30,34 @@ class TwitterApiWrapper(abc.ABC):
 class TwitterApplicationApiWrapper(TwitterApiWrapper):
     def __init__(self):
         super().__init__(
-          api_key=os.environ[
+          api_key=os.getenv(
               environment.EnvrionmentVariable.TWITTER_API_KEY.value
-          ],
-          api_secret=os.environ[
+          ),
+          api_secret=os.getenv(
               environment.EnvrionmentVariable.TWITTER_API_SECRET.value
-          ],
-          access_token=os.environ[
+          ),
+          access_token=os.getenv(
               environment.EnvrionmentVariable.TWITTER_ACCESS_TOKEN.value
-          ],
-          access_token_secret=os.environ[
+          ),
+          access_token_secret=os.getenv(
               environment.EnvrionmentVariable.TWITTER_ACCESS_TOKEN_SECRET.value
-          ]
+          )
         )
 
 
 class TwitterClientApiWrapper(TwitterApiWrapper):
     def __init__(self):
         super().__init__(
-          api_key=os.environ[
+          api_key=os.getenv(
               environment.EnvrionmentVariable.TWITTER_API_KEY.value
-          ],
-          api_secret=os.environ[
+          ),
+          api_secret=os.getenv(
               environment.EnvrionmentVariable.TWITTER_API_SECRET.value
-          ],
-          access_token=os.environ[
+          ),
+          access_token=os.getenv(
               environment.EnvrionmentVariable.TWITTER_CLIENT_ACCESS_TOKEN.value
-          ],
-          access_token_secret=os.environ[
+          ),
+          access_token_secret=os.getenv(
               environment.EnvrionmentVariable.TWITTER_CLIENT_ACCESS_TOKEN_SECRET.value
-          ]
+          )
         )

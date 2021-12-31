@@ -5,14 +5,14 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
+from traffic_violations import settings
 from traffic_violations.models.geocode import Geocode
 
 
 class LocationService:
 
     BOROUGH_KEY = 'sublocality_level_1'
-    GEOCODING_SERVICE_API_KEY = os.environ['GOOGLE_API_KEY'] if os.environ.get(
-            'GOOGLE_API_KEY') else ''
+    GEOCODING_SERVICE_API_KEY = os.getenv('GOOGLE_API_KEY') or ''
     GEOCODING_SERVICE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json'
     GEOCODING_SERVICE_NAME = 'google'
     RESULTS_KEY = 'results'

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_
 from typing import Any, List, Optional, Type, Union
 
+from traffic_violations import settings
 from traffic_violations.constants import L10N
 from traffic_violations.constants.lookup_sources import LookupSource
 from traffic_violations.constants.time import (MILLISECONDS_PER_SECOND,
@@ -440,7 +441,7 @@ class TrafficViolationsTweeter:
 
         TODO: Come up with a better way to determine production environment.
         """
-        return os.environ.get('ENV') == 'production'
+        return os.getenv('ENV') == 'production'
 
     def _process_response(self,
         request_object: Type[BaseLookupRequest],

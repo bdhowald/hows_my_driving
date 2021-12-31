@@ -532,11 +532,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         else:
             application_api_mock.followers_ids.assert_not_called()
 
-
-    def test_is_production(self):
-        self.assertEqual(self.tweeter._is_production(),
-                         (os.environ.get('ENV') == 'production'))
-
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._is_production')
     def test_process_response_direct_message(self, mocked_is_production):

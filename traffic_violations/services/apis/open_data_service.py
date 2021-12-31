@@ -10,6 +10,7 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from typing import Any, Dict, List, Optional, Tuple
 
+from traffic_violations import settings
 from traffic_violations.constants.borough_codes import BOROUGH_CODES
 from traffic_violations.constants.open_data.endpoints import \
     FISCAL_YEAR_DATABASE_ENDPOINTS, MEDALLION_ENDPOINT, \
@@ -48,7 +49,7 @@ class OpenDataService:
     MEDALLION_PATTERN = re.compile(r'^[0-9][A-Z][0-9]{2}$')
     MEDALLION_PLATE_KEY = 'dmv_license_plate_number'
 
-    OPEN_DATA_TOKEN = os.environ['NYC_OPEN_DATA_TOKEN']
+    OPEN_DATA_TOKEN = os.getenv('NYC_OPEN_DATA_TOKEN')
 
     OUTPUT_FINE_KEYS = ['fined', 'paid', 'reduced', 'outstanding']
 
