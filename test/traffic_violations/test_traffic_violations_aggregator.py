@@ -317,6 +317,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     @ddt.data(
         {
             'data': {
+                'lookup_source': 'direct_message',
                 'plate': 'HME6483',
                 'plate_types': 'pas',
                 'state': 'NY',
@@ -378,22 +379,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     '%B %-d, %Y') + ' at ' +
                 adjusted_time.strftime('%I:%M%p') + '. '
                 'Since then, #NY_HME6483 has received 2 new tickets.\n'
-                '\n'
+                '\n',
                 'Total parking and camera violation tickets: 25\n'
                 '\n'
-                '14 | No Standing - Day/Time Limits\n',
-                'Parking and camera violation tickets for '
-                '#NY_HME6483, cont\'d:\n'
-                '\n'
+                '14 | No Standing - Day/Time Limits\n'
                 '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
-                '1   | Failure To Stop At Red Light\n'
-                '1   | No Standing - Commercial Meter Zone\n',
+                '1   | Failure To Stop At Red Light\n',
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
+                '1   | No Standing - Commercial Meter Zone\n'
                 '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
@@ -414,26 +412,25 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '$50.00   | Reduced\n'
                 '$100.00 | Paid\n'
                 '$30.00   | Outstanding\n',
-                'Under the Reckless Driver Accountability Act, this vehicle could have been '
-                'booted or impounded due to its 18 camera violations (>= 5/year) '
-                'from September 7, 2015 to August 5, 2016.\n',
                 'View more details at https://howsmydrivingny.nyc/a1b2c3d4.'
             ],
             'username': 'bdhowald'
         },
         {
             'data': {
+                'lookup_source': 'status',
                 'plate': 'HME6483',
                 'plate_types': None,
                 'state': 'NY',
                 'violations': [
+                    {'title': 'School Zone Speed Camera Violation', 'count': 15},
                     {'title': 'No Standing - Day/Time Limits', 'count': 14},
+                    {'title': 'Failure To Stop At Red Light', 'count': 5},
                     {'title': 'No Parking - Street Cleaning', 'count': 3},
                     {'title': 'Failure To Display Meter Receipt', 'count': 1},
                     {'title': 'No Violation Description Available',
                      'count': 1},
                     {'title': 'Bus Lane Violation', 'count': 1},
-                    {'title': 'Failure To Stop At Red Light', 'count': 1},
                     {'title': 'No Standing - Commercial Meter Zone',
                      'count': 1},
                     {'title': 'Expired Meter', 'count': 1},
@@ -478,52 +475,47 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'unique_identifier': 'abcd1234',
             },
             'response': [
-                '#NY_HME6483 has been queried 8 times.\n'
+                '@bdhowald #NY_HME6483 has been queried 8 times.\n'
                 '\n'
                 'This vehicle was last queried on ' + adjusted_time.strftime(
                     '%B %-d, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') +
                 ' by @BarackObama: '
                 'https://twitter.com/BarackObama/status/12345678901234567890. ' +
-                'Since then, #NY_HME6483 has received 2 new tickets.\n'
-                '\n'
-                'Total parking and camera violation tickets: 25\n'
+                'Since then, #NY_HME6483 has received 21 new tickets.\n'
                 '\n',
-                'Parking and camera violation tickets for '
+                '@HowsMyDrivingNY Total parking and camera violation tickets: 44\n'
+                '\n'
+                '15 | School Zone Speed Camera Violation\n'
+                '14 | No Standing - Day/Time Limits\n'
+                '5   | Failure To Stop At Red Light\n'
+                '3   | No Parking - Street Cleaning\n'
+                '1   | Failure To Display Meter Receipt\n',
+                '@HowsMyDrivingNY Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
-                '14 | No Standing - Day/Time Limits\n'
-                '3   | No Parking - Street Cleaning\n'
-                '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
-                '1   | Failure To Stop At Red Light\n',
-                'Parking and camera violation tickets for '
-                '#NY_HME6483, cont\'d:\n'
-                '\n'
                 '1   | No Standing - Commercial Meter Zone\n'
                 '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
-                'Violations by year for #NY_HME6483:\n'
+                '@HowsMyDrivingNY Violations by year for #NY_HME6483:\n'
                 '\n'
                 '2   | 2016\n'
                 '8   | 2017\n'
                 '13 | 2018\n',
-                'Violations by borough for #NY_HME6483:\n'
+                '@HowsMyDrivingNY Violations by borough for #NY_HME6483:\n'
                 '\n'
                 '1   | Bronx\n'
                 '7   | Brooklyn\n'
                 '2   | Queens\n'
                 '13 | Staten Island\n',
-                'Under the Reckless Driver Accountability Act, this vehicle could have been '
-                'booted or impounded due to its 20 camera violations (>= 5/year) from '
-                'September 7, 2015 to August 5, 2016.\n',
-                'Under the Dangerous Vehicle Abatement Act, (which will take effect on '
-                '10/26/2020), this vehicle could have been booted or impounded due to its 5 '
+                '@HowsMyDrivingNY Under the Dangerous Vehicle Abatement Act, '
+                'this vehicle could have been booted or impounded due to its 5 '
                 'red light camera violations (>= 5/year) from September 7, 2015 to June 5, '
                 '2016.\n',
-                'Under the Dangerous Vehicle Abatement Act, (which will take effect on '
-                '10/26/2020), this vehicle could have been booted or impounded due to its 15 '
+                '@HowsMyDrivingNY Under the Dangerous Vehicle Abatement Act, '
+                'this vehicle could have been booted or impounded due to its 15 '
                 'school zone speed camera violations (>= 15/year) from October 14, 2015 to '
                 'August 5, 2016.\n',
                 'View more details at https://howsmydrivingny.nyc/abcd1234.'
@@ -547,6 +539,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             camera_streak_data=data['camera_streak_data'],
             fine_data=data['fines'],
             frequency=data['frequency'],
+            lookup_source=data['lookup_source'],
             plate=data['plate'],
             plate_types=data['plate_types'],
             previous_lookup=data['previous_result'],
@@ -628,7 +621,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'description': 'title',
             'default_description': 'No Year Available',
             'prefix_format_string':
-                f'Violations by year for #{state}_{plate}:\n\n',
+                f'@HowsMyDrivingNY Violations by year for #{state}_{plate}:\n\n',
             'result_format_string': '{}| {}\n',
             'username': username
         }
@@ -643,7 +636,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             description='title',
             default_description='No Year Available',
             prefix_format_string=f'Violations by year for #{state}_{plate}:\n\n',
-            result_format_string='{}| {}\n'), result)
+            result_format_string='{}| {}\n',
+            username_prefix=f'@HowsMyDrivingNY '), result)
 
     @mock.patch('traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._create_response')
     def test_initiate_reply(self, mocked_create_response):
@@ -1107,18 +1101,18 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'response_parts': [
                 [
                     f'#{state}_{returned_plate} has been queried 1 time.\n'
-                    '\n'
+                    '\n',
                     'Total parking and camera violation tickets: 15\n'
                     '\n'
                     '4 | No Standing - Day/Time Limits\n'
                     '3 | No Parking - Street Cleaning\n'
                     '1 | Failure To Display Meter Receipt\n'
                     '1 | No Violation Description Available\n'
-                    '1 | Bus Lane Violation\n',
+                    '1 | Bus Lane Violation\n'
+                    '1 | Failure To Stop At Red Light\n',
                     'Parking and camera violation tickets for '
                     f'#{state}_{returned_plate}, cont\'d:\n'
                     '\n'
-                    '1 | Failure To Stop At Red Light\n'
                     '1 | No Standing - Commercial Meter Zone\n'
                     '1 | Expired Meter\n'
                     '1 | Double Parking\n'
@@ -1242,27 +1236,27 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         unique_identifier = 'ab12cd34'
 
-        response_parts = [['#PA_GLF7467 has been queried 2 times.\n\n'
-                           'Total parking and camera violation tickets: 49\n\n'
+        response_parts = [['@BarackObama #PA_GLF7467 has been queried 2 times.\n\n',
+                           '@HowsMyDrivingNY Total parking and camera violation tickets: 49\n\n'
                            '17 | No Parking - Street Cleaning\n'
                            '6   | Expired Meter\n'
                            '5   | No Violation Description Available\n'
                            '3   | Fire Hydrant\n'
                            '3   | No Parking - Day/Time Limits\n'
                            '3   | Failure To Display Meter Receipt\n',
-                           'Parking and camera violation tickets for '
+                           '@HowsMyDrivingNY Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n\n'
                            '3   | School Zone Speed Camera Violation\n'
                            '2   | No Parking - Except Authorized Vehicles\n'
                            '2   | Bus Lane Violation\n'
                            '1   | Failure To Stop At Red Light\n'
                            '1   | No Standing - Day/Time Limits\n',
-                           'Parking and camera violation tickets for '
+                           '@HowsMyDrivingNY Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n\n'
                            '1   | No Standing - Except Authorized Vehicle\n'
                            '1   | Obstructing Traffic Or Intersection\n'
                            '1   | Double Parking\n',
-                           'Known fines for #PA_GLF7467:\n\n'
+                           '@HowsMyDrivingNY Known fines for #PA_GLF7467:\n\n'
                            '$1,000.00 | Fined\n'
                            '$0.00         | Reduced\n'
                            '$775.00     | Paid\n'

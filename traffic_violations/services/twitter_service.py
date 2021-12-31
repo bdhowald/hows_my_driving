@@ -670,7 +670,6 @@ class TrafficViolationsTweeter:
                         ).update_status(
                             status=part,
                             in_reply_to_status_id=message_id,
-                            auto_populate_reply_metadata=True,
                             exclude_reply_user_ids=user_mention_ids)
 
                     message_id = new_message.id
@@ -680,7 +679,8 @@ class TrafficViolationsTweeter:
                     LOG.debug(
                         "This is where 'self._get_twitter_application_api()"
                         ".update_status(status=part, in_reply_to_status_id=message_id, "
-                        "auto_populate_reply_metadata=True)' would be called in production.")
+                        "exclude_reply_user_ids=user_mention_ids)' "
+                        "would be called in production.")
                     return None
 
         return message_id

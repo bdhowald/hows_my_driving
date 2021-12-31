@@ -377,6 +377,7 @@ class TrafficViolationsAggregator:
             borough_data:  List[Tuple[str, int]],
             frequency: int,
             fine_data: FineData,
+            lookup_source: str,
             plate: str,
             plate_types: List[str],
             state: str,
@@ -397,7 +398,11 @@ class TrafficViolationsAggregator:
                                      for s in violations])
         LOG.debug(f'total_violations: {total_violations}')
 
-        # Append to initially blank string to build tweet.
+        # Append username to blank string to start to build tweet.
+        violations_string += (f'@{username} ' if lookup_source
+                                 == lookup_sources.LookupSource.STATUS.value else '')
+
+        # Append summary string.
         violations_string += L10N.LOOKUP_SUMMARY_STRING.format(
             L10N.VEHICLE_HASHTAG.format(state, plate),
             L10N.get_plate_types_string(plate_types),
@@ -415,17 +420,22 @@ class TrafficViolationsAggregator:
                 state=state,
                 username=username)
 
+        response_chunks.append(violations_string)
+
+        username_prefix = (f'@{twitter_constants.HMDNY_TWITTER_HANDLE} ' if lookup_source
+                               == lookup_sources.LookupSource.STATUS.value else '')
+
         response_chunks += self._handle_response_part_formation(
             collection=violations,
             continued_format_string=L10N.LOOKUP_TICKETS_STRING_CONTD.format(
                 L10N.VEHICLE_HASHTAG.format(state, plate)),
             count='count',
-            cur_string=violations_string,
             description='title',
             default_description='No Year Available',
             prefix_format_string=L10N.LOOKUP_TICKETS_STRING.format(
                 total_violations),
-            result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
+            result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
+            username_prefix=username_prefix)
 
         if year_data:
             response_chunks += self._handle_response_part_formation(
@@ -437,7 +447,8 @@ class TrafficViolationsAggregator:
                 default_description='No Year Available',
                 prefix_format_string=L10N.LOOKUP_YEAR_STRING.format(
                     L10N.VEHICLE_HASHTAG.format(state, plate)),
-                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
+                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
+                username_prefix=username_prefix)
 
         if borough_data:
             response_chunks += self._handle_response_part_formation(
@@ -449,11 +460,13 @@ class TrafficViolationsAggregator:
                 default_description='No Borough Available',
                 prefix_format_string=L10N.LOOKUP_BOROUGH_STRING.format(
                     L10N.VEHICLE_HASHTAG.format(state, plate)),
-                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
+                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
+                username_prefix=username_prefix)
 
         if fine_data and fine_data.fines_assessed():
 
-            cur_string = f"Known fines for {L10N.VEHICLE_HASHTAG.format(state, plate)}:\n\n"
+            cur_string = (f'{username_prefix}'
+                          f'Known fines for {L10N.VEHICLE_HASHTAG.format(state, plate)}:\n\n')
 
             max_count_length = len('${:,.2f}'.format(fine_data.max_amount()))
             spaces_needed = (max_count_length * 2) + 1
@@ -493,19 +506,12 @@ class TrafficViolationsAggregator:
 
             if violation_type_data:
 
-                if (camera_violation_type == 'Mixed' and
-                    violation_type_data.max_streak >= threshold):
-
-                    # add to container
-                    response_chunks.append(L10N.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_REPEAT_OFFENDER_STRING.format(
-                        violation_type_data.max_streak, violation_type_data.min_streak_date,
-                        violation_type_data.max_streak_date))
-
-                elif (camera_violation_type == 'Failure to Stop at Red Light' and
+                if (camera_violation_type == 'Failure to Stop at Red Light' and
                     violation_type_data.max_streak >= threshold):
 
                     # add to container
                     response_chunks.append(L10N.DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING.format(
+                        username_prefix,
                         violation_type_data.max_streak,
                         'red light',
                         threshold,
@@ -517,6 +523,7 @@ class TrafficViolationsAggregator:
 
                     # add to container
                     response_chunks.append(L10N.DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING.format(
+                        username_prefix,
                         violation_type_data.max_streak,
                         'school zone speed',
                         threshold,
@@ -614,12 +621,13 @@ class TrafficViolationsAggregator:
                                         default_description: str,
                                         prefix_format_string: str,
                                         result_format_string: str,
-                                        cur_string: str = None):
+                                        username_prefix: str):
 
         # collect the responses
         response_container = []
 
-        cur_string = cur_string if cur_string else ''
+        # Initialize current string to prefix
+        cur_string = username_prefix
 
         if prefix_format_string:
             cur_string += prefix_format_string
@@ -659,9 +667,10 @@ class TrafficViolationsAggregator:
             else:
                 response_container.append(cur_string)
                 if continued_format_string:
-                    cur_string = continued_format_string
+                    cur_string = username_prefix + continued_format_string
                 else:
-                    cur_string = ''
+                    # Initialize current string to prefix
+                    cur_string = username_prefix
 
                 cur_string += next_part
 
@@ -1025,6 +1034,7 @@ class TrafficViolationsAggregator:
                     camera_streak_data=plate_lookup.camera_streak_data,
                     fine_data=plate_lookup.fines,
                     frequency=current_frequency,
+                    lookup_source=request_object.message_source,
                     plate=plate_lookup.plate,
                     plate_types=plate_lookup.plate_types,
                     previous_lookup=previous_lookup,

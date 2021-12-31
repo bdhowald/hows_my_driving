@@ -3,12 +3,12 @@ from string import Template
 from traffic_violations.constants.endpoints import HOWS_MY_DRIVING_NY_WEBSITE
 
 DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING = (
-  'Under the Dangerous Vehicle Abatement Act, '
-  '(which will take effect on 10/26/2020), '
-  'this vehicle could have been booted or impounded '
-  'due to its {} {} camera violations '
-  '(>= {}/year) from {} '
-  'to {}.\n')
+   '{}'
+   'Under the Dangerous Vehicle Abatement Act, '
+   'this vehicle could have been booted or impounded '
+   'due to its {} {} camera violations '
+   '(>= {}/year) from {} '
+   'to {}.\n')
 
 LAST_QUERIED_STRING = "This vehicle was last queried on {} at {}"
 
@@ -35,13 +35,6 @@ NON_FOLLOWER_TWEET_REPLY_STRING = (
 PLATE_TYPES_LOOKUP_STRING = ' (types: {}) '
 
 PREVIOUS_LOOKUP_STATUS_STRING = ' by @{}: https://twitter.com/{}/status/{}.'
-
-RECKLESS_DRIVER_ACCOUNTABILITY_ACT_REPEAT_OFFENDER_STRING = (
-    'Under the Reckless Driver Accountability Act, '
-    'this vehicle could have been booted or impounded '
-    'due to its {} camera violations '
-    '(>= 5/year) from {} '
-    'to {}.\n')
 
 REPEAT_CAMERA_OFFENDER_STRING = (
     'Featured #RepeatCameraOffender:\n\n'
