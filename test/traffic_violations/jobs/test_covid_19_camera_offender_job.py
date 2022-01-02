@@ -1,3 +1,4 @@
+import datetime
 import ddt
 import mock
 import unittest
@@ -19,35 +20,47 @@ from traffic_violations.models.response.open_data_service_response \
 @ddt.ddt
 class TestCovid19CameraOffenderJob(unittest.TestCase):
 
+    DVAL_SPEED_CAMERA_THRESHOLD = 15
+
     @ddt.data(
         {
             'dry_run': True,
             'open_data_results': [{
-                'count': 15,
                 'plate': 'ABC1234',
+                'red_light_camera_count': 13,
+                'speed_camera_count': 78,
+                'total_camera_violations': 91,
                 'state': 'NY'
             }]
         },
         {
             'offender_record_exists': True,
             'open_data_results': [{
-                'count': 13,
                 'plate': 'ABC1234',
+                'red_light_camera_count': 2,
+                'speed_camera_count': 179,
+                'total_camera_violations': 181,
                 'state': 'NY'
             }, {
-                'count': 11,
                 'plate': 'ZYX9876',
+                'red_light_camera_count': 22,
+                'speed_camera_count': 59,
+                'total_camera_violations': 81,
                 'state': 'NY'
             }]
         },
         {
             'open_data_results': [{
-                'count': 9,
                 'plate': 'ABC1234',
+                'red_light_camera_count': 7,
+                'speed_camera_count': 23,
+                'total_camera_violations': 30,
                 'state': 'NY'
             }, {
-                'count': 7,
                 'plate': 'ZYX9876',
+                'red_light_camera_count': 20,
+                'speed_camera_count': 634,
+                'total_camera_violations': 654,
                 'state': 'NY'
             }]
         }
@@ -60,11 +73,8 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
         'traffic_violations.jobs.covid_19_camera_offender_job.TrafficViolationsTweeter.send_status')
     @mock.patch(
         'traffic_violations.jobs.covid_19_camera_offender_job.OpenDataService.lookup_covid_19_camera_violations')
-    @mock.patch(
-        'traffic_violations.jobs.covid_19_camera_offender_job.random.choice')
     @ddt.unpack
     def test_print_covid_19_camera_offender_message(self,
-                                 mocked_random_open_streets_tweet: MagicMock,
                                  mocked_open_data_covid_19_lookup: MagicMock,
                                  mocked_traffic_violations_tweeter_send_status: MagicMock,
                                  mocked_covid_19_camera_offender_get_by: MagicMock,
@@ -75,12 +85,16 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
 
         job = Covid19CameraOffenderJob()
 
-        open_streets_tweet: str = 'https://twitter.com/JSadikKhan/status/1248675348268621826'
-        mocked_random_open_streets_tweet.return_value = open_streets_tweet
+        start_date = datetime.date(2020, 3, 10)
+        end_date = datetime.date(2021, 11, 26)
+
+        days_in_period = (end_date - start_date).days
+        num_years = days_in_period / 365.0
 
         mocked_open_data_covid_19_lookup.return_value = open_data_results
 
-        if offender_record_exists:
+        if offender_record_exists or (
+            (open_data_results[0]['speed_camera_count']/num_years) < self.DVAL_SPEED_CAMERA_THRESHOLD):
             mocked_covid_19_camera_offender_get_by.side_effect = [
                 MagicMock(name='offender_record'), None]
             offender = open_data_results[1]
@@ -92,12 +106,14 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
             boroughs=[],
             camera_streak_data=None,
             fines=MagicMock(),
-            num_violations=offender['count'],
+            num_violations=offender['red_light_camera_count'] + offender['speed_camera_count'],
             plate=offender['plate'],
             plate_types=None,
             state=offender['state'],
             violations=[
-                {'count': offender['count'],
+                {'count': offender['red_light_camera_count'],
+                 'title': 'Failure To Stop At Red Light'},
+                {'count': offender['speed_camera_count'],
                  'title': 'School Zone Speed Camera Violation'}],
             years=[])
 
@@ -107,39 +123,30 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
 
         mocked_open_data_service_look_up_vehicle.return_value = open_data_response
 
-        # red_light_camera_violations_string = (
-        #     f'{red_light_camera_violations_after_previous_lookup} | Red Light Camera Violations\n'
-        #     if red_light_camera_violations_after_previous_lookup else '')
+        red_light_camera_violations_string = (
+            f"{offender['red_light_camera_count']} | Red Light Camera Violations\n"
+            if int(offender['red_light_camera_count']) else '')
 
         speed_camera_violations_string = (
-            f"{offender['count']} | Speed Safety Camera Violations\n"
-            if int(offender['count']) else '')
+            f"{offender['speed_camera_count']} | Speed Safety Camera Violations\n"
+            if int(offender['speed_camera_count']) else '')
 
         covid_19_reckless_driver_string = (
-            'From March 10, 2020 to July 6, 2020, '
+            'From March 10, 2020 to November 26, 2021, '
             f"#{offender['state']}_{offender['plate']} "
-            f"received {offender['count']} camera violations:\n\n"
+            f"received {offender['red_light_camera_count'] + offender['speed_camera_count']} "
+            f'camera violations:\n\n'
+            f'{red_light_camera_violations_string}'
             f'{speed_camera_violations_string}')
 
         dval_string = (
-            'At this rate, this vehicle will receive '
-            f"{round(366.0/119 * int(offender['count']))} "
-            'speed safety camera violations over '
-            'a year, qualifying it for towing or booting under '
+            'This vehicle has received an average of '
+            f"{round(offender['speed_camera_count'] / num_years, 1)} "
+            'speed safety camera violations per '
+            'year, qualifying it for towing or booting under '
             '@bradlander\'s Dangerous Vehicle Abatement Law and '
             'requiring its driver to take a course on the consequences '
             'of reckless driving.')
-
-        # speeding_string = (
-        #     'With such little traffic, many drivers are speeding '
-        #     'regularly, putting New Yorkers at increased risk of '
-        #     'ending up in a hospital at a time our hospitals are '
-        #     'stretched to their limits. It\'s also hard to practice '
-        #     'social distancing when walking on our narrow sidewalks.')
-
-        # open_streets_string = (
-        #     'Other cities are eating our lunch, @NYCMayor:\n\n'
-        #    f'{open_streets_tweet}')
 
         job.run(is_dry_run=dry_run)
 

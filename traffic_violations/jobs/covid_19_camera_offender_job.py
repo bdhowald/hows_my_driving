@@ -1,10 +1,9 @@
 import argparse
+import datetime
 import logging
 import math
-import random
 import pytz
 
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 from traffic_violations.constants import L10N
@@ -32,35 +31,22 @@ LOG = logging.getLogger(__name__)
 class Covid19CameraOffenderJob(BaseJob):
     """ Tweet out a reckless driver during COVID-19. """
 
-    SECONDS_IN_A_DAY = 86400
-
     RED_LIGHT_CAMERA_VIOLATION_DESCRIPTION = 'Failure To Stop At Red Light'
     SPEED_CAMERA_VIOLATION_DESCRIPTION = 'School Zone Speed Camera Violation'
 
     CAMERA_VIOLATIONS = [RED_LIGHT_CAMERA_VIOLATION_DESCRIPTION,
                          SPEED_CAMERA_VIOLATION_DESCRIPTION]
 
-    COVID_19_OPEN_STREETS_TWEETS: List[str] = [
-        'https://twitter.com/JSadikKhan/status/1248675348268621826',
-        'https://twitter.com/StreetsblogDen/status/1247535862843236355',
-        'https://twitter.com/RegineGuenther/status/1247870521234075652?s=20',
-        'https://twitter.com/BrentToderian/status/1248076792683888640',
-        'https://twitter.com/ashk4n/status/1248442190017122304',
-        'https://twitter.com/MayorHancock/status/1246193113611280386?s=20',
-        'https://twitter.com/maxnesterak/status/1243300381301641217',
-        'https://twitter.com/MikeLydon/status/1248400819642220545',
-        'https://twitter.com/DianaUrge/status/1248402038649544706',
-    ]
+    DVAL_SPEED_CAMERA_THRESHOLD = 15
 
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
-        start_date = datetime(2020, 3, 10, 0, 0, 0, 0)
-        end_date = datetime(2020, 7, 6, 23, 59, 59, 999999)
+        start_date = datetime.date(2020, 3, 10)
+        end_date = datetime.date(2021, 11, 26)
 
-        days_in_period = math.ceil((end_date - start_date).total_seconds() / self.SECONDS_IN_A_DAY)
-        days_in_year = 366.0
-        periods_in_year = days_in_year / days_in_period
+        days_in_period = (end_date - start_date).days
+        num_years = days_in_period / 365.0
 
         tweeter = TrafficViolationsTweeter()
 
@@ -78,17 +64,17 @@ class Covid19CameraOffenderJob(BaseJob):
 
             if offender:
                 LOG.debug(f'COVID-19 speeder - {L10N.VEHICLE_HASHTAG.format(state, plate)} '
-                      f"with {vehicle['count']} camera violations has been seen before.")
+                      f"with {vehicle['total_camera_violations']} camera violations has been seen before.")
                 continue
 
             LOG.debug(f'COVID-19 speeder - {L10N.VEHICLE_HASHTAG.format(state, plate)} '
-                      f"with {vehicle['count']} camera violations has not been seen before.")
+                      f"with {vehicle['total_camera_violations']} camera violations has not been seen before.")
 
-            plate_query: PlateQuery = PlateQuery(created_at=datetime.now(),
-                                                    message_source=LookupSource.API,
-                                                    plate=plate,
-                                                    plate_types=None,
-                                                    state=state)
+            plate_query: PlateQuery = PlateQuery(created_at=datetime.datetime.now(),
+                                                 message_source=LookupSource.API,
+                                                 plate=plate,
+                                                 plate_types=None,
+                                                 state=state)
 
             response: OpenDataServiceResponse = nyc_open_data_service.look_up_vehicle(
                 plate_query=plate_query,
@@ -109,8 +95,13 @@ class Covid19CameraOffenderJob(BaseJob):
                     if violation_type_summary['title'] == self.SPEED_CAMERA_VIOLATION_DESCRIPTION:
                         speed_camera_violations = violation_count
 
-            total_camera_violations = (red_light_camera_violations +
-                speed_camera_violations)
+            speed_camera_violations_per_year = speed_camera_violations / num_years
+
+            # If this driver doesn't meet the threshold, continue
+            if speed_camera_violations_per_year < self.DVAL_SPEED_CAMERA_THRESHOLD:
+                continue
+
+            total_camera_violations = speed_camera_violations + red_light_camera_violations
 
             vehicle_hashtag = L10N.VEHICLE_HASHTAG.format(
                 state, plate)
@@ -132,29 +123,13 @@ class Covid19CameraOffenderJob(BaseJob):
                 f'{speed_camera_violations_string}')
 
             dval_string = (
-                'At this rate, this vehicle will receive '
-                f'{round(periods_in_year * total_camera_violations)} '
-                'speed safety camera violations over '
-                'a year, qualifying it for towing or booting under '
+                'This vehicle has received an average of '
+                f'{round(speed_camera_violations / num_years, 1)} '
+                'speed safety camera violations per year, '
+                'qualifying it for towing or booting under '
                 '@bradlander\'s Dangerous Vehicle Abatement Law and '
                 'requiring its driver to take a course on the consequences '
                 'of reckless driving.')
-
-            speeding_string = (
-                'With such little traffic, many drivers are speeding '
-                'regularly, putting New Yorkers at increased risk of '
-                'ending up in a hospital at a time our hospitals are '
-                'stretched to their limits. It\'s also hard to practice '
-                'social distancing when walking on our narrow sidewalks.')
-
-            open_streets_string = (
-                'Other cities are eating our lunch, @NYCMayor:\n\n'
-                f'{random.choice(self.COVID_19_OPEN_STREETS_TWEETS)}')
-
-            # messages: List[str] = [
-            #     covid_19_reckless_driver_string,
-            #     dval_string,
-            #     [speeding_string, open_streets_string]]
 
             messages: List[str] = [covid_19_reckless_driver_string, dval_string]
 
@@ -188,8 +163,6 @@ class Covid19CameraOffenderJob(BaseJob):
             else:
                 print(covid_19_reckless_driver_string)
                 print(dval_string)
-                # print(speeding_string)
-                # print(open_streets_string)
                 break
 
 
