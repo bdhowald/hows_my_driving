@@ -1,3 +1,5 @@
+import os
+
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -23,6 +25,12 @@ target_metadata = None
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+config.set_main_option(
+    'sqlalchemy.url',
+    (f"mysql+pymysql:{os.getenv('MYSQL_USER')}//:{os.getenv('MYSQL_PASSWORD') or ''}"
+     f'@localhost/traffic_violations')
+)
 
 
 def run_migrations_offline():
