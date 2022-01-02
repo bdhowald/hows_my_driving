@@ -127,7 +127,7 @@ class TrafficViolationsTweeter:
                     created_at=message.created_timestamp,
                     in_reply_to_message_id=None,
                     location=None,
-                    user_mention_ids=' '.join([user['id'] for user in message.message_create['message_data']['entities']['user_mentions']]),
+                    user_mention_ids=','.join([user['id_str'] for user in message.message_create['message_data']['entities']['user_mentions']]),
                     user_mentions=' '.join([user['screen_name'] for user in message.message_create['message_data']['entities']['user_mentions']]),
                     detected_via_account_activity_api=False)
 
@@ -165,7 +165,7 @@ class TrafficViolationsTweeter:
                     created_at=message.created_at.replace(tzinfo=pytz.timezone('UTC')).timestamp() * MILLISECONDS_PER_SECOND,
                     in_reply_to_message_id=message.in_reply_to_status_id,
                     location=message.place and message.place.full_name,
-                    user_mention_ids=' '.join([user['id'] for user in message.entities['user_mentions']]),
+                    user_mention_ids=','.join([user['id_str'] for user in message.entities['user_mentions']]),
                     user_mentions=' '.join([user['screen_name'] for user in message.entities['user_mentions']]),
                     detected_via_account_activity_api=False)
 
@@ -664,7 +664,8 @@ class TrafficViolationsTweeter:
             if isinstance(part, list):
                 message_id = self._recursively_process_status_updates(
                     response_parts=part,
-                    message_id=message_id)
+                    message_id=message_id,
+                    user_mention_ids=user_mention_ids)
             else:
                 if self._is_production():
                     new_message = self._get_twitter_application_api(

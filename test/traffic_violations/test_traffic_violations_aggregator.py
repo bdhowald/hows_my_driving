@@ -8,6 +8,7 @@ import requests_futures.sessions
 import unittest
 
 from datetime import datetime, timezone, timedelta
+from freezegun import freeze_time
 
 from typing import Dict, List
 
@@ -475,7 +476,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'unique_identifier': 'abcd1234',
             },
             'response': [
-                '@bdhowald #NY_HME6483 has been queried 8 times.\n'
+                '@bdhowald As of 09:42:25 AM on July 23, 2027:\n\n'
+                '#NY_HME6483 has been queried 8 times.\n'
                 '\n'
                 'This vehicle was last queried on ' + adjusted_time.strftime(
                     '%B %-d, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') +
@@ -483,38 +485,55 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'https://twitter.com/BarackObama/status/12345678901234567890. ' +
                 'Since then, #NY_HME6483 has received 21 new tickets.\n'
                 '\n',
-                '@HowsMyDrivingNY Total parking and camera violation tickets: 44\n'
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Total parking and camera violation tickets: 44\n'
                 '\n'
                 '15 | School Zone Speed Camera Violation\n'
                 '14 | No Standing - Day/Time Limits\n'
                 '5   | Failure To Stop At Red Light\n'
-                '3   | No Parking - Street Cleaning\n'
-                '1   | Failure To Display Meter Receipt\n',
-                '@HowsMyDrivingNY Parking and camera violation tickets for '
-                '#NY_HME6483, cont\'d:\n'
+                '3   | No Parking - Street Cleaning\n',
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
                 '\n'
+                'Parking and camera violation tickets for '
+                '#NY_HME6483, cont\'d:\n'
+                '\n'    
+                '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
-                '1   | No Standing - Commercial Meter Zone\n'
+                '1   | No Standing - Commercial Meter Zone\n',
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Parking and camera violation tickets for '
+                '#NY_HME6483, cont\'d:\n'
+                '\n'
                 '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
-                '@HowsMyDrivingNY Violations by year for #NY_HME6483:\n'
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Violations by year for #NY_HME6483:\n'
                 '\n'
                 '2   | 2016\n'
                 '8   | 2017\n'
                 '13 | 2018\n',
-                '@HowsMyDrivingNY Violations by borough for #NY_HME6483:\n'
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Violations by borough for #NY_HME6483:\n'
                 '\n'
                 '1   | Bronx\n'
                 '7   | Brooklyn\n'
                 '2   | Queens\n'
                 '13 | Staten Island\n',
-                '@HowsMyDrivingNY Under the Dangerous Vehicle Abatement Act, '
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Under the Dangerous Vehicle Abatement Act, '
                 'this vehicle could have been booted or impounded due to its 5 '
                 'red light camera violations (>= 5/year) from September 7, 2015 to June 5, '
                 '2016.\n',
-                '@HowsMyDrivingNY Under the Dangerous Vehicle Abatement Act, '
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Under the Dangerous Vehicle Abatement Act, '
                 'this vehicle could have been booted or impounded due to its 15 '
                 'school zone speed camera violations (>= 15/year) from October 14, 2015 to '
                 'August 5, 2016.\n',
@@ -526,6 +545,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     @ddt.unpack
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TweetDetectionService.tweet_exists')
+    @freeze_time("2027-07-23 09:42:25")
     def test_form_plate_lookup_response_parts(self,
                                               mocked_tweet_exists,
                                               data: Dict[str, any],
@@ -1154,6 +1174,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._get_unique_identifier')
+    @freeze_time("2074-06-18 18:27:52")
     def test_create_response_status_legacy_format(self,
                                                   mocked_get_unique_identifier,
                                                   mocked_perform_plate_lookup,
@@ -1236,27 +1257,44 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         unique_identifier = 'ab12cd34'
 
-        response_parts = [['@BarackObama #PA_GLF7467 has been queried 2 times.\n\n',
-                           '@HowsMyDrivingNY Total parking and camera violation tickets: 49\n\n'
+        response_parts = [['@BarackObama As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           '#PA_GLF7467 has been queried 2 times.\n\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           'Total parking and camera violation tickets: 49\n'
+                           '\n'
                            '17 | No Parking - Street Cleaning\n'
                            '6   | Expired Meter\n'
                            '5   | No Violation Description Available\n'
                            '3   | Fire Hydrant\n'
-                           '3   | No Parking - Day/Time Limits\n'
-                           '3   | Failure To Display Meter Receipt\n',
-                           '@HowsMyDrivingNY Parking and camera violation tickets for '
+                           '3   | No Parking - Day/Time Limits\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           'Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n\n'
+                           '3   | Failure To Display Meter Receipt\n'
                            '3   | School Zone Speed Camera Violation\n'
                            '2   | No Parking - Except Authorized Vehicles\n'
-                           '2   | Bus Lane Violation\n'
+                           '2   | Bus Lane Violation\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           'Parking and camera violation tickets for '
+                           '#PA_GLF7467, cont\'d:\n'
+                           '\n'
                            '1   | Failure To Stop At Red Light\n'
-                           '1   | No Standing - Day/Time Limits\n',
-                           '@HowsMyDrivingNY Parking and camera violation tickets for '
-                           '#PA_GLF7467, cont\'d:\n\n'
+                           '1   | No Standing - Day/Time Limits\n'
                            '1   | No Standing - Except Authorized Vehicle\n'
-                           '1   | Obstructing Traffic Or Intersection\n'
+                           '1   | Obstructing Traffic Or Intersection\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           'Parking and camera violation tickets for '
+                           '#PA_GLF7467, cont\'d:\n'
+                           '\n'
                            '1   | Double Parking\n',
-                           '@HowsMyDrivingNY Known fines for #PA_GLF7467:\n\n'
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           'Known fines for #PA_GLF7467:\n\n'
                            '$1,000.00 | Fined\n'
                            '$0.00         | Reduced\n'
                            '$775.00     | Paid\n'

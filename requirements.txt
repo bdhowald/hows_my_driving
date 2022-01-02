@@ -6,6 +6,7 @@ charset-normalizer==2.0.9
 ddt==1.4.4
 distlib==0.3.4
 filelock==3.4.2
+freezegun==1.1.0
 greenlet==1.1.2
 idna==3.3
 importlib-metadata==4.10.0

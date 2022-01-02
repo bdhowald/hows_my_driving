@@ -398,8 +398,11 @@ class TrafficViolationsAggregator:
                                      for s in violations])
         LOG.debug(f'total_violations: {total_violations}')
 
+        now_in_eastern_time = self.utc.localize(datetime.now())
+        time_prefix = now_in_eastern_time.strftime('As of %I:%M:%S %p on %B %-d, %Y:\n\n')
+
         # Append username to blank string to start to build tweet.
-        violations_string += (f'@{username} ' if lookup_source
+        violations_string += (f'@{username} {time_prefix}' if lookup_source
                                  == lookup_sources.LookupSource.STATUS.value else '')
 
         # Append summary string.
@@ -422,7 +425,7 @@ class TrafficViolationsAggregator:
 
         response_chunks.append(violations_string)
 
-        username_prefix = (f'@{twitter_constants.HMDNY_TWITTER_HANDLE} ' if lookup_source
+        username_prefix = (f'@{twitter_constants.HMDNY_TWITTER_HANDLE} {time_prefix}' if lookup_source
                                == lookup_sources.LookupSource.STATUS.value else '')
 
         response_chunks += self._handle_response_part_formation(
