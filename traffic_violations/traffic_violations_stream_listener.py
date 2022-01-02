@@ -1,21 +1,30 @@
 import json
 import logging
+import os
 import tweepy
 
 from typing import Dict
 
+from traffic_violations import settings
 from traffic_violations.constants.lookup_sources import LookupSource
 
 LOG = logging.getLogger(__name__)
 
 
-class TrafficViolationsStreamListener (tweepy.StreamListener):
+class TrafficViolationsStreamListener(tweepy.streaming.Stream):
 
     def __init__(self, tweeter):
         # Create a logger
         self.tweeter = tweeter
 
-        super(TrafficViolationsStreamListener, self).__init__()
+        self._app_api = None
+
+        super().__init__(
+            consumer_key=os.getenv('TWITTER_API_KEY'),
+            consumer_secret=os.getenv('TWITTER_API_SECRET'),
+            access_token=os.getenv('TWITTER_ACCESS_TOKEN'),
+            access_token_secret=os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
+        )
 
     def on_status(self, status):
         LOG.debug(f'on_status: {status.text}')
@@ -36,13 +45,13 @@ class TrafficViolationsStreamListener (tweepy.StreamListener):
             LOG.debug(
                 f"data_dict['event']: {data_dict['event']}")
 
-            status = tweepy.Status.parse(self.api, data_dict)
+            status = tweepy.models.Status.parse(None, data_dict)
 
         elif 'direct_message' in data_dict:
             LOG.debug(
                 f"data_dict['direct_message']: {data_dict['direct_message']}")
 
-            message = tweepy.Status.parse(self.api, data_dict)
+            message = tweepy.models.Status.parse(None, data_dict)
 
             self.tweeter.aggregator.initiate_reply(message, LookupSource.DIRECT_MESSAGE.value)
 
@@ -73,7 +82,7 @@ class TrafficViolationsStreamListener (tweepy.StreamListener):
                 f"data_dict['in_reply_to_status_id']: "
                 f"{data_dict['in_reply_to_status_id']}")
 
-            status = tweepy.Status.parse(self.api, data_dict)
+            status = tweepy.models.Status.parse(None, data_dict)
 
             self.tweeter.aggregator.initiate_reply(status, LookupSource.STATUS.value)
 

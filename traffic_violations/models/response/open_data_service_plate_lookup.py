@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.fine_data import FineData
@@ -17,4 +17,4 @@ class OpenDataServicePlateLookup:
     violations: List[Tuple[str, int]]
     years: List[Tuple[str, int]]
 
-    camera_streak_data: Optional[CameraStreakData] = None
+    camera_streak_data: Dict[str, CameraStreakData] = None

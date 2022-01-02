@@ -15,8 +15,8 @@ class Campaign(Base):
     # associations
     plate_lookups = relationship("PlateLookup",
                                  secondary=CampaignPlateLookup,
-                                 backref='Campaign',
-                                 lazy='dynamic')
+                                 lazy='dynamic',
+                                 back_populates='campaigns')
 
     # indices
     __table_args__ = (

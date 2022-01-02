@@ -296,36 +296,51 @@ class TestOpenDataService(unittest.TestCase):
         boroughs = Counter([v['borough'].title()
                             for v in merged_violations.values()]).most_common()
 
-        violation_times = sorted(
-            [datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f') for v in merged_violations.values(
-            ) if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light',
+        camera_streak_data = {
+            'Failure to Stop at Red Light': None,
+            'Mixed': None,
+            'School Zone Speed Camera Violation': None,
+        }
+
+        for violation_type in camera_streak_data:
+            if violation_type == 'Failure to Stop at Red Light':
+                violation_times = sorted(
+                    [datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f') for v in merged_violations.values(
+                    ) if v.get('violation') == 'Failure to Stop at Red Light'])
+            elif violation_type == 'Mixed':
+                violation_times = sorted(
+                    [datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f') for v in merged_violations.values(
+                    ) if v.get('violation') and v['violation'] in ['Failure to Stop at Red Light',
                                                            'School Zone Speed Camera Violation']])
+            elif violation_type == 'School Zone Speed Camera Violation':
+                violation_times = sorted(
+                    [datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f') for v in merged_violations.values(
+                    ) if v.get('violation') == 'School Zone Speed Camera Violation'])
 
-        camera_streak_data = None
-        if violation_times:
-            max_streak = 0
-            min_streak_date = None
-            max_streak_date = None
+            if violation_times:
+                max_streak = 0
+                min_streak_date = None
+                max_streak_date = None
 
-            for date in violation_times:
+                for date in violation_times:
 
-                year_later = date + \
-                    (datetime(date.year + 1, 1, 1) - datetime(date.year, 1, 1))
+                    year_later = date + \
+                        (datetime(date.year + 1, 1, 1) - datetime(date.year, 1, 1))
 
-                year_long_tickets = [
-                    comp_date for comp_date in violation_times if date <= comp_date < year_later]
-                this_streak = len(year_long_tickets)
+                    year_long_tickets = [
+                        comp_date for comp_date in violation_times if date <= comp_date < year_later]
+                    this_streak = len(year_long_tickets)
 
-                if this_streak > max_streak:
+                    if this_streak > max_streak:
 
-                    max_streak = this_streak
-                    min_streak_date = year_long_tickets[0]
-                    max_streak_date = year_long_tickets[-1]
+                        max_streak = this_streak
+                        min_streak_date = year_long_tickets[0]
+                        max_streak_date = year_long_tickets[-1]
 
-            camera_streak_data = CameraStreakData(
-                min_streak_date=min_streak_date.strftime('%B %-d, %Y'),
-                max_streak=max_streak,
-                max_streak_date=max_streak_date.strftime('%B %-d, %Y'))
+                camera_streak_data[violation_type] = CameraStreakData(
+                    min_streak_date=min_streak_date.strftime('%B %-d, %Y'),
+                    max_streak=max_streak,
+                    max_streak_date=max_streak_date.strftime('%B %-d, %Y'))
 
         plate_query = PlateQuery(
             created_at='Tue Dec 31 19:28:12 -0500 2019',
@@ -383,7 +398,10 @@ class TestOpenDataService(unittest.TestCase):
         result = OpenDataServiceResponse(
             data=OpenDataServicePlateLookup(
                 boroughs=[],
-                camera_streak_data=None,
+                camera_streak_data={
+                    'Failure to Stop at Red Light': None,
+                    'Mixed': None,
+                    'School Zone Speed Camera Violation': None},
                 fines=FineData(fined=0, outstanding=0, paid=0, reduced=0),
                 num_violations=0,
                 plate=plate,

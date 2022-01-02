@@ -1,5 +1,5 @@
-from sqlalchemy import Boolean, Column, Integer, String
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy.dialects.mysql import BIGINT, INTEGER
 
 from traffic_violations.models.base import Base
 
@@ -18,7 +18,10 @@ class TwitterEvent(Base):
     event_text = Column(String(560), nullable=False)
     created_at = Column(BIGINT, nullable=False)
     in_reply_to_message_id = Column(BIGINT, nullable=True)
+    last_failed_at_time = Column(DateTime, nullable=True)
     location = Column(String(100), nullable=True)
+    num_times_failed = Column(INTEGER(unsigned=True), default=0, nullable=False)
+    user_mention_ids = Column(String(560), nullable=True)
     user_mentions = Column(String(560), nullable=True)
     response_in_progress = Column(Boolean, default=False, nullable=False)
     responded_to = Column(Boolean, default=False, nullable=False)

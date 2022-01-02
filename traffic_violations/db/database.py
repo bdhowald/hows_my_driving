@@ -10,20 +10,21 @@ from sqlalchemy.orm.scoping import ScopedSession
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 
-# from common import settings
-# from common.db.utils import serialization
+from traffic_violations import settings
 
 _DB_CONN_CACHE = None
 _DB_READONLY_SESSION = None
+
+MYSQL_PASSWORD_STR = os.getenv('MYSQL_PASSWORD') or ''
+MYSQL_URI = (f"mysql+pymysql://{os.getenv('MYSQL_USER')}:"
+             f"{MYSQL_PASSWORD_STR}@localhost/"
+             f"{os.getenv('MYSQL_DATABASE')}?charset=utf8mb4")
 
 
 class DatabaseConnection(NamedTuple):
     engine: Engine
     session: ScopedSession
 
-password_str = os.environ[
-                'MYSQL_PASSWORD'] if 'MYSQL_PASSWORD' in os.environ else ''
-MYSQL_URI = f"mysql+pymysql://{os.environ['MYSQL_USER']}:{password_str}@localhost/{os.environ['MYSQL_DATABASE']}?charset=utf8mb4"
 
 
 def _create_mysql_engine(readonly: bool = False) -> Engine:

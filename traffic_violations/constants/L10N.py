@@ -2,6 +2,14 @@ from string import Template
 
 from traffic_violations.constants.endpoints import HOWS_MY_DRIVING_NY_WEBSITE
 
+DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING = (
+   '{}'
+   'Under the Dangerous Vehicle Abatement Act, '
+   'this vehicle could have been booted or impounded '
+   'due to its {} {} camera violations '
+   '(>= {}/year) from {} '
+   'to {}.\n')
+
 LAST_QUERIED_STRING = "This vehicle was last queried on {} at {}"
 
 LOOKUP_BOROUGH_STRING = 'Violations by borough for {}:\n\n'

@@ -16,7 +16,8 @@ class PlateLookup(Base):
 
     # columns
     id = Column(Integer, primary_key=True)
-    boot_eligible = Column(Boolean, default=False, nullable=False)
+    boot_eligible_under_dvaa_threshold = Column(Boolean, default=False, nullable=False)
+    boot_eligible_under_rdaa_threshold = Column(Boolean, default=False, nullable=False)
     bus_lane_camera_violations = Column(INTEGER(unsigned=True), nullable=True)
     count_towards_frequency = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -35,7 +36,8 @@ class PlateLookup(Base):
 
     # associations
     campaigns = relationship("Campaign",
-                    secondary=CampaignPlateLookup, backref='PlateLookup')
+                              secondary=CampaignPlateLookup,
+                              back_populates='plate_lookups')
 
     # indices
     __table_args__ = (
@@ -51,7 +53,7 @@ class PlateLookup(Base):
         Index('index_twitter_handle_plate_state', 'external_username', 'plate', 'state'),
         Index('index_count_towards_frequency', 'count_towards_frequency'),
         Index('index_num_tickets', 'num_tickets'),
-        Index('index_boot_eligible', 'boot_eligible'),
+        Index('index_boot_eligible_under_rdaa_threshold', 'boot_eligible_under_rdaa_threshold'),
         Index('index_responded_to', 'responded_to'),
         Index('index_unique_identifier', 'unique_identifier')
     )

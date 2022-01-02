@@ -45,6 +45,8 @@ class RecklessDriverRetrospectiveJob(BaseJob):
 
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
+        use_dvaa_thresholds: bool = kwargs.get('use_dvaa_thresholds') or False
+        use_only_visible_tweets: bool = kwargs.get('use_only_visible_tweets') or False
 
         tweet_detection_service = TweetDetectionService()
         tweeter = TrafficViolationsTweeter()
@@ -74,21 +76,32 @@ class RecklessDriverRetrospectiveJob(BaseJob):
         top_of_the_next_hour_last_year = (
             top_of_the_hour_last_year + relativedelta(hours=1))
 
-        recent_plate_lookup_ids: List[Tuple[int]] = PlateLookup.query.session.query(
+        if use_dvaa_thresholds:
+            threshold_attribute: str = 'boot_eligible_under_dvaa_threshold'
+        else:
+            threshold_attribute: str = 'boot_eligible_under_rdaa_threshold'
+
+        base_query: List[Tuple[int]] = PlateLookup.query.session.query(
             func.max(PlateLookup.id).label('most_recent_vehicle_lookup')
         ).filter(
             or_(
                   and_(PlateLookup.created_at >= top_of_the_hour_last_year,
                        PlateLookup.created_at < top_of_the_next_hour_last_year,
-                       PlateLookup.boot_eligible == True,
+                       getattr(PlateLookup, threshold_attribute) == True,
                        PlateLookup.count_towards_frequency == True),
                   and_(one_year_after_leap_day,
                        PlateLookup.created_at >= (top_of_the_hour_last_year - relativedelta(days=1)),
                        PlateLookup.created_at < (top_of_the_next_hour_last_year - relativedelta(days=1)),
-                       PlateLookup.boot_eligible == True,
+                       getattr(PlateLookup, threshold_attribute) == True,
                        PlateLookup.count_towards_frequency == True)
                 )
-        ).group_by(
+        )
+
+        if use_only_visible_tweets:
+            base_query = base_query.filter(
+                PlateLookup.message_source == lookup_sources.LookupSource.STATUS.value)
+
+        recent_plate_lookup_ids = base_query.group_by(
             PlateLookup.plate,
             PlateLookup.state
         ).all()
@@ -120,7 +133,7 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                 until=previous_lookup.created_at)
 
             lookup_before_query: OpenDataServicePlateLookup = data_before_query.data
-            camera_streak_data_before_query: CameraStreakData = lookup_before_query.camera_streak_data
+            camera_streak_data_before_query: CameraStreakData = lookup_before_query.camera_streak_data['Mixed']
 
             data_after_query: OpenDataServiceResponse = nyc_open_data_service.look_up_vehicle(
                 plate_query=plate_query,
@@ -198,6 +211,11 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                 else:
                     reckless_driver_summary_string += '.'
 
+                if use_only_visible_tweets and not can_link_tweet:
+                    # If we're only displaying tweets we can quote tweet,
+                    # skip this one since we can'tt.
+                    continue
+
                 reckless_driver_update_string = (
                     f'From {camera_streak_data_before_query.min_streak_date} to '
                     f'{camera_streak_data_before_query.max_streak_date}, this vehicle '
@@ -208,14 +226,9 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     f'{red_light_camera_violations_string}'
                     f'{speed_camera_violations_string}')
 
-                advocacy_string = (
-                    f'Thank you to @bradlander for making the Dangerous Driver '
-                    f'Abatement Act a reality.')
-
                 messages: List[str] = [
                     reckless_driver_summary_string,
-                    reckless_driver_update_string,
-                    advocacy_string]
+                    reckless_driver_update_string]
 
                 if not is_dry_run:
                     success: bool = tweeter.send_status(
@@ -229,7 +242,6 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                                   'ran successfully.')
                 else:
                     print(reckless_driver_update_string)
-                    print(advocacy_string)
 
     def _is_leap_year(self, year):
         if (year % 400 == 0) or (year % 4 == 0 and year % 100 != 0):
@@ -247,6 +259,16 @@ def parse_args():
         action='store_true',
         help="Don't tweet results")
 
+    parser.add_argument(
+        '--only-visible-tweets',
+        action='store_true',
+        help="Only quote still publicly visible tweets.")
+
+    parser.add_argument(
+        '--use-dvaa-thresholds',
+        action='store_true',
+        help="Use the higher thresholds (5/15) of the law as signed rather than as proposed (5 combined)")
+
     return parser.parse_args()
 
 
@@ -254,4 +276,7 @@ if __name__ == '__main__':
     arguments = parse_args()
 
     job = RecklessDriverRetrospectiveJob()
-    job.run(is_dry_run=arguments.dry_run)
+    job.run(
+        is_dry_run=arguments.dry_run,
+        use_dvaa_thresholds=arguments.use_dvaa_thresholds,
+        use_only_visible_tweets=arguments.only_visible_tweets)

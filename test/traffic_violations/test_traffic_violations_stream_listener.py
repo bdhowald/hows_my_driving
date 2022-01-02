@@ -34,7 +34,7 @@ class TestTrafficViolationsStreamListener(unittest.TestCase):
         status_mock = MagicMock(name='status')
         status_mock.parse = parse_mock
 
-        tweepy.Status = status_mock
+        tweepy.models.Status = status_mock
 
         initiate_reply_mock = MagicMock(name='initiate_reply')
 
@@ -44,15 +44,13 @@ class TestTrafficViolationsStreamListener(unittest.TestCase):
 
         self.listener.tweeter.aggregator.initiate_reply.assert_called_with(
             123, 'direct_message')
-        parse_mock.assert_called_with(
-            self.listener.api, json.loads(direct_message_data))
+        parse_mock.assert_called_with(None, json.loads(direct_message_data))
 
         event_data = '{"event": "stuff"}'
 
         self.listener.on_data(event_data)
 
-        parse_mock.assert_called_with(
-            self.listener.api, json.loads(event_data))
+        parse_mock.assert_called_with(None, json.loads(event_data))
 
         in_reply_to_status_id_data = '{"in_reply_to_status_id": "stuff"}'
 
@@ -60,8 +58,7 @@ class TestTrafficViolationsStreamListener(unittest.TestCase):
 
         self.listener.tweeter.aggregator.initiate_reply.assert_called_with(
             123, 'status')
-        parse_mock.assert_called_with(
-            self.listener.api, json.loads(in_reply_to_status_id_data))
+        parse_mock.assert_called_with(None, json.loads(in_reply_to_status_id_data))
 
     # @mock.patch('')
     def test_on_direct_message(self):

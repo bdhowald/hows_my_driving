@@ -48,7 +48,7 @@ class TestDailySummaryJob(unittest.TestCase):
         for _ in range(random.randint(5, 20)):
             lookup = MagicMock()
             lookup.num_tickets = random.randint(1, 200)
-            lookup.boot_eligible = random.random() >= 0.5
+            lookup.boot_eligible_under_rdaa_threshold = random.random() >= 0.5
             plate_lookups.append(lookup)
 
         num_lookups = len(plate_lookups)
@@ -57,15 +57,21 @@ class TestDailySummaryJob(unittest.TestCase):
         total_tickets = sum(ticket_counts)
         num_empty_lookups = len([
             lookup for lookup in plate_lookups if lookup.num_tickets == 0])
-        num_reckless_drivers = len([
-            lookup for lookup in plate_lookups if lookup.boot_eligible == True])
+        num_rdaa_drivers = len([
+            lookup for lookup in plate_lookups if lookup.boot_eligible_under_rdaa_threshold == True])
+        num_dvaa_drivers = len([
+            lookup for lookup in plate_lookups if lookup.boot_eligible_under_dvaa_threshold == True])
 
         mocked_plate_lookup_query.join().all.return_value = plate_lookups
 
-        total_reckless_drivers = random.randint(10, 10000)
+        total_rdaa_drivers = random.randint(10, 10000)
+        total_dvaa_drivers = random.randint(10, 10000)
 
         mocked_plate_lookup_query.session.query(
-        ).distinct().filter().count.return_value = total_reckless_drivers
+        ).distinct().filter().count.side_effect = [
+          total_rdaa_drivers,
+          total_dvaa_drivers
+        ]
 
         median = statistics.median(
             plate_lookup.num_tickets for plate_lookup in plate_lookups)
@@ -77,16 +83,23 @@ class TestDailySummaryJob(unittest.TestCase):
             f"and a median of {median} ticket{'' if median == 1 else 's'} per vehicle. "
             f"{num_empty_lookups} lookup{'' if num_empty_lookups == 1 else 's'} returned no tickets.")
 
-        reckless_string = (
-            f"{num_reckless_drivers} {'vehicle was' if num_reckless_drivers == 1 else 'vehicles were'} "
-            f"eligible to be booted or impounded under @bradlander's proposed legislation "
-            f"({'{:,}'.format(total_reckless_drivers)} such lookups since June 6, 2018).")
+        rdaa_string = (
+            f"{num_rdaa_drivers} {'vehicle was' if num_rdaa_drivers == 1 else 'vehicles were'} "
+            f'eligible to be booted or impounded under the Reckless Driver Accountability Act '
+            f'(>= 5 camera violations in 12 months). There have been '
+            f"{'{:,}'.format(total_rdaa_drivers)} such vehicles queried since June 6, 2018.")
+
+        dvaa_string = (
+            f"{num_dvaa_drivers} {'vehicle was' if num_dvaa_drivers == 1 else 'vehicles were'} "
+            f"eligible to be booted or impounded under @bradlander's Dangerous Vehicle Abatement Act "
+            f'(>= 5 red light camera violations or >= 15 speed camera violations in 12 months). '
+            f"There have been {'{:,}'.format(total_dvaa_drivers)} such vehicles queried since June 6, 2018."  )
 
         job.run(is_dry_run=dry_run)
 
         if not dry_run:
             mocked_traffic_violations_tweeter().send_status.assert_called_with(
-                message_parts=[lookup_string, reckless_string],
+                message_parts=[lookup_string, rdaa_string, dvaa_string],
                 on_error_message=(
                     f'Error printing daily summary. '
                     f'Tagging @bdhowald.'))

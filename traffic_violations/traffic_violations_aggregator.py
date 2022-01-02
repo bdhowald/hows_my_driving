@@ -13,7 +13,7 @@ from sqlalchemy import and_, func
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from traffic_violations.constants import (L10N, endpoints, lookup_sources,
-    twitter as twitter_constants, regexps as regexp_constants)
+    thresholds, twitter as twitter_constants, regexps as regexp_constants)
 
 from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.campaign import Campaign
@@ -46,6 +46,14 @@ LOG = logging.getLogger(__name__)
 
 class TrafficViolationsAggregator:
 
+    CAMERA_THRESHOLDS = {
+        'Mixed': thresholds.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_THRESHOLD,
+        'Failure to Stop at Red Light':
+            thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD,
+        'School Zone Speed Camera Violation':
+            thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_SCHOOL_ZONE_SPEED_CAMERA_THRESHOLD
+    }
+
     CAMERA_VIOLATIONS = ['Bus Lane Violation',
                          'Failure To Stop At Red Light',
                          'School Zone Speed Camera Violation']
@@ -72,8 +80,8 @@ class TrafficViolationsAggregator:
         """Does the request have valid plates in it requiring a response."""
 
         potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
-            lookup_request.string_tokens())
-        
+            lookup_request)
+
         return any(potential_vehicle.valid_plate for potential_vehicle
             in potential_vehicles)
 
@@ -141,14 +149,14 @@ class TrafficViolationsAggregator:
 
         # Collect response parts here.
         response_parts: List[Any] = []
-        
+
         # We need to know if any lookups errored out or were successful.
         error_on_any_lookup = False
         success_on_any_lookup = False
 
         # Find potential plates
         potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
-            request_object.string_tokens())
+            request_object)
         LOG.debug(f'potential_vehicles: {potential_vehicles}')
 
         # Find included campaign hashtags
@@ -157,9 +165,9 @@ class TrafficViolationsAggregator:
         LOG.debug(f'included_campaigns: {included_campaigns}')
 
         try:
-            # for each vehicle, we need to determine if the supplied information amounts to a valid plate
-            # then we need to look up each valid plate
-            # then we need to respond in a single thread in order with the responses
+            # for each vehicle, we determine if the supplied information amounts to a valid plate
+            # then we look up each valid plate
+            # then we respond in a single thread in order with the responses
 
             summary: TrafficViolationsAggregatorResponse = TrafficViolationsAggregatorResponse()
 
@@ -168,13 +176,13 @@ class TrafficViolationsAggregator:
                 if potential_vehicle.valid_plate:
                     # If the plate is valid, process it by doing a lookup.
                     vehicle_response: ValidVehicleResponse = self._process_valid_vehicle(
-                                            campaigns=included_campaigns,
-                                            lookup_summary=summary,
-                                            request_object=request_object,
-                                            vehicle=potential_vehicle)
+                        campaigns=included_campaigns,
+                        request_object=request_object,
+                        vehicle=potential_vehicle)
 
                     # Add lookup to summary
-                    summary.plate_lookups.append(vehicle_response.plate_lookup)
+                    if vehicle_response.plate_lookup:
+                        summary.plate_lookups.append(vehicle_response.plate_lookup)
 
                     # Keep track of any error while looking up a plate.
                     error_on_any_lookup = error_on_any_lookup or vehicle_response.error_on_lookup
@@ -185,8 +193,8 @@ class TrafficViolationsAggregator:
                 else:
                     # If the plate is invalid, process it by gathering response parts.
                     vehicle_response: InvalidVehicleResponse = self._process_invalid_vehicle(
-                                            request_object=request_object,
-                                            invalid_vehicle=potential_vehicle)
+                        request_object=request_object,
+                        invalid_vehicle=potential_vehicle)
 
                 # Add response parts.
                 response_parts.append(vehicle_response.response_parts)
@@ -287,16 +295,16 @@ class TrafficViolationsAggregator:
 
         return unique_vehicles
 
-    def _find_potential_vehicles(self, list_of_strings: List[str]) -> List[Vehicle]:
+    def _find_potential_vehicles(self, request_object: Type[BaseLookupRequest]) -> List[Vehicle]:
         """Parse tweet text for vehicles"""
 
         potential_vehicles: List[Vehicle] = []
 
         potential_vehicles += self._find_potential_vehicles_using_combined_fields(
-            list_of_strings=list_of_strings)
+            list_of_strings=request_object.string_tokens())
 
         potential_vehicles += self._find_potential_vehicles_using_separate_fields(
-            list_of_strings=list_of_strings)
+            list_of_strings=request_object.legacy_string_tokens())
 
         return self._ensure_unique_plates(
             vehicles=potential_vehicles)
@@ -369,6 +377,7 @@ class TrafficViolationsAggregator:
             borough_data:  List[Tuple[str, int]],
             frequency: int,
             fine_data: FineData,
+            lookup_source: str,
             plate: str,
             plate_types: List[str],
             state: str,
@@ -376,7 +385,7 @@ class TrafficViolationsAggregator:
             username: str,
             violations: List[Tuple[str, int]],
             year_data: List[Tuple[str, int]],
-            camera_streak_data: Optional[CameraStreakData] = None,
+            camera_streak_data: Dict[str, CameraStreakData] = None,
             previous_lookup: Optional[PlateLookup] = None):
 
         # response_chunks holds tweet-length-sized parts of the response
@@ -389,7 +398,14 @@ class TrafficViolationsAggregator:
                                      for s in violations])
         LOG.debug(f'total_violations: {total_violations}')
 
-        # Append to initially blank string to build tweet.
+        now_in_eastern_time = self.utc.localize(datetime.now())
+        time_prefix = now_in_eastern_time.strftime('As of %I:%M:%S %p on %B %-d, %Y:\n\n')
+
+        # Append username to blank string to start to build tweet.
+        violations_string += (f'@{username} {time_prefix}' if lookup_source
+                                 == lookup_sources.LookupSource.STATUS.value else '')
+
+        # Append summary string.
         violations_string += L10N.LOOKUP_SUMMARY_STRING.format(
             L10N.VEHICLE_HASHTAG.format(state, plate),
             L10N.get_plate_types_string(plate_types),
@@ -407,17 +423,22 @@ class TrafficViolationsAggregator:
                 state=state,
                 username=username)
 
+        response_chunks.append(violations_string)
+
+        username_prefix = (f'@{twitter_constants.HMDNY_TWITTER_HANDLE} {time_prefix}' if lookup_source
+                               == lookup_sources.LookupSource.STATUS.value else '')
+
         response_chunks += self._handle_response_part_formation(
             collection=violations,
             continued_format_string=L10N.LOOKUP_TICKETS_STRING_CONTD.format(
                 L10N.VEHICLE_HASHTAG.format(state, plate)),
             count='count',
-            cur_string=violations_string,
             description='title',
             default_description='No Year Available',
             prefix_format_string=L10N.LOOKUP_TICKETS_STRING.format(
                 total_violations),
-            result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
+            result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
+            username_prefix=username_prefix)
 
         if year_data:
             response_chunks += self._handle_response_part_formation(
@@ -429,7 +450,8 @@ class TrafficViolationsAggregator:
                 default_description='No Year Available',
                 prefix_format_string=L10N.LOOKUP_YEAR_STRING.format(
                     L10N.VEHICLE_HASHTAG.format(state, plate)),
-                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
+                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
+                username_prefix=username_prefix)
 
         if borough_data:
             response_chunks += self._handle_response_part_formation(
@@ -441,11 +463,13 @@ class TrafficViolationsAggregator:
                 default_description='No Borough Available',
                 prefix_format_string=L10N.LOOKUP_BOROUGH_STRING.format(
                     L10N.VEHICLE_HASHTAG.format(state, plate)),
-                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING)
+                result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
+                username_prefix=username_prefix)
 
         if fine_data and fine_data.fines_assessed():
 
-            cur_string = f"Known fines for {L10N.VEHICLE_HASHTAG.format(state, plate)}:\n\n"
+            cur_string = (f'{username_prefix}'
+                          f'Known fines for {L10N.VEHICLE_HASHTAG.format(state, plate)}:\n\n')
 
             max_count_length = len('${:,.2f}'.format(fine_data.max_amount()))
             spaces_needed = (max_count_length * 2) + 1
@@ -480,20 +504,35 @@ class TrafficViolationsAggregator:
             # add to container
             response_chunks.append(cur_string)
 
-        if camera_streak_data:
+        for camera_violation_type, threshold in self.CAMERA_THRESHOLDS.items():
+            violation_type_data = camera_streak_data[camera_violation_type]
 
-            if camera_streak_data.max_streak and camera_streak_data.max_streak >= 5:
+            if violation_type_data:
 
-                # formulate streak string
-                streak_string = (
-                    f"Under @bradlander's proposed legislation, "
-                    f"this vehicle could have been booted or impounded "
-                    f"due to its {camera_streak_data.max_streak} camera violations "
-                    f"(>= 5/year) from {camera_streak_data.min_streak_date}"
-                    f" to {camera_streak_data.max_streak_date}.\n")
+                if (camera_violation_type == 'Failure to Stop at Red Light' and
+                    violation_type_data.max_streak >= threshold):
 
-                # add to container
-                response_chunks.append(streak_string)
+                    # add to container
+                    response_chunks.append(L10N.DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING.format(
+                        username_prefix,
+                        violation_type_data.max_streak,
+                        'red light',
+                        threshold,
+                        violation_type_data.min_streak_date,
+                        violation_type_data.max_streak_date))
+
+                elif (camera_violation_type == 'School Zone Speed Camera Violation' and
+                      violation_type_data.max_streak >= threshold):
+
+                    # add to container
+                    response_chunks.append(L10N.DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING.format(
+                        username_prefix,
+                        violation_type_data.max_streak,
+                        'school zone speed',
+                        threshold,
+                        violation_type_data.min_streak_date,
+                        violation_type_data.max_streak_date))
+
 
         unique_link: str = self._get_website_plate_lookup_link(unique_identifier)
 
@@ -508,8 +547,9 @@ class TrafficViolationsAggregator:
                              ) -> Optional[str]:
 
         num_vehicles = len(summary.plate_lookups)
-        vehicle_tickets = [len(lookup.violations)
-                           for lookup in summary.plate_lookups]
+        vehicle_tickets = [sum(
+            violation_type['count'] for violation_type in vehicle.violations)
+                           for vehicle in summary.plate_lookups]
         total_tickets = sum(vehicle_tickets)
 
         fines_by_vehicle: List[FineData] = [lookup.fines for lookup in summary.plate_lookups]
@@ -517,7 +557,9 @@ class TrafficViolationsAggregator:
         vehicles_with_fines: int = len([
             fine_data for fine_data in fines_by_vehicle if fine_data.fined > 0])
 
-        aggregate_fines: FineData = FineData(**{field: sum(getattr(lookup.fines, field) for lookup in summary.plate_lookups) for field in FineData.FINE_FIELDS})
+        aggregate_fines: FineData = FineData(**{
+            field: sum(getattr(lookup.fines, field) for lookup
+                       in summary.plate_lookups) for field in FineData.FINE_FIELDS})
 
         if aggregate_fines.fined > 0:
             return [
@@ -582,12 +624,13 @@ class TrafficViolationsAggregator:
                                         default_description: str,
                                         prefix_format_string: str,
                                         result_format_string: str,
-                                        cur_string: str = None):
+                                        username_prefix: str):
 
         # collect the responses
         response_container = []
 
-        cur_string = cur_string if cur_string else ''
+        # Initialize current string to prefix
+        cur_string = username_prefix
 
         if prefix_format_string:
             cur_string += prefix_format_string
@@ -627,9 +670,10 @@ class TrafficViolationsAggregator:
             else:
                 response_container.append(cur_string)
                 if continued_format_string:
-                    cur_string = continued_format_string
+                    cur_string = username_prefix + continued_format_string
                 else:
-                    cur_string = ''
+                    # Initialize current string to prefix
+                    cur_string = username_prefix
 
                 cur_string += next_part
 
@@ -790,7 +834,17 @@ class TrafficViolationsAggregator:
             # If this came from message, add it to the plate_lookups table.
             if plate_query.message_source and plate_query.message_id and plate_query.created_at:
                 new_lookup = PlateLookup(
-                    boot_eligible=camera_streak_data.max_streak >= 5 if camera_streak_data else False,
+                    boot_eligible_under_dvaa_threshold=(
+                        camera_streak_data['Failure to Stop at Red Light'].max_streak >=
+                        thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_RED_LIGHT_CAMERA_THRESHOLD
+                        if camera_streak_data['Failure to Stop at Red Light'] else False or
+                        camera_streak_data['School Zone Speed Camera Violation'].max_streak >=
+                        thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_SCHOOL_ZONE_SPEED_CAMERA_THRESHOLD
+                        if camera_streak_data['School Zone Speed Camera Violation'] else False),
+                    boot_eligible_under_rdaa_threshold=(
+                        camera_streak_data['Mixed'].max_streak >=
+                        thresholds.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_THRESHOLD
+                        if camera_streak_data['Mixed'] else False),
                     bus_lane_camera_violations=bus_lane_camera_violations,
                     created_at=plate_query.created_at,
                     message_id=plate_query.message_id,
@@ -799,6 +853,7 @@ class TrafficViolationsAggregator:
                     plate=plate_query.plate,
                     plate_types=plate_query.plate_types,
                     red_light_camera_violations=red_light_camera_violations,
+                    responded_to=True,
                     speed_camera_violations=speed_camera_violations,
                     state=plate_query.state,
                     unique_identifier=unique_identifier,
@@ -814,7 +869,7 @@ class TrafficViolationsAggregator:
                 PlateLookup.query.session.commit()
 
         else:
-            LOG.info(f'open data plate lookup failed')
+            LOG.info('open data plate lookup failed')
 
         return open_data_response
 
@@ -865,7 +920,7 @@ class TrafficViolationsAggregator:
         return InvalidVehicleResponse(response_parts=plate_lookup_response_parts)
 
     def _process_lookup_without_detected_vehicles(self,
-        request_object: BaseLookupRequest) -> NonVehicleResponse:
+                                                  request_object: BaseLookupRequest) -> NonVehicleResponse:
 
         """Process a lookup that had no detected vehicles, either partial or
         complete, by determining if the user was likely trying to submit a
@@ -931,10 +986,9 @@ class TrafficViolationsAggregator:
 
 
     def _process_valid_vehicle(self,
-                             campaigns: List[Campaign],
-                             lookup_summary: TrafficViolationsAggregatorResponse,
-                             request_object: BaseLookupRequest,
-                             vehicle: Vehicle) -> ValidVehicleResponse:
+                               campaigns: List[Campaign],
+                               request_object: BaseLookupRequest,
+                               vehicle: Vehicle) -> ValidVehicleResponse:
 
         """Process a valid plate by:
 
@@ -947,6 +1001,7 @@ class TrafficViolationsAggregator:
         error_on_plate_lookup: bool = False
         plate_lookup_response_parts: List[Any]
         success_on_plate_lookup: bool = False
+        plate_lookup: Optional[OpenDataServicePlateLookup] = None
 
         plate_query: PlateQuery = self._get_plate_query(vehicle=vehicle,
                                                         request_object=request_object)
@@ -982,6 +1037,7 @@ class TrafficViolationsAggregator:
                     camera_streak_data=plate_lookup.camera_streak_data,
                     fine_data=plate_lookup.fines,
                     frequency=current_frequency,
+                    lookup_source=request_object.message_source,
                     plate=plate_lookup.plate,
                     plate_types=plate_lookup.plate_types,
                     previous_lookup=previous_lookup,
@@ -997,9 +1053,9 @@ class TrafficViolationsAggregator:
                     f' (types: {plate_query.plate_types})') if plate_lookup.plate_types else ''
 
                 plate_lookup_response_parts = L10N.NO_TICKETS_FOUND_STRING.format(
-                        plate_query.state,
-                        plate_lookup.plate,
-                        plate_types_string)
+                    plate_query.state,
+                    plate_lookup.plate,
+                    plate_types_string)
 
         else:
             # Record lookup error.

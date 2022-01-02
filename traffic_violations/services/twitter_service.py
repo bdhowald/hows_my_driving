@@ -4,10 +4,11 @@ import pytz
 import threading
 import tweepy
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import and_
 from typing import Any, List, Optional, Type, Union
 
+from traffic_violations import settings
 from traffic_violations.constants import L10N
 from traffic_violations.constants.lookup_sources import LookupSource
 from traffic_violations.constants.time import (MILLISECONDS_PER_SECOND,
@@ -18,8 +19,11 @@ from traffic_violations.models.lookup_requests import BaseLookupRequest
 from traffic_violations.models.non_follower_reply import NonFollowerReply
 from traffic_violations.models.twitter_event import TwitterEvent
 from traffic_violations.reply_argument_builder import ReplyArgumentBuilder
-from traffic_violations.traffic_violations_aggregator import \
-    TrafficViolationsAggregator
+from traffic_violations.services.apis.tweet_detection_service import (
+    TweetDetectionService)
+from traffic_violations.services.apis import twitter_api_wrapper
+from traffic_violations.traffic_violations_aggregator import (
+    TrafficViolationsAggregator)
 
 LOG = logging.getLogger(__name__)
 
@@ -47,18 +51,34 @@ class TrafficViolationsTweeter:
         # Create new aggregator
         self.aggregator = TrafficViolationsAggregator()
 
+        # Need to find if unanswered statuses have been deleted
+        self.tweet_detection_service = TweetDetectionService()
+
         # Log how many times we've called the apis
-        self.direct_messages_iteration = 0
-        self.events_iteration = 0
-        self.statuses_iteration = 0
+        self._direct_messages_iteration = 0
+        self._events_iteration = 0
+        self._statuses_iteration = 0
+
+        self._lookup_threads = []
 
         # Initialize cached values to None
         self._follower_ids: Optional[List[int]] = None
         self._follower_ids_last_fetched: Optional[datetime] = None
 
+
+    def find_and_respond_to_requests(self) -> None:
+        """Convenience method to collect the different ways TwitterEvent
+        objects are created, found, and responded to and begin the process
+        of calling these methods at process start.
+        """
+        self._find_and_respond_to_missed_direct_messages()
+        self._find_and_respond_to_missed_statuses()
+        self._find_and_respond_to_twitter_events()
+
     def send_status(self,
                     message_parts: Union[List[any], List[str]],
                     on_error_message: str) -> bool:
+        """Send statuses from @HowsMyDrivingNY"""
         try:
             self._recursively_process_status_updates(message_parts)
 
@@ -69,7 +89,12 @@ class TrafficViolationsTweeter:
 
             return False
 
-    def _add_twitter_events_for_missed_direct_messages(self, messages: List[tweepy.Status]) -> None:
+    def terminate_lookups(self) -> None:
+        """Stop looking for twitter events, statuses, or direct messages to respond to."""
+        for thread in self._lookup_threads:
+            thread.cancel()
+
+    def _add_twitter_events_for_missed_direct_messages(self, messages: List[tweepy.models.Status]) -> None:
         """Creates TwitterEvent objects when the Account Activity API fails to send us
         direct message events via webhooks to have them created by the HowsMyDrivingNY API.
 
@@ -88,7 +113,7 @@ class TrafficViolationsTweeter:
 
             existing_event: Optional[TwitterEvent] = TwitterEvent.query.filter(TwitterEvent.event_id == message.id).first()
 
-            if not existing_event and message.user.id != HMDNY_TWITTER_USER_ID:
+            if not existing_event and int(message.message_create['sender_id']) != HMDNY_TWITTER_USER_ID:
                 undetected_messages += 1
 
                 sender = senders[message.message_create['sender_id']]
@@ -102,6 +127,7 @@ class TrafficViolationsTweeter:
                     created_at=message.created_timestamp,
                     in_reply_to_message_id=None,
                     location=None,
+                    user_mention_ids=','.join([user['id_str'] for user in message.message_create['message_data']['entities']['user_mentions']]),
                     user_mentions=' '.join([user['screen_name'] for user in message.message_create['message_data']['entities']['user_mentions']]),
                     detected_via_account_activity_api=False)
 
@@ -114,12 +140,12 @@ class TrafficViolationsTweeter:
             f"{'was' if undetected_messages == 1 else 'were'} previously undetected.")
 
 
-    def _add_twitter_events_for_missed_statuses(self, messages: List[tweepy.Status]):
+    def _add_twitter_events_for_missed_statuses(self, messages: List[tweepy.models.Status]) -> None:
         """Creates TwitterEvent objects when the Account Activity API fails to send us
         status events via webhooks to have them created by the HowsMyDrivingNY API.
 
-        :param messages: List[tweepy.Status]: The statuses returned via the Twitter
-                                              Search API via Tweepy.
+        :param messages: List[tweepy.models.Status]: The statuses returned via the Twitter
+                                                     Search API via Tweepy.
         """
 
         undetected_messages = 0
@@ -139,6 +165,7 @@ class TrafficViolationsTweeter:
                     created_at=message.created_at.replace(tzinfo=pytz.timezone('UTC')).timestamp() * MILLISECONDS_PER_SECOND,
                     in_reply_to_message_id=message.in_reply_to_status_id,
                     location=message.place and message.place.full_name,
+                    user_mention_ids=','.join([user['id_str'] for user in message.entities['user_mentions']]),
                     user_mentions=' '.join([user['screen_name'] for user in message.entities['user_mentions']]),
                     detected_via_account_activity_api=False)
 
@@ -150,6 +177,55 @@ class TrafficViolationsTweeter:
             f"Found {undetected_messages} status{'' if undetected_messages == 1 else 'es'} that "
             f"{'was' if undetected_messages == 1 else 'were'} previously undetected.")
 
+    def _filter_failed_twitter_events(self, failed_events: List[TwitterEvent]) -> List[TwitterEvent]:
+        failed_events_that_need_response: List[TwitterEvent] = []
+
+        for failed_event in failed_events:
+            # If event is a tweet, but can no longer be found, there's nothing we can do.
+            if (failed_event.event_type == TwitterMessageType.STATUS.value and
+                not self.tweet_detection_service.tweet_exists(id=failed_event.event_id,
+                                                          username=failed_event.user_handle)):
+
+                failed_event.error_on_lookup = False
+                failed_event.num_times_failed = 0
+                failed_event.last_failed_at_time = None
+
+                failed_event.query.session.commit()
+
+                continue
+
+            if failed_event.num_times_failed == 0:
+                failed_events_that_need_response.append(failed_event)
+
+            elif failed_event.num_times_failed == 1:
+                time_to_retry = failed_event.last_failed_at_time + timedelta(minutes=5)
+                if time_to_retry <= datetime.utcnow():
+                    failed_events_that_need_response.append(failed_event)
+
+            elif failed_event.num_times_failed == 2:
+                time_to_retry = failed_event.last_failed_at_time + timedelta(hours=1)
+                if time_to_retry <= datetime.utcnow():
+                    failed_events_that_need_response.append(failed_event)
+
+            elif failed_event.num_times_failed == 3:
+                time_to_retry = failed_event.last_failed_at_time + timedelta(hours=3)
+                if time_to_retry <= datetime.utcnow():
+                    failed_events_that_need_response.append(failed_event)
+
+            elif failed_event.num_times_failed == 4:
+                time_to_retry = failed_event.last_failed_at_time + timedelta(days=1)
+                if time_to_retry <= datetime.utcnow():
+                    failed_events_that_need_response.append(failed_event)
+
+            else:
+                LOG.debug(f'Event response cannot be retried automatically.')
+
+
+        LOG.debug(f'failed events to retry: {failed_events_that_need_response}')
+
+        return failed_events_that_need_response
+
+
     def _find_and_respond_to_missed_direct_messages(self) -> None:
         """Uses Tweepy to call the Twitter Search API to find direct messages to/from
         HowsMyDrivingNY. It then passes this data to a function that creates
@@ -159,13 +235,17 @@ class TrafficViolationsTweeter:
         interval = (self.PRODUCTION_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS if self._is_production()
             else self.DEVELOPMENT_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS)
 
-        self.statuses_iteration += 1
+        self._direct_messages_iteration += 1
         LOG.debug(
-            f'Looking up missed direct messages on iteration {self.direct_messages_iteration}')
+            f'Looking up missed direct messages on iteration {self._direct_messages_iteration}')
+
+        # set up timer
+        direct_message_thread = threading.Timer(
+            interval, self._find_and_respond_to_missed_direct_messages)
+        self._lookup_threads.append(direct_message_thread)
 
         # start timer
-        threading.Timer(
-            interval, self._find_and_respond_to_missed_direct_messages).start()
+        direct_message_thread.start()
 
         try:
             # most_recent_undetected_twitter_event = TwitterEvent.query.filter(
@@ -194,7 +274,7 @@ class TrafficViolationsTweeter:
         finally:
             TwitterEvent.query.session.close()
 
-    def _find_and_respond_to_missed_statuses(self):
+    def _find_and_respond_to_missed_statuses(self) -> None:
         """Uses Tweepy to call the Twitter Search API to find statuses mentioning
         HowsMyDrivingNY. It then passes this data to a function that creates
         TwitterEvent objects when those status events have not already been recorded.
@@ -203,13 +283,17 @@ class TrafficViolationsTweeter:
         interval = (self.PRODUCTION_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS if self._is_production()
             else self.DEVELOPMENT_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS)
 
-        self.statuses_iteration += 1
+        self._statuses_iteration += 1
         LOG.debug(
-            f'Looking up missed statuses on iteration {self.statuses_iteration}')
+            f'Looking up missed statuses on iteration {self._statuses_iteration}')
+
+        # set up timer
+        statuses_thread = threading.Timer(
+            interval, self._find_and_respond_to_missed_statuses)
+        self._lookup_threads.append(statuses_thread)
 
         # start timer
-        threading.Timer(
-            interval, self._find_and_respond_to_missed_statuses).start()
+        statuses_thread.start()
 
         try:
             # Find most recent undetected twitter status event, and then
@@ -221,7 +305,7 @@ class TrafficViolationsTweeter:
 
             if most_recent_undetected_twitter_event:
 
-                statuses_since_last_twitter_event: List[tweepy.Status] = []
+                statuses_since_last_twitter_event: List[tweepy.models.Status] = []
                 max_status_id: Optional[int] = None
 
                 while max_status_id is None or statuses_since_last_twitter_event:
@@ -246,7 +330,7 @@ class TrafficViolationsTweeter:
         finally:
             TwitterEvent.query.session.close()
 
-    def _find_and_respond_to_twitter_events(self):
+    def _find_and_respond_to_twitter_events(self) -> None:
         """Looks for TwitterEvent objects that have not yet been responded to and
         begins the process of creating a response. Additionally, failed events are
         rerun to provide a correct response, particularly useful in cases where
@@ -257,31 +341,35 @@ class TrafficViolationsTweeter:
             self.PRODUCTION_APP_RATE_LIMITING_INTERVAL_IN_SECONDS if self._is_production()
             else self.DEVELOPMENT_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS)
 
-        self.events_iteration += 1
+        self._events_iteration += 1
         LOG.debug(
-            f'Looking up twitter events on iteration {self.events_iteration}')
+            f'Looking up twitter events on iteration {self._events_iteration}')
+
+        # set up timer
+        twitter_events_thread = threading.Timer(
+            interval, self._find_and_respond_to_twitter_events)
+        self._lookup_threads.append(twitter_events_thread)
 
         # start timer
-        threading.Timer(
-            interval, self._find_and_respond_to_twitter_events).start()
+        twitter_events_thread.start()
 
         try:
-            new_events: [List[TwitterEvent]] = TwitterEvent.get_all_by(
+            new_events: List[TwitterEvent] = TwitterEvent.get_all_by(
                 is_duplicate=False,
                 responded_to=False,
                 response_in_progress=False)
 
             LOG.debug(f'new events: {new_events}')
 
-            failed_events: [List[TwitterEvent]] = TwitterEvent.get_all_by(
+            failed_events: List[TwitterEvent] = TwitterEvent.get_all_by(
                 is_duplicate=False,
                 error_on_lookup=True,
                 responded_to=True,
                 response_in_progress=False)
 
-            LOG.debug(f'failed events: {failed_events}')
+            failed_events_that_need_response: List[TwitterEvent] = self._filter_failed_twitter_events(failed_events)
 
-            events_to_respond_to: [List[TwitterEvent]] = new_events + failed_events
+            events_to_respond_to: [List[TwitterEvent]] = new_events + failed_events_that_need_response
 
             LOG.debug(f'events to respond to: {events_to_respond_to}')
 
@@ -298,44 +386,19 @@ class TrafficViolationsTweeter:
         finally:
             TwitterEvent.query.session.close()
 
-    def _find_and_respond_to_requests(self):
-        """Convenience method to collect the different ways TwitterEvent
-        objects are created, found, and responded to and begin the process
-        of calling these methods at process start.
-        """
-        self._find_and_respond_to_missed_direct_messages()
-        self._find_and_respond_to_missed_statuses()
-        self._find_and_respond_to_twitter_events()
-
-    def _get_twitter_application_api(self):
+    def _get_twitter_application_api(self) -> twitter_api_wrapper.TwitterApplicationApiWrapper:
         """Set the application (non-client) api connection for this instance"""
 
         if not self._app_api:
-            # Set up application-based Twitter auth
-            app_auth = tweepy.OAuthHandler(
-                os.environ['TWITTER_API_KEY'], os.environ['TWITTER_API_SECRET'])
-            app_auth.set_access_token(os.environ['TWITTER_ACCESS_TOKEN'], os.environ[
-                                    'TWITTER_ACCESS_TOKEN_SECRET'])
-
-            # Keep reference to twitter app api
-            self._app_api = tweepy.API(app_auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True,
-                                retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
+            self._app_api = twitter_api_wrapper.TwitterApplicationApiWrapper()
 
         return self._app_api
 
-    def _get_twitter_client_api(self):
-        """Set the client (non-client) api connection for this instance"""
+    def _get_twitter_client_api(self) -> twitter_api_wrapper.TwitterClientApiWrapper:
+        """Set the client api connection for this instance"""
 
         if not self._client_api:
-            # Set up user-based Twitter auth
-            client_auth = tweepy.OAuthHandler(
-                os.environ['TWITTER_API_KEY'], os.environ['TWITTER_API_SECRET'])
-            client_auth.set_access_token(os.environ['TWITTER_CLIENT_ACCESS_TOKEN'], os.environ[
-                'TWITTER_CLIENT_ACCESS_TOKEN_SECRET'])
-
-            # Keep reference to twitter app api
-            self._client_api = tweepy.API(client_auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True,
-                                retry_count=3, retry_delay=5, retry_errors=set([403, 500, 503]))
+            self._client_api = twitter_api_wrapper.TwitterClientApiWrapper()
 
         return self._client_api
 
@@ -378,7 +441,7 @@ class TrafficViolationsTweeter:
 
         TODO: Come up with a better way to determine production environment.
         """
-        return os.environ.get('ENV') == 'production'
+        return os.getenv('ENV') == 'production'
 
     def _process_response(self,
         request_object: Type[BaseLookupRequest],
@@ -423,9 +486,13 @@ class TrafficViolationsTweeter:
 
             LOG.debug('responding as status update')
 
+            user_mention_ids = (request_object.mentioned_user_ids if
+                request_object.mentioned_user_ids else None)
+
             return self._recursively_process_status_updates(
                 response_parts=response_parts,
-                message_id=message_id)
+                message_id=message_id,
+                user_mention_ids=user_mention_ids)
 
         else:
             LOG.error('Unkown message source. Cannot respond.')
@@ -449,6 +516,7 @@ class TrafficViolationsTweeter:
             LOG.info(f'Event {event.id} is a duplicate, skipping.')
 
         else:
+
             event.response_in_progress = True
             TwitterEvent.query.session.commit()
 
@@ -460,7 +528,7 @@ class TrafficViolationsTweeter:
                     message=event,
                     message_source=message_source)
 
-                user_is_follower = lookup_request.requesting_user_is_follower(
+                user_is_follower: bool = lookup_request.requesting_user_is_follower(
                     follower_ids=self._get_follower_ids())
 
                 perform_lookup_for_user: bool = (user_is_follower or
@@ -498,6 +566,9 @@ class TrafficViolationsTweeter:
 
                     except tweepy.error.TweepError as e:
                         event.error_on_lookup = True
+                        event.num_times_failed += 1
+                        event.last_failed_at_time = datetime.utcnow()
+
                 else:
                     # Reply to the event.
                     reply_to_event = self.aggregator.initiate_reply(
@@ -509,7 +580,7 @@ class TrafficViolationsTweeter:
                         # There's no need to tell people that
                         # there was an error more than once.
                         if not (reply_to_event[
-                            'error_on_lookup'] and event.error_on_lookup):
+                                'error_on_lookup'] and event.error_on_lookup):
 
                             try:
                                 self._process_response(
@@ -522,8 +593,12 @@ class TrafficViolationsTweeter:
                     # Update error status
                     if reply_to_event['error_on_lookup']:
                         event.error_on_lookup = True
+                        event.num_times_failed += 1
+                        event.last_failed_at_time = datetime.utcnow()
                     else:
                         event.error_on_lookup = False
+                        event.num_times_failed = 0
+                        event.last_failed_at_time = None
 
                 # We've responded!
                 event.response_in_progress = False
@@ -565,7 +640,8 @@ class TrafficViolationsTweeter:
 
     def _recursively_process_status_updates(self,
                                             response_parts: Union[List[any], List[str]],
-                                            message_id: Optional[int] = None) -> Optional[int]:
+                                            message_id: Optional[int] = None,
+                                            user_mention_ids: Optional[List[str]] = None) -> Optional[int]:
 
         """Status responses from the aggregator return lists
         of chunked information (by violation type, by borough, by year, etc.).
@@ -588,14 +664,16 @@ class TrafficViolationsTweeter:
             if isinstance(part, list):
                 message_id = self._recursively_process_status_updates(
                     response_parts=part,
-                    message_id=message_id)
+                    message_id=message_id,
+                    user_mention_ids=user_mention_ids)
             else:
                 if self._is_production():
                     new_message = self._get_twitter_application_api(
                         ).update_status(
                             status=part,
                             in_reply_to_status_id=message_id,
-                            auto_populate_reply_metadata=True)
+                            exclude_reply_user_ids=user_mention_ids)
+
                     message_id = new_message.id
 
                     LOG.debug(f'message_id: {message_id}')
@@ -603,7 +681,8 @@ class TrafficViolationsTweeter:
                     LOG.debug(
                         "This is where 'self._get_twitter_application_api()"
                         ".update_status(status=part, in_reply_to_status_id=message_id, "
-                        "auto_populate_reply_metadata=True)' would be called in production.")
+                        "exclude_reply_user_ids=user_mention_ids)' "
+                        "would be called in production.")
                     return None
 
         return message_id

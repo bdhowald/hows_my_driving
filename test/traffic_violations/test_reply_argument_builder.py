@@ -134,6 +134,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
             'entities': {
                 'user_mentions': [
                     {
+                        'id': '123',
                         'screen_name': self.HMDNY_TWITTER_HANDLE
                     }
                 ]
@@ -180,6 +181,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         streaming_status.entities = {
             'user_mentions': [
                 {
+                    'id': '123',
                     'screen_name': self.HMDNY_TWITTER_HANDLE
                 }
             ]
@@ -205,6 +207,7 @@ class TestReplyArgumentBuilder(unittest.TestCase):
         search_status.entities = {
             'user_mentions': [
                 {
+                    'id': '123',
                     'screen_name': self.HMDNY_TWITTER_HANDLE
                 }
             ]

@@ -10,6 +10,7 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from typing import Any, Dict, List, Optional, Tuple
 
+from traffic_violations import settings
 from traffic_violations.constants.borough_codes import BOROUGH_CODES
 from traffic_violations.constants.open_data.endpoints import \
     FISCAL_YEAR_DATABASE_ENDPOINTS, MEDALLION_ENDPOINT, \
@@ -19,6 +20,7 @@ from traffic_violations.constants.open_data.needed_fields import \
     OPEN_PARKING_AND_CAMERA_VIOLATIONS_NEEDED_FIELDS, \
     OPEN_PARKING_AND_CAMERA_VIOLATIONS_FINE_KEYS
 from traffic_violations.constants.open_data.violations import \
+    CAMERA_VIOLATIONS, CAMERA_STREAK_DATA_TYPES, \
     HUMANIZED_NAMES_FOR_OPEN_PARKING_AND_CAMERA_VIOLATIONS, \
     HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS
 from traffic_violations.constants.precincts import PRECINCTS_BY_BOROUGH
@@ -42,15 +44,12 @@ LOG = logging.getLogger(__name__)
 
 class OpenDataService:
 
-    CAMERA_VIOLATIONS = ['Failure to Stop at Red Light',
-                         'School Zone Speed Camera Violation']
-
     MAX_RESULTS = 10_000
 
     MEDALLION_PATTERN = re.compile(r'^[0-9][A-Z][0-9]{2}$')
     MEDALLION_PLATE_KEY = 'dmv_license_plate_number'
 
-    OPEN_DATA_TOKEN = os.environ['NYC_OPEN_DATA_TOKEN']
+    OPEN_DATA_TOKEN = os.getenv('NYC_OPEN_DATA_TOKEN')
 
     OUTPUT_FINE_KEYS = ['fined', 'paid', 'reduced', 'outstanding']
 
@@ -81,7 +80,13 @@ class OpenDataService:
         # meaning that queries must use LIKE operators
         open_parking_and_camera_violations_query_string: str = (
             f'{OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT}?'
-             '$select=plate,state,count(summons_number)%20as%20count&'
+             '$select=plate,state,count(summons_number)%20as%20total_camera_violations,'
+             'sum(case%20when%20violation='
+             '%27PHTO%20SCHOOL%20ZN%20SPEED%20VIOLATION%27'
+             '%20then%201%20else%200%20end)%20as%20speed_camera_count,'
+             'sum(case%20when%20violation='
+             '%27FAILURE%20TO%20STOP%20AT%20RED%20LIGHT%27'
+             '%20then%201%20else%200%20end)%20as%20red_light_camera_count&'
              '$where=violation%20in%20('
              '%27PHTO%20SCHOOL%20ZN%20SPEED%20VIOLATION%27,'
              '%27FAILURE%20TO%20STOP%20AT%20RED%20LIGHT%27'
@@ -89,7 +94,25 @@ class OpenDataService:
              'issue_date%20LIKE%20%2703/1_/2020%27%20or%20'
              'issue_date%20LIKE%20%2703/2_/2020%27%20or%20'
              'issue_date%20LIKE%20%2703/3_/2020%27%20or%20'
-             'issue_date%20LIKE%20%2704/__/2020%27'
+             'issue_date%20LIKE%20%2704/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2705/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2706/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2707/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2708/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2709/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2710/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%270_/__/2021%27%20or%20'
+             'issue_date%20LIKE%20%2710/__/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/0_/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/1_/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/20/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/21/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/22/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/23/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/24/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/25/2020%27%20or%20'
+             'issue_date%20LIKE%20%2711/26/2020%27%20or%20'
              ')&'
              '$group=plate,state&$order=count%20desc')
 
@@ -178,13 +201,17 @@ class OpenDataService:
         boroughs: List[Tuple[str, int]] = Counter([v['borough'].title() for v in violations.values(
         ) if v.get('borough')]).most_common()
 
-        camera_streak_data: Optional[CameraStreakData] = self._find_max_camera_violations_streak(
+        camera_violations_by_type: Dict[str, CameraStreakData] = { violation_type: self._find_max_camera_violations_streak(
             sorted([datetime.strptime(v['issue_date'], self.TIME_FORMAT) for v in violations.values(
-            ) if v.get('violation') and v['violation'] in self.CAMERA_VIOLATIONS]))
+            ) if v.get('violation') == violation_type])) for violation_type in CAMERA_VIOLATIONS }
+
+        camera_violations_by_type['Mixed'] = self._find_max_camera_violations_streak(
+            sorted([datetime.strptime(v['issue_date'], self.TIME_FORMAT) for v in violations.values(
+            ) if v.get('violation') and v['violation'] in CAMERA_VIOLATIONS]))
 
         return OpenDataServicePlateLookup(
             boroughs=[{'count': v, 'title': k.title()} for k, v in boroughs],
-            camera_streak_data=camera_streak_data,
+            camera_streak_data=camera_violations_by_type,
             fines=fines,
             num_violations=len(violations),
             plate=plate_query.plate,

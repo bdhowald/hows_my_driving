@@ -8,6 +8,7 @@ import requests_futures.sessions
 import unittest
 
 from datetime import datetime, timezone, timedelta
+from freezegun import freeze_time
 
 from typing import Dict, List
 
@@ -317,6 +318,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     @ddt.data(
         {
             'data': {
+                'lookup_source': 'direct_message',
                 'plate': 'HME6483',
                 'plate_types': 'pas',
                 'state': 'NY',
@@ -325,11 +327,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': 'No Parking - Street Cleaning', 'count': 3},
                     {'title': 'Failure To Display Meter Receipt', 'count': 1},
                     {'title': 'No Violation Description Available',
-                        'count': 1},
+                     'count': 1},
                     {'title': 'Bus Lane Violation', 'count': 1},
                     {'title': 'Failure To Stop At Red Light', 'count': 1},
                     {'title': 'No Standing - Commercial Meter Zone',
-                        'count': 1},
+                     'count': 1},
                     {'title': 'Expired Meter', 'count': 1},
                     {'title': 'Double Parking', 'count': 1},
                     {'title': 'No Angle Parking', 'count': 1}
@@ -355,10 +357,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ],
                 'fines': FineData(**{'fined': 180.0, 'reduced': 50.0,
                                      'paid': 100.0, 'outstanding': 30.0}),
-                'camera_streak_data':
-                    CameraStreakData(**{'min_streak_date': 'September 7, 2015',
-                                        'max_streak': 4,
-                                        'max_streak_date': 'November 5, 2015'}),
+                'camera_streak_data': {
+                    'Failure to Stop at Red Light': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 4,
+                        'max_streak_date': 'June 5, 2016'}),
+                    'Mixed': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 18,
+                        'max_streak_date': 'August 5, 2016'}),
+                    'School Zone Speed Camera Violation': CameraStreakData(**{
+                        'min_streak_date': 'October 14, 2015',
+                        'max_streak': 14,
+                        'max_streak_date': 'August 5, 2016'}),
+                },
                 'unique_identifier': 'a1b2c3d4',
             },
             'response': [
@@ -368,22 +380,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     '%B %-d, %Y') + ' at ' +
                 adjusted_time.strftime('%I:%M%p') + '. '
                 'Since then, #NY_HME6483 has received 2 new tickets.\n'
-                '\n'
+                '\n',
                 'Total parking and camera violation tickets: 25\n'
                 '\n'
-                '14 | No Standing - Day/Time Limits\n',
-                'Parking and camera violation tickets for '
-                '#NY_HME6483, cont\'d:\n'
-                '\n'
+                '14 | No Standing - Day/Time Limits\n'
                 '3   | No Parking - Street Cleaning\n'
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
-                '1   | Failure To Stop At Red Light\n'
-                '1   | No Standing - Commercial Meter Zone\n',
+                '1   | Failure To Stop At Red Light\n',
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
+                '1   | No Standing - Commercial Meter Zone\n'
                 '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
@@ -410,19 +419,21 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         },
         {
             'data': {
+                'lookup_source': 'status',
                 'plate': 'HME6483',
                 'plate_types': None,
                 'state': 'NY',
                 'violations': [
+                    {'title': 'School Zone Speed Camera Violation', 'count': 15},
                     {'title': 'No Standing - Day/Time Limits', 'count': 14},
+                    {'title': 'Failure To Stop At Red Light', 'count': 5},
                     {'title': 'No Parking - Street Cleaning', 'count': 3},
                     {'title': 'Failure To Display Meter Receipt', 'count': 1},
                     {'title': 'No Violation Description Available',
-                        'count': 1},
+                     'count': 1},
                     {'title': 'Bus Lane Violation', 'count': 1},
-                    {'title': 'Failure To Stop At Red Light', 'count': 1},
                     {'title': 'No Standing - Commercial Meter Zone',
-                        'count': 1},
+                     'count': 1},
                     {'title': 'Expired Meter', 'count': 1},
                     {'title': 'Double Parking', 'count': 1},
                     {'title': 'No Angle Parking', 'count': 1}
@@ -448,53 +459,84 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ],
                 'fines': FineData(**{'fined': 0.0, 'reduced': 0.0,
                                      'paid': 0.0, 'outstanding': 0.0}),
-                'camera_streak_data':
-                    CameraStreakData(**{'min_streak_date': 'September 7, 2015',
-                                        'max_streak': 5,
-                                        'max_streak_date': 'November 5, 2015'}),
+                'camera_streak_data': {
+                    'Failure to Stop at Red Light': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 5,
+                        'max_streak_date': 'June 5, 2016'}),
+                    'Mixed': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 20,
+                        'max_streak_date': 'August 5, 2016'}),
+                    'School Zone Speed Camera Violation': CameraStreakData(**{
+                        'min_streak_date': 'October 14, 2015',
+                        'max_streak': 15,
+                        'max_streak_date': 'August 5, 2016'}),
+                },
                 'unique_identifier': 'abcd1234',
             },
             'response': [
+                '@bdhowald As of 09:42:25 AM on July 23, 2027:\n\n'
                 '#NY_HME6483 has been queried 8 times.\n'
                 '\n'
                 'This vehicle was last queried on ' + adjusted_time.strftime(
                     '%B %-d, %Y') + ' at ' + adjusted_time.strftime('%I:%M%p') +
                 ' by @BarackObama: '
                 'https://twitter.com/BarackObama/status/12345678901234567890. ' +
-                'Since then, #NY_HME6483 has received 2 new tickets.\n'
-                '\n'
-                'Total parking and camera violation tickets: 25\n'
+                'Since then, #NY_HME6483 has received 21 new tickets.\n'
                 '\n',
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Total parking and camera violation tickets: 44\n'
+                '\n'
+                '15 | School Zone Speed Camera Violation\n'
+                '14 | No Standing - Day/Time Limits\n'
+                '5   | Failure To Stop At Red Light\n'
+                '3   | No Parking - Street Cleaning\n',
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
-                '\n'
-                '14 | No Standing - Day/Time Limits\n'
-                '3   | No Parking - Street Cleaning\n'
+                '\n'    
                 '1   | Failure To Display Meter Receipt\n'
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
-                '1   | Failure To Stop At Red Light\n',
+                '1   | No Standing - Commercial Meter Zone\n',
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
                 '\n'
-                '1   | No Standing - Commercial Meter Zone\n'
                 '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
                 'Violations by year for #NY_HME6483:\n'
                 '\n'
                 '2   | 2016\n'
                 '8   | 2017\n'
                 '13 | 2018\n',
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
                 'Violations by borough for #NY_HME6483:\n'
                 '\n'
                 '1   | Bronx\n'
                 '7   | Brooklyn\n'
                 '2   | Queens\n'
                 '13 | Staten Island\n',
-                "Under @bradlander's proposed legislation, this vehicle could "
-                "have been booted or impounded due to its 5 camera violations "
-                "(>= 5/year) from September 7, 2015 to November 5, 2015.\n",
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Under the Dangerous Vehicle Abatement Act, '
+                'this vehicle could have been booted or impounded due to its 5 '
+                'red light camera violations (>= 5/year) from September 7, 2015 to June 5, '
+                '2016.\n',
+                '@HowsMyDrivingNY As of 09:42:25 AM on July 23, 2027:\n'
+                '\n'
+                'Under the Dangerous Vehicle Abatement Act, '
+                'this vehicle could have been booted or impounded due to its 15 '
+                'school zone speed camera violations (>= 15/year) from October 14, 2015 to '
+                'August 5, 2016.\n',
                 'View more details at https://howsmydrivingny.nyc/abcd1234.'
             ],
             'username': 'bdhowald'
@@ -503,6 +545,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     @ddt.unpack
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TweetDetectionService.tweet_exists')
+    @freeze_time("2027-07-23 09:42:25")
     def test_form_plate_lookup_response_parts(self,
                                               mocked_tweet_exists,
                                               data: Dict[str, any],
@@ -511,11 +554,12 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         mocked_tweet_exists.return_value = True
 
-        self.assertEqual(self.aggregator._form_plate_lookup_response_parts(
+        parts = self.aggregator._form_plate_lookup_response_parts(
             borough_data=data['boroughs'],
             camera_streak_data=data['camera_streak_data'],
             fine_data=data['fines'],
             frequency=data['frequency'],
+            lookup_source=data['lookup_source'],
             plate=data['plate'],
             plate_types=data['plate_types'],
             previous_lookup=data['previous_result'],
@@ -523,7 +567,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             unique_identifier=data['unique_identifier'],
             username=username,
             violations=data['violations'],
-            year_data=data['years']), response)
+            year_data=data['years'])
+
+        self.assertEqual(parts, response)
 
     def test_form_summary_string(self):
 
@@ -538,7 +584,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         vehicle1_mock = MagicMock(name='vehicle1')
         vehicle1_mock.fines = vehicle1_fine_data
-        vehicle1_mock.violations = [{} for _ in range(random.randint(10, 20))]
+        vehicle1_mock.violations = [{'count': x} for x in range(random.randint(10, 20))]
 
         vehicle2_fined = random.randint(10, 20000)
         vehicle2_reduced = random.randint(0, vehicle2_fined)
@@ -550,7 +596,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             reduced=vehicle2_reduced)
         vehicle2_mock = MagicMock(name='vehicle2')
         vehicle2_mock.fines = vehicle2_fine_data
-        vehicle2_mock.violations = [{} for _ in range(random.randint(10, 20))]
+        vehicle2_mock.violations = [{'count': x} for x in range(random.randint(10, 20))]
 
         vehicle3_mock = MagicMock(name='vehicle3')
         vehicle3_mock.fines = FineData(
@@ -565,7 +611,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         summary: TrafficViolationsAggregatorResponse = TrafficViolationsAggregatorResponse(
             plate_lookups=[vehicle1_mock, vehicle2_mock, vehicle3_mock])
 
-        total_tickets = sum(len(lookup.violations)
+        total_tickets = sum(sum(violation_type['count'] for violation_type in lookup.violations)
                             for lookup in summary.plate_lookups)
 
         self.assertEqual(
@@ -595,7 +641,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'description': 'title',
             'default_description': 'No Year Available',
             'prefix_format_string':
-                f'Violations by year for #{state}_{plate}:\n\n',
+                f'@HowsMyDrivingNY Violations by year for #{state}_{plate}:\n\n',
             'result_format_string': '{}| {}\n',
             'username': username
         }
@@ -610,7 +656,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             description='title',
             default_description='No Year Available',
             prefix_format_string=f'Violations by year for #{state}_{plate}:\n\n',
-            result_format_string='{}| {}\n'), result)
+            result_format_string='{}| {}\n',
+            username_prefix=f'@HowsMyDrivingNY '), result)
 
     @mock.patch('traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._create_response')
     def test_initiate_reply(self, mocked_create_response):
@@ -859,7 +906,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'county': 'MN',
                 'fine_amount': '50',
                 'interest_amount': '0',
-                'issue_date': '01/27/2018',
+                'issue_date': '01/29/2018',
                 'issuing_agency': 'DEPARTMENT OF TRANSPORTATION',
                 'license_type': 'SRF',
                 'payment_amount': '75',
@@ -887,6 +934,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 **{'max_streak': 2,
                    'min_streak_date': 'January 27, 2018',
                    'max_streak_date': 'January 27, 2018'}),
+            'camera_streak_data': {
+                'Failure to Stop at Red Light': CameraStreakData(**{
+                    'min_streak_date': 'January 29, 2018',
+                    'max_streak': 1,
+                    'max_streak_date': 'January 29, 2018'}),
+                'Mixed': CameraStreakData(**{
+                    'min_streak_date': 'January 27, 2018',
+                    'max_streak': 2,
+                    'max_streak_date': 'January 29, 2018'}),
+                'School Zone Speed Camera Violation': CameraStreakData(**{
+                    'min_streak_date': 'January 27, 2018',
+                    'max_streak': 1,
+                    'max_streak_date': 'January 27, 2018'}),
+            },
             'fines': FineData(**{'fined': 275.0, 'reduced': 20.0,
                                  'paid': 125.0, 'outstanding': 180.0}),
             'num_violations': 4,
@@ -1011,6 +1072,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 {'count': 4, 'title': 'Queens'},
                 {'count': 5, 'title': 'Staten Island'}
             ],
+            'camera_streak_data': {
+                'Failure to Stop at Red Light': None,
+                'Mixed': None,
+                'School Zone Speed Camera Violation': None
+            },
             'fines': FineData(**{'fined': 200.0, 'paid': 75.0,
                                  'outstanding': 125.0}),
             'num_violations': num_tickets,
@@ -1055,18 +1121,18 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             'response_parts': [
                 [
                     f'#{state}_{returned_plate} has been queried 1 time.\n'
-                    '\n'
+                    '\n',
                     'Total parking and camera violation tickets: 15\n'
                     '\n'
                     '4 | No Standing - Day/Time Limits\n'
                     '3 | No Parking - Street Cleaning\n'
                     '1 | Failure To Display Meter Receipt\n'
                     '1 | No Violation Description Available\n'
-                    '1 | Bus Lane Violation\n',
+                    '1 | Bus Lane Violation\n'
+                    '1 | Failure To Stop At Red Light\n',
                     'Parking and camera violation tickets for '
                     f'#{state}_{returned_plate}, cont\'d:\n'
                     '\n'
-                    '1 | Failure To Stop At Red Light\n'
                     '1 | No Standing - Commercial Meter Zone\n'
                     '1 | Expired Meter\n'
                     '1 | Double Parking\n'
@@ -1108,6 +1174,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_plate_lookup')
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._get_unique_identifier')
+    @freeze_time("2074-06-18 18:27:52")
     def test_create_response_status_legacy_format(self,
                                                   mocked_get_unique_identifier,
                                                   mocked_perform_plate_lookup,
@@ -1131,6 +1198,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         )
         plate_lookup_data = {
             'boroughs': [],
+            'camera_streak_data': {
+                'Failure to Stop at Red Light': CameraStreakData(**{
+                    'min_streak_date': 'September 7, 2015',
+                    'max_streak': 1,
+                    'max_streak_date': 'June 5, 2016'}),
+                'Mixed': CameraStreakData(**{
+                    'min_streak_date': 'September 7, 2015',
+                    'max_streak': 2,
+                    'max_streak_date': 'August 5, 2016'}),
+                'School Zone Speed Camera Violation': CameraStreakData(**{
+                    'min_streak_date': 'October 14, 2015',
+                    'max_streak': 2,
+                    'max_streak_date': 'August 5, 2016'}),
+            },
             'fines': FineData(**{'fined': 1000.0, 'reduced': 0.0,
                                  'paid': 775.0, 'outstanding': 225.0}),
             'num_violations': 44,
@@ -1176,26 +1257,43 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         unique_identifier = 'ab12cd34'
 
-        response_parts = [['#PA_GLF7467 has been queried 2 times.\n\n'
-                           'Total parking and camera violation tickets: 49\n\n'
+        response_parts = [['@BarackObama As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           '#PA_GLF7467 has been queried 2 times.\n\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           'Total parking and camera violation tickets: 49\n'
+                           '\n'
                            '17 | No Parking - Street Cleaning\n'
                            '6   | Expired Meter\n'
                            '5   | No Violation Description Available\n'
                            '3   | Fire Hydrant\n'
-                           '3   | No Parking - Day/Time Limits\n'
-                           '3   | Failure To Display Meter Receipt\n',
+                           '3   | No Parking - Day/Time Limits\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
                            'Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n\n'
+                           '3   | Failure To Display Meter Receipt\n'
                            '3   | School Zone Speed Camera Violation\n'
                            '2   | No Parking - Except Authorized Vehicles\n'
-                           '2   | Bus Lane Violation\n'
-                           '1   | Failure To Stop At Red Light\n'
-                           '1   | No Standing - Day/Time Limits\n',
+                           '2   | Bus Lane Violation\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
                            'Parking and camera violation tickets for '
-                           '#PA_GLF7467, cont\'d:\n\n'
+                           '#PA_GLF7467, cont\'d:\n'
+                           '\n'
+                           '1   | Failure To Stop At Red Light\n'
+                           '1   | No Standing - Day/Time Limits\n'
                            '1   | No Standing - Except Authorized Vehicle\n'
-                           '1   | Obstructing Traffic Or Intersection\n'
+                           '1   | Obstructing Traffic Or Intersection\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
+                           'Parking and camera violation tickets for '
+                           '#PA_GLF7467, cont\'d:\n'
+                           '\n'
                            '1   | Double Parking\n',
+                           '@HowsMyDrivingNY As of 06:27:52 PM on June 18, 2074:\n'
+                           '\n'
                            'Known fines for #PA_GLF7467:\n\n'
                            '$1,000.00 | Fined\n'
                            '$0.00         | Reduced\n'
@@ -1215,8 +1313,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         mocked_perform_plate_lookup.return_value = plate_lookup
         mocked_query_for_lookup_frequency.return_value = 2
 
-        self.assertEqual(self.aggregator._create_response(
-            request_object), response)
+        parts = self.aggregator._create_response(request_object)
+
+        self.assertEqual(parts, response)
 
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._perform_campaign_lookup')
@@ -1286,7 +1385,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         message_object.created_at = now
         message_object.entities = {}
         message_object.entities['user_mentions'] = [
-            {'screen_name': 'HowsMyDrivingNY'}]
+            {'id': '123', 'screen_name': 'HowsMyDrivingNY'}]
         message_object.id = message_id
         message_object.full_text = '@howsmydrivingny plate dkr9364 state ny'
         message_object.user.screen_name = user_handle

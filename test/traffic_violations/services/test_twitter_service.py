@@ -22,7 +22,7 @@ from traffic_violations.services.twitter_service import \
     TrafficViolationsTweeter
 
 
-def inc(status, in_reply_to_status_id: int, auto_populate_reply_metadata: bool):
+def inc(status, in_reply_to_status_id: int, auto_populate_reply_metadata: bool, exclude_reply_user_ids: bool):
     int_mock = MagicMock(name='api')
     int_mock.id = (in_reply_to_status_id + 1)
     return int_mock
@@ -58,7 +58,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._find_and_respond_to_missed_direct_messages = direct_messages_mock
         self.tweeter._find_and_respond_to_missed_statuses = statuses_mock
 
-        self.tweeter._find_and_respond_to_requests()
+        self.tweeter.find_and_respond_to_requests()
 
         direct_messages_mock.assert_called_with()
         statuses_mock.assert_called_with()
@@ -86,7 +86,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             responded_to=False,
             user_handle=user_handle,
             user_id=user_id,
-            user_mentions='')
+            user_mentions=[])
 
         message_needing_event = MagicMock(
             id=event_id + 1,
@@ -96,7 +96,19 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 'entities': {
                   'user_mentions': [
                     {
+                      'id': 123,
+                      'id_str': '123',
                       'screen_name': user_handle
+                    },
+                    {
+                      'id': 456,
+                      'id_str': '456',
+                      'screen_name': 'OtherUser'
+                    },
+                    {
+                      'id': 789,
+                      'id_str': '456',
+                      'screen_name': 'SomeOtherUser'
                     }
                   ]
                 },
@@ -112,7 +124,23 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             message_create={
                 'message_data': {
                     'entities': {
-                        'user_mentions': [{'screen_name': user_handle}]
+                        'user_mentions': [
+                            {
+                                'id': 123,
+                                'id_str': '123',
+                                'screen_name': user_handle
+                            },
+                            {
+                                'id': 456,
+                                'id_str': '456',
+                                'screen_name': 'OtherUser'
+                            },
+                            {
+                                'id': 789,
+                                'id_str': '456',
+                                'screen_name': 'SomeOtherUser'
+                            }
+                        ]
                     },
                   'text': event_text,
                 },
@@ -142,6 +170,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         twitter_event_mock.query.session.commit.assert_called_once_with()
 
         self.mocked_log.debug.assert_called_with('Found 1 direct message that was previously undetected.')
+
+        self.tweeter.terminate_lookups()
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
@@ -176,7 +206,24 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             responded_to=True,
             user_handle=user_handle,
             user_id=user_id,
-            user_mentions=user_handle)
+            user_mention_ids=[user_id],
+            user_mentions=[
+                {
+                    'id': 123,
+                    'id_str': '123',
+                    'screen_name': user_handle
+                },
+                {
+                    'id': 456,
+                    'id_str': '456',
+                    'screen_name': 'OtherUser'
+                },
+                {
+                    'id': 789,
+                    'id_str': '456',
+                    'screen_name': 'SomeOtherUser'
+                }
+            ])
 
         new_twitter_event = TwitterEvent(
             created_at=now.replace(tzinfo=pytz.timezone('UTC')).timestamp() * 1000,
@@ -189,15 +236,30 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             responded_to=False,
             user_handle=user_handle,
             user_id=user_id,
+            user_mention_ids=[user_id],
             user_mentions=user_handle)
 
         status_needing_event = MagicMock(
             id=event_id + 1,
             created_at = now,
             entities={
-                'user_mentions': [{
-                    'screen_name': user_handle
-                }]
+                'user_mentions': [
+                    {
+                        'id': 123,
+                        'id_str': '123',
+                        'screen_name': user_handle
+                    },
+                    {
+                        'id': 456,
+                        'id_str': '456',
+                        'screen_name': 'OtherUser'
+                    },
+                    {
+                        'id': 789,
+                        'id_str': '456',
+                        'screen_name': 'SomeOtherUser'
+                    }
+                ]
             },
             full_text=event_text + '!',
             in_reply_to_message_id=in_reply_to_message_id,
@@ -209,9 +271,23 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             id=event_id - 1,
             created_at = now - relativedelta(minutes=1),
             entities={
-                'user_mentions': [{
-                    'screen_name': user_handle
-                }]
+                'user_mentions': [
+                    {
+                        'id': 123,
+                        'id_str': '123',
+                        'screen_name': user_handle
+                    },
+                    {
+                        'id': 456,
+                        'id_str': '456',
+                        'screen_name': 'OtherUser'
+                    },
+                    {
+                        'id': 789,
+                        'id_str': '456',
+                        'screen_name': 'SomeOtherUser'
+                    }
+                ]
             },
             full_text=event_text,
             in_reply_to_message_id=in_reply_to_message_id,
@@ -236,6 +312,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         self.mocked_log.debug.assert_called_with('Found 1 status that was previously undetected.')
 
+        self.tweeter.terminate_lookups()
+
     @mock.patch(
         'traffic_violations.services.twitter_service.TwitterEvent')
     def test_find_and_respond_to_missed_statuses_with_no_undetected_events(self, twitter_event_mock):
@@ -245,6 +323,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         twitter_event_mock.query.session().add.assert_not_called()
         twitter_event_mock.query.session().commit.assert_not_called()
+
+        self.tweeter.terminate_lookups()
 
     @ddt.data({
         'event_type': 'direct_message',
@@ -281,7 +361,23 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             10000000000000000000, 20000000000000000000)
         location = 'Queens, NY'
         responded_to = 0
-        user_mentions = '@HowsMyDrivingNY'
+        user_mentions = [
+            {
+                'id': 123,
+                'id_str': '123',
+                'screen_name': 'HowsMyDrivingNY'
+            },
+            {
+                'id': 456,
+                'id_str': '456',
+                'screen_name': 'OtherUser'
+            },
+            {
+                'id': 789,
+                'id_str': '456',
+                'screen_name': 'SomeOtherUser'
+            }
+        ]
 
         twitter_event = TwitterEvent(
             id=db_id,
@@ -290,7 +386,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             event_text=event_text,
             event_type=event_type,
             in_reply_to_message_id=in_reply_to_message_id,
+            last_failed_at_time=None,
             location=location,
+            num_times_failed=0,
             responded_to=responded_to,
             user_handle=user_handle,
             user_id=user_id,
@@ -338,6 +436,181 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 request_object=lookup_request,
                 response_parts=response_parts)
 
+        self.tweeter.terminate_lookups()
+
+    @ddt.data({
+        'event_type': 'direct_message',
+        'expect_called': True,
+        'num_times_failed': 0
+    }, {
+        'event_type': 'direct_message',
+        'expect_called': True,
+        'num_times_failed': 0
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'num_times_failed': 0,
+        'tweet_exists': False,
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(minutes=4),
+        'num_times_failed': 1
+    }, {
+        'event_type': 'status',
+        'expect_called': True,
+        'last_failed_time': timedelta(minutes=6),
+        'num_times_failed': 1
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(minutes=59),
+        'num_times_failed': 2
+    }, {
+        'event_type': 'status',
+        'expect_called': True,
+        'last_failed_time': timedelta(minutes=61),
+        'num_times_failed': 2
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(hours=2),
+        'num_times_failed': 3
+    }, {
+        'event_type': 'status',
+        'expect_called': True,
+        'last_failed_time': timedelta(hours=4),
+        'num_times_failed': 3
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(hours=23),
+        'num_times_failed': 4
+    }, {
+        'event_type': 'status',
+        'expect_called': True,
+        'last_failed_time': timedelta(hours=25),
+        'num_times_failed': 4
+    }, {
+        'event_type': 'status',
+        'expect_called': False,
+        'last_failed_time': timedelta(hours=25),
+        'num_times_failed': 5
+    })
+    @ddt.unpack
+    @mock.patch(
+        'traffic_violations.services.twitter_service.TwitterEvent')
+    def test_find_and_respond_to_failed_twitter_events(self,
+                                                       twitter_event_mock: MagicMock,
+                                                       event_type: str,
+                                                       expect_called: bool,
+                                                       num_times_failed: int,
+                                                       last_failed_time: timedelta = timedelta(minutes=0),
+                                                       tweet_exists: bool = True):
+        db_id = 1
+        random_id = random.randint(1000000000000000000, 2000000000000000000)
+        user_handle = 'bdhowald'
+        user_id = random.randint(1000000000, 2000000000)
+        event_text = '@HowsMyDrivingNY abc1234:ny'
+        timestamp = random.randint(1500000000000, 1700000000000)
+        in_reply_to_message_id = random.randint(
+            10000000000000000000, 20000000000000000000)
+        location = 'Queens, NY'
+        responded_to = 0
+        user_mentions = [
+            {
+                'id': 123,
+                'id_str': '123',
+                'screen_name': 'HowsMyDrivingNY'
+            },
+            {
+                'id': 456,
+                'id_str': '456',
+                'screen_name': 'OtherUser'
+            },
+            {
+                'id': 789,
+                'id_str': '456',
+                'screen_name': 'SomeOtherUser'
+            }
+        ]
+
+
+        twitter_event = TwitterEvent(
+            id=db_id,
+            created_at=timestamp,
+            event_id=random_id,
+            event_text=event_text,
+            event_type=event_type,
+            in_reply_to_message_id=in_reply_to_message_id,
+            last_failed_at_time=(datetime.utcnow() - last_failed_time),
+            location=location,
+            num_times_failed=num_times_failed,
+            responded_to=responded_to,
+            user_handle=user_handle,
+            user_id=user_id,
+            user_mentions=user_mentions)
+
+        direct_message_lookup_request = AccountActivityAPIDirectMessage(
+            message=TwitterEvent(
+                id=1,
+                created_at=timestamp,
+                event_id=random_id,
+                event_text=event_text,
+                event_type=event_type,
+                user_handle=user_handle,
+                user_id=user_id,
+                user_favorited_non_follower_reply=False),
+            message_source=event_type)
+
+        status_lookup_request = AccountActivityAPIStatus(
+            message=TwitterEvent(
+                id=1,
+                created_at=timestamp,
+                event_id=random_id,
+                event_text=event_text,
+                event_type=event_type,
+                user_handle=user_handle,
+                user_id=user_id,
+                user_favorited_non_follower_reply=False),
+            message_source=event_type)
+
+        lookup_request = (direct_message_lookup_request if
+            event_type == 'direct_message' else status_lookup_request)
+
+        twitter_event_mock.get_all_by.side_effect = [[], [twitter_event]]
+        twitter_event_mock.query.filter_by().filter().count.return_value = 0
+
+        tweet_exists_mock = MagicMock(name='tweet_exists')
+        tweet_exists_mock.return_value = True if tweet_exists else False
+        self.tweeter.tweet_detection_service.tweet_exists = tweet_exists_mock
+
+        initiate_reply_mock = MagicMock(name='initiate_reply')
+        self.tweeter.aggregator.initiate_reply = initiate_reply_mock
+
+        build_reply_data_mock = MagicMock(name='build_reply_data')
+        build_reply_data_mock.return_value = lookup_request
+        self.tweeter.reply_argument_builder.build_reply_data = build_reply_data_mock
+
+        application_api_mock = MagicMock(name='application_api')
+        application_api_mock.followers_ids.return_value = ([user_id], (123, 0))
+        self.tweeter._app_api = application_api_mock
+
+        process_response_mock = MagicMock(name='process_response')
+        process_response_mock.return_value = random_id
+        self.tweeter._process_response = process_response_mock
+
+        self.tweeter._find_and_respond_to_twitter_events()
+
+        if expect_called:
+            self.tweeter.aggregator.initiate_reply.assert_called_with(
+                lookup_request=lookup_request)
+        else:
+            self.tweeter.aggregator.initiate_reply.assert_not_called()
+
+        self.tweeter.terminate_lookups()
+
+
     @ddt.data({
         'expect_called': True,
         'minutes_ago': 20
@@ -360,11 +633,6 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             application_api_mock.followers_ids.assert_called_with(cursor=-1)
         else:
             application_api_mock.followers_ids.assert_not_called()
-
-
-    def test_is_production(self):
-        self.assertEqual(self.tweeter._is_production(),
-                         (os.environ.get('ENV') == 'production'))
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._is_production')
@@ -424,7 +692,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_text='@howsmydrivingny plate:glf7467 state:pa',
                 event_type='status',
                 user_handle=username,
-                user_id=30139847),
+                user_id=30139847,
+                user_mention_ids='813286,19834403,1230933768342528001,37687633,66379182',
+                user_mentions='@BarackObama @NYCMayor @GoodNYCMayor @NYC_DOT @NYCTSubway'
+            ),
             message_source='status')
 
         reply_event_args = {
@@ -456,7 +727,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts,
+            message_id=message_id,
+            user_mention_ids=[
+                '813286',
+                '19834403',
+                '1230933768342528001',
+                '37687633',
+                '66379182'
+            ])
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -481,7 +760,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_text=f'@howsmydrivingny {campaign_hashtag}',
                 event_type='status',
                 user_handle=username,
-                user_id=30139847),
+                user_id=30139847,
+                user_mention_ids='813286,19834403,1230933768342528001,37687633,66379182',
+                user_mentions='@BarackObama @NYCMayor @GoodNYCMayor @NYC_DOT @NYCTSubway'
+            ),
             message_source='status')
 
         reply_event_args = {
@@ -501,7 +783,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts,
+            message_id=message_id,
+            user_mention_ids=[
+                '813286',
+                '19834403',
+                '1230933768342528001',
+                '37687633',
+                '66379182'
+            ])
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -523,7 +813,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_text='@howsmydrivingny plate dkr9364 state ny',
                 event_type='status',
                 user_handle=username,
-                user_id=30139847),
+                user_id=30139847,
+                user_mention_ids='813286,19834403,1230933768342528001,37687633,66379182',
+                user_mentions='@BarackObama @NYCMayor @GoodNYCMayor @NYC_DOT @NYCTSubway'
+            ),
             message_source='status')
 
         reply_event_args = {
@@ -543,7 +836,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts,
+            message_id=message_id,
+            user_mention_ids=[
+                '813286',
+                '19834403',
+                '1230933768342528001',
+                '37687633',
+                '66379182'
+            ])
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -565,7 +866,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_text='@howsmydrivingny the state is ny',
                 event_type='status',
                 user_handle=username,
-                user_id=30139847),
+                user_id=30139847,
+                user_mention_ids='813286,19834403,1230933768342528001,37687633,66379182',
+                user_mentions='@BarackObama @NYCMayor @GoodNYCMayor @NYC_DOT @NYCTSubway'
+            ),
             message_source='status')
 
         reply_event_args = {
@@ -585,7 +889,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts,
+            message_id=message_id,
+            user_mention_ids=[
+                '813286',
+                '19834403',
+                '1230933768342528001',
+                '37687633',
+                '66379182'
+            ])
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._recursively_process_status_updates')
@@ -604,7 +916,10 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 event_text='@howsmydrivingny plate:glf7467 state:pa',
                 event_type='status',
                 user_handle=username,
-                user_id=30139847),
+                user_id=30139847,
+                user_mention_ids='813286,19834403,1230933768342528001,37687633,66379182',
+                user_mentions='@BarackObama @NYCMayor @GoodNYCMayor @NYC_DOT @NYCTSubway'
+            ),
             message_source='status'
         )
 
@@ -628,7 +943,15 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             successful_lookup=True)
 
         recursively_process_status_updates_mock.assert_called_with(
-            response_parts=response_parts, message_id=message_id)
+            response_parts=response_parts,
+            message_id=message_id,
+            user_mention_ids=[
+                '813286',
+                '19834403',
+                '1230933768342528001',
+                '37687633',
+                '66379182'
+            ])
 
     def test_recursively_compile_direct_messages(self):
         str1 = 'Some stuff\n'
@@ -644,19 +967,40 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.assertEqual(self.tweeter._recursively_compile_direct_messages(
             response_parts), result_str)
 
-    def test_recursively_process_status_updates(self):
-        str1 = 'Some stuff\n'
-        str2 = 'Some other stuff\nSome more Stuff'
-        str3 = 'Yet more stuff'
-
+    @ddt.data({
+        'response_parts': [
+            [
+                'Some stuff\n'
+            ],
+            'Some other stuff\nSome more Stuff',
+            'Yet more stuff'
+        ]
+    }, {
+        'response_parts': [
+            'Some stuff\n',
+            'Some other stuff\nSome more Stuff',
+            'Yet more stuff'
+        ]
+    })
+    @ddt.unpack
+    @mock.patch(
+        'traffic_violations.services.twitter_service.LOG')
+    def test_recursively_process_status_updates(
+        self,
+        mocked_log: MagicMock,
+        response_parts: List[str]
+    ) -> None:
         original_id = 1
 
-        response_parts = [
-            [str1], str2, str3
+        user_mention_ids = ['1','2','3']
+
+        update_status_mock = MagicMock(name='update_status')
+        update_status_mock.side_effect = [
+            MagicMock(id=123), MagicMock(id=456), MagicMock(id=789)
         ]
 
         application_api_mock = MagicMock(name='application_api')
-        application_api_mock.update_status = inc
+        application_api_mock.update_status = update_status_mock
 
         is_production_mock = MagicMock(name='is_production')
         is_production_mock.return_value = True
@@ -664,8 +1008,29 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._app_api = application_api_mock
         self.tweeter._is_production = is_production_mock
 
-        self.assertEqual(self.tweeter._recursively_process_status_updates(
-            response_parts, original_id), original_id + len(response_parts))
+        self.tweeter._recursively_process_status_updates(
+            response_parts, original_id, user_mention_ids)
 
-        self.assertEqual(self.tweeter._recursively_process_status_updates(
-            response_parts, original_id), original_id + len(response_parts))
+        mocked_log.debug.assert_has_calls([
+            call("message_id: 123"),
+            call("message_id: 456"),
+            call("message_id: 789")
+        ])
+
+        update_status_mock.assert_has_calls([
+            call(
+                status='Some stuff\n',
+                in_reply_to_status_id=original_id,
+                exclude_reply_user_ids=user_mention_ids
+            ),
+            call(
+                status='Some other stuff\nSome more Stuff',
+                in_reply_to_status_id=123,
+                exclude_reply_user_ids=user_mention_ids
+            ),
+            call(
+                status='Yet more stuff',
+                in_reply_to_status_id=456,
+                exclude_reply_user_ids=user_mention_ids
+            )
+        ])
