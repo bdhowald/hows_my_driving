@@ -4,7 +4,7 @@ import logging
 import math
 import pytz
 
-from typing import Dict, List, Optional
+from typing import Optional
 
 from traffic_violations.constants import L10N
 from traffic_violations.constants.lookup_sources import LookupSource
@@ -51,7 +51,7 @@ class Covid19CameraOffenderJob(BaseJob):
         tweeter = TrafficViolationsTweeter()
 
         nyc_open_data_service: OpenDataService = OpenDataService()
-        covid_19_camera_offender_raw_data: List[Dict[str, str]] = nyc_open_data_service.lookup_covid_19_camera_violations()
+        covid_19_camera_offender_raw_data: list[dict[str, str]] = nyc_open_data_service.lookup_covid_19_camera_violations()
 
         for vehicle in covid_19_camera_offender_raw_data:
             plate = vehicle['plate']
@@ -131,7 +131,7 @@ class Covid19CameraOffenderJob(BaseJob):
                 'requiring its driver to take a course on the consequences '
                 'of reckless driving.')
 
-            messages: List[str] = [covid_19_reckless_driver_string, dval_string]
+            messages: list[str] = [covid_19_reckless_driver_string, dval_string]
 
             if not is_dry_run:
                 success: bool = tweeter.send_status(

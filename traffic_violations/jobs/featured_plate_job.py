@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, time, timedelta
 from sqlalchemy import and_
 from sqlalchemy.sql.expression import func
-from typing import List, Optional
+from typing import Optional
 
 from traffic_violations.constants import L10N
 
@@ -87,7 +87,7 @@ class FeaturedPlateJob(BaseJob):
                 tied_substring,
                 worst_substring)
 
-            messages: List[str] = [featured_string]
+            messages: list[str] = [featured_string]
 
             if not is_dry_run:
                 success: bool = tweeter.send_status(

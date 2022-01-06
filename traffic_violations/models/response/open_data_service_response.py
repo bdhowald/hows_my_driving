@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 from traffic_violations.models.response.open_data_service_plate_lookup import OpenDataServicePlateLookup
 

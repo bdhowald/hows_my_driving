@@ -5,8 +5,6 @@ import os
 import logging
 import threading
 
-from typing import List
-
 from traffic_violations.constants import thresholds
 
 from traffic_violations.jobs.base_job import BaseJob
@@ -61,7 +59,7 @@ class BackfillCameraViolationsJob(BaseJob):
         if not is_dry_run:
             PlateLookup.query.session.commit()
 
-    def update_lookups(self, lookups: List[PlateLookup]):
+    def update_lookups(self, lookups: list[PlateLookup]):
 
         for previous_lookup in lookups:
             plate_query: PlateQuery = PlateQuery(created_at=previous_lookup.created_at,

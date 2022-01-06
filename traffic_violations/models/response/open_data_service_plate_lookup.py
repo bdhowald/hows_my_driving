@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Optional, Tuple
 
 from traffic_violations.models.camera_streak_data import CameraStreakData
 from traffic_violations.models.fine_data import FineData
@@ -8,13 +8,13 @@ from traffic_violations.models.fine_data import FineData
 @dataclass(frozen=True)
 class OpenDataServicePlateLookup:
     """ Represents the results of a plate query submitted to the open data apis """
-    boroughs: List[Tuple[str, int]]
+    boroughs: list[Tuple[str, int]]
     fines: FineData
     num_violations: int
     plate: str
     plate_types: Optional[str]
     state: str
-    violations: List[Tuple[str, int]]
-    years: List[Tuple[str, int]]
+    violations: list[Tuple[str, int]]
+    years: list[Tuple[str, int]]
 
-    camera_streak_data: Dict[str, CameraStreakData] = None
+    camera_streak_data: dict[str, CameraStreakData] = None

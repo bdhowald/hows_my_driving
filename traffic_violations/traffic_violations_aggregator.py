@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from sqlalchemy import and_, func
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Optional, Tuple, Type, Union
 
 from traffic_violations.constants import (L10N, endpoints, lookup_sources,
     thresholds, twitter as twitter_constants, regexps as regexp_constants)
@@ -79,7 +79,7 @@ class TrafficViolationsAggregator:
         ) -> bool:
         """Does the request have valid plates in it requiring a response."""
 
-        potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
+        potential_vehicles: list[Vehicle] = self._find_potential_vehicles(
             lookup_request)
 
         return any(potential_vehicle.valid_plate for potential_vehicle
@@ -91,7 +91,7 @@ class TrafficViolationsAggregator:
             plate: str,
             state: str,
             username: str,
-            previous_lookup: Optional[Dict[str, Any]] = None):
+            previous_lookup: Optional[dict[str, Any]] = None):
 
         violations_string = ''
 
@@ -139,7 +139,7 @@ class TrafficViolationsAggregator:
 
         return violations_string
 
-    def _create_response(self, request_object: Type[BaseLookupRequest]) -> Dict:
+    def _create_response(self, request_object: Type[BaseLookupRequest]) -> dict:
 
         LOG.info('\n')
         LOG.info('Calling create_response')
@@ -148,19 +148,19 @@ class TrafficViolationsAggregator:
         LOG.debug(f'request_object: {request_object}')
 
         # Collect response parts here.
-        response_parts: List[Any] = []
+        response_parts: list[Any] = []
 
         # We need to know if any lookups errored out or were successful.
         error_on_any_lookup = False
         success_on_any_lookup = False
 
         # Find potential plates
-        potential_vehicles: List[Vehicle] = self._find_potential_vehicles(
+        potential_vehicles: list[Vehicle] = self._find_potential_vehicles(
             request_object)
         LOG.debug(f'potential_vehicles: {potential_vehicles}')
 
         # Find included campaign hashtags
-        included_campaigns: List[Campaign] = self._detect_campaigns(
+        included_campaigns: list[Campaign] = self._detect_campaigns(
             request_object.string_tokens())
         LOG.debug(f'included_campaigns: {included_campaigns}')
 
@@ -211,7 +211,7 @@ class TrafficViolationsAggregator:
             # Look up campaign hashtags after doing the plate lookups and then
             # prepend to response.
             if included_campaigns:
-                campaign_lookups: List[Tuple[str, int, int]] = self._perform_campaign_lookup(
+                campaign_lookups: list[Tuple[str, int, int]] = self._perform_campaign_lookup(
                     included_campaigns)
 
                 # Prepend campaign string to response.
@@ -251,7 +251,7 @@ class TrafficViolationsAggregator:
             'successful_lookup': success_on_any_lookup
         }
 
-    def _detect_campaigns(self, string_tokens) -> List[Campaign]:
+    def _detect_campaigns(self, string_tokens) -> list[Campaign]:
         """ Look for campaign hashtags in the message's text
         and return matching campaigns.
 
@@ -277,11 +277,11 @@ class TrafficViolationsAggregator:
         return False
 
     def _ensure_unique_plates(self,
-                              vehicles: List[Vehicle]
-                              ) -> List[Vehicle]:
+                              vehicles: list[Vehicle]
+                              ) -> list[Vehicle]:
 
-        vehicle_dict: Dict[str, Vehicle] = {}
-        unique_vehicles: List[Vehicle] = []
+        vehicle_dict: dict[str, Vehicle] = {}
+        unique_vehicles: list[Vehicle] = []
 
         for vehicle in vehicles:
             lookup_string = (
@@ -295,10 +295,10 @@ class TrafficViolationsAggregator:
 
         return unique_vehicles
 
-    def _find_potential_vehicles(self, request_object: Type[BaseLookupRequest]) -> List[Vehicle]:
+    def _find_potential_vehicles(self, request_object: Type[BaseLookupRequest]) -> list[Vehicle]:
         """Parse tweet text for vehicles"""
 
-        potential_vehicles: List[Vehicle] = []
+        potential_vehicles: list[Vehicle] = []
 
         potential_vehicles += self._find_potential_vehicles_using_combined_fields(
             list_of_strings=request_object.string_tokens())
@@ -309,10 +309,10 @@ class TrafficViolationsAggregator:
         return self._ensure_unique_plates(
             vehicles=potential_vehicles)
 
-    def _find_potential_vehicles_using_separate_fields(self, list_of_strings: List[str]) -> List[Vehicle]:
+    def _find_potential_vehicles_using_separate_fields(self, list_of_strings: list[str]) -> list[Vehicle]:
         """Parse tweet text for vehicles using old logic of 'state:<state> plate:<plate>'"""
 
-        potential_vehicles: List[Vehicle] = []
+        potential_vehicles: list[Vehicle] = []
         legacy_plate_data: Tuple = dict([[piece.strip() for piece in match.split(':')] for match in [part.lower(
         ) for part in list_of_strings if (('state:' in part.lower() or 'plate:' in part.lower() or 'types:' in part.lower()) and '://' not in part.lower())]])
 
@@ -332,7 +332,7 @@ class TrafficViolationsAggregator:
 
         return potential_vehicles
 
-    def _find_potential_vehicles_using_combined_fields(self, list_of_strings: List[str]) -> List[Vehicle]:
+    def _find_potential_vehicles_using_combined_fields(self, list_of_strings: list[str]) -> list[Vehicle]:
         """Parse tweet text for vehicles using new logic of '<state>:<plate>'"""
 
         plate_tuples: Union[Tuple[str, str, str], Tuple[str, str]] = [[part.strip() for part in match.split(':')] for match in re.findall(regexp_constants.PLATE_FORMAT_REGEX, ' '.join(
@@ -343,9 +343,9 @@ class TrafficViolationsAggregator:
 
     def _form_campaign_lookup_response_parts(self,
                                              campaign_summaries:
-                                             List[Tuple[str, int, int]]):
+                                             list[Tuple[str, int, int]]):
 
-        campaign_chunks: List[str] = []
+        campaign_chunks: list[str] = []
         campaign_string = ""
 
         for campaign in campaign_summaries:
@@ -374,23 +374,23 @@ class TrafficViolationsAggregator:
 
     def _form_plate_lookup_response_parts(
             self,
-            borough_data:  List[Tuple[str, int]],
+            borough_data:  list[Tuple[str, int]],
             frequency: int,
             fine_data: FineData,
             lookup_source: str,
             plate: str,
-            plate_types: List[str],
+            plate_types: list[str],
             state: str,
             unique_identifier: str,
             username: str,
-            violations: List[Tuple[str, int]],
-            year_data: List[Tuple[str, int]],
-            camera_streak_data: Dict[str, CameraStreakData] = None,
+            violations: list[Tuple[str, int]],
+            year_data: list[Tuple[str, int]],
+            camera_streak_data: dict[str, CameraStreakData] = None,
             previous_lookup: Optional[PlateLookup] = None):
 
         # response_chunks holds tweet-length-sized parts of the response
         # to be tweeted out or appended into a single direct message.
-        response_chunks: List[str] = []
+        response_chunks: list[str] = []
         violations_string: str = ""
 
         # Get total violations
@@ -552,7 +552,7 @@ class TrafficViolationsAggregator:
                            for vehicle in summary.plate_lookups]
         total_tickets = sum(vehicle_tickets)
 
-        fines_by_vehicle: List[FineData] = [lookup.fines for lookup in summary.plate_lookups]
+        fines_by_vehicle: list[FineData] = [lookup.fines for lookup in summary.plate_lookups]
 
         vehicles_with_fines: int = len([
             fine_data for fine_data in fines_by_vehicle if fine_data.fined > 0])
@@ -618,7 +618,7 @@ class TrafficViolationsAggregator:
 
     def _handle_response_part_formation(self,
                                         count: str,
-                                        collection: Dict[str, Any],
+                                        collection: dict[str, Any],
                                         continued_format_string: str,
                                         description: str,
                                         default_description: str,
@@ -689,9 +689,9 @@ class TrafficViolationsAggregator:
     def _infer_plate_and_state_data(self,
                                     list_of_vehicle_tuples:
                                     Union[Tuple[str, str, str],
-                                          Tuple[str, str]]) -> List[Vehicle]:
+                                          Tuple[str, str]]) -> list[Vehicle]:
 
-        potential_vehicles: List[Vehicle] = []
+        potential_vehicles: list[Vehicle] = []
 
         for vehicle_tuple in list_of_vehicle_tuples:
 
@@ -702,14 +702,14 @@ class TrafficViolationsAggregator:
             valid_plate = False
 
             if len(vehicle_tuple) in range(2, 4):
-                state_bools: List[bool] = [self._detect_state(
+                state_bools: list[bool] = [self._detect_state(
                     part) for part in vehicle_tuple]
                 try:
                     state_index = state_bools.index(True)
                 except ValueError:
                     state_index = None
 
-                plate_types_bools: List[bool] = [self._detect_plate_types(
+                plate_types_bools: list[bool] = [self._detect_plate_types(
                     part) for part in vehicle_tuple]
                 try:
                     plate_types_index = plate_types_bools.index(True)
@@ -765,12 +765,12 @@ class TrafficViolationsAggregator:
 
     def _perform_campaign_lookup(self,
                                  included_campaigns:
-                                 List[Campaign]) -> List[
+                                 list[Campaign]) -> list[
             Tuple[str, int, int]]:
 
         LOG.debug('Performing lookup for campaigns.')
 
-        result: List[Tuple[str, int, int]] = []
+        result: list[Tuple[str, int, int]] = []
 
         for campaign in included_campaigns:
 
@@ -798,7 +798,7 @@ class TrafficViolationsAggregator:
         return result
 
     def _perform_plate_lookup(self,
-                              campaigns: List[Campaign],
+                              campaigns: list[Campaign],
                               plate_query: PlateQuery,
                               unique_identifier: str) -> OpenDataServiceResponse:
 
@@ -882,7 +882,7 @@ class TrafficViolationsAggregator:
         subsequent tweet.s
         """
 
-        plate_lookup_response_parts: List[Any]
+        plate_lookup_response_parts: list[Any]
 
         # Record the failed lookup.
         new_failed_lookup = FailedPlateLookup(
@@ -927,7 +927,7 @@ class TrafficViolationsAggregator:
         lookup, and if so, help them do so in a subsequent message.
         """
 
-        non_vehicle_response_parts: List[Any]
+        non_vehicle_response_parts: list[Any]
 
         # Record the failed lookup.
         new_failed_lookup = FailedPlateLookup(
@@ -986,7 +986,7 @@ class TrafficViolationsAggregator:
 
 
     def _process_valid_vehicle(self,
-                               campaigns: List[Campaign],
+                               campaigns: list[Campaign],
                                request_object: BaseLookupRequest,
                                vehicle: Vehicle) -> ValidVehicleResponse:
 
@@ -999,7 +999,7 @@ class TrafficViolationsAggregator:
         """
 
         error_on_plate_lookup: bool = False
-        plate_lookup_response_parts: List[Any]
+        plate_lookup_response_parts: list[Any]
         success_on_plate_lookup: bool = False
         plate_lookup: Optional[OpenDataServicePlateLookup] = None
 
@@ -1083,7 +1083,7 @@ class TrafficViolationsAggregator:
     def _query_for_previous_lookup(self, plate_query: PlateQuery) -> Optional[PlateLookup]:
         """ See if we've seen this vehicle before. """
 
-        lookups_for_vehicle: List[PlateLookup] = PlateLookup.get_all_by(
+        lookups_for_vehicle: list[PlateLookup] = PlateLookup.get_all_by(
             plate=plate_query.plate,
             state=plate_query.state,
             plate_types=plate_query.plate_types,

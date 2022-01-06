@@ -3,8 +3,6 @@ import logging
 import os
 import tweepy
 
-from typing import Dict
-
 from traffic_violations import settings
 from traffic_violations.constants.lookup_sources import LookupSource
 
@@ -30,7 +28,7 @@ class TrafficViolationsStreamListener(tweepy.streaming.Stream):
         LOG.debug(f'on_status: {status.text}')
 
     def on_data(self, data):
-        data_dict: Dict[any, any] = json.loads(data)
+        data_dict: dict[any, any] = json.loads(data)
         formatted_data = json.dumps(data_dict,
                                     indent=4,
                                     sort_keys=True)

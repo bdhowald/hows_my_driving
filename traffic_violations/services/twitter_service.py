@@ -6,7 +6,7 @@ import tweepy
 
 from datetime import datetime, timedelta
 from sqlalchemy import and_
-from typing import Any, List, Optional, Type, Union
+from typing import Any, Optional, Type, Union
 
 from traffic_violations import settings
 from traffic_violations.constants import L10N
@@ -62,7 +62,7 @@ class TrafficViolationsTweeter:
         self._lookup_threads = []
 
         # Initialize cached values to None
-        self._follower_ids: Optional[List[int]] = None
+        self._follower_ids: Optional[list[int]] = None
         self._follower_ids_last_fetched: Optional[datetime] = None
 
 
@@ -76,7 +76,7 @@ class TrafficViolationsTweeter:
         self._find_and_respond_to_twitter_events()
 
     def send_status(self,
-                    message_parts: Union[List[any], List[str]],
+                    message_parts: Union[list[any], list[str]],
                     on_error_message: str) -> bool:
         """Send statuses from @HowsMyDrivingNY"""
         try:
@@ -94,11 +94,11 @@ class TrafficViolationsTweeter:
         for thread in self._lookup_threads:
             thread.cancel()
 
-    def _add_twitter_events_for_missed_direct_messages(self, messages: List[tweepy.models.Status]) -> None:
+    def _add_twitter_events_for_missed_direct_messages(self, messages: list[tweepy.models.Status]) -> None:
         """Creates TwitterEvent objects when the Account Activity API fails to send us
         direct message events via webhooks to have them created by the HowsMyDrivingNY API.
 
-        :param messages: List[tweepy.DirectMessage]: The direct messages returned via the
+        :param messages: list[tweepy.DirectMessage]: The direct messages returned via the
                                                      Twitter Search API via Tweepy.
         """
 
@@ -140,11 +140,11 @@ class TrafficViolationsTweeter:
             f"{'was' if undetected_messages == 1 else 'were'} previously undetected.")
 
 
-    def _add_twitter_events_for_missed_statuses(self, messages: List[tweepy.models.Status]) -> None:
+    def _add_twitter_events_for_missed_statuses(self, messages: list[tweepy.models.Status]) -> None:
         """Creates TwitterEvent objects when the Account Activity API fails to send us
         status events via webhooks to have them created by the HowsMyDrivingNY API.
 
-        :param messages: List[tweepy.models.Status]: The statuses returned via the Twitter
+        :param messages: list[tweepy.models.Status]: The statuses returned via the Twitter
                                                      Search API via Tweepy.
         """
 
@@ -177,8 +177,8 @@ class TrafficViolationsTweeter:
             f"Found {undetected_messages} status{'' if undetected_messages == 1 else 'es'} that "
             f"{'was' if undetected_messages == 1 else 'were'} previously undetected.")
 
-    def _filter_failed_twitter_events(self, failed_events: List[TwitterEvent]) -> List[TwitterEvent]:
-        failed_events_that_need_response: List[TwitterEvent] = []
+    def _filter_failed_twitter_events(self, failed_events: list[TwitterEvent]) -> list[TwitterEvent]:
+        failed_events_that_need_response: list[TwitterEvent] = []
 
         for failed_event in failed_events:
             # If event is a tweet, but can no longer be found, there's nothing we can do.
@@ -305,7 +305,7 @@ class TrafficViolationsTweeter:
 
             if most_recent_undetected_twitter_event:
 
-                statuses_since_last_twitter_event: List[tweepy.models.Status] = []
+                statuses_since_last_twitter_event: list[tweepy.models.Status] = []
                 max_status_id: Optional[int] = None
 
                 while max_status_id is None or statuses_since_last_twitter_event:
@@ -354,22 +354,22 @@ class TrafficViolationsTweeter:
         twitter_events_thread.start()
 
         try:
-            new_events: List[TwitterEvent] = TwitterEvent.get_all_by(
+            new_events: list[TwitterEvent] = TwitterEvent.get_all_by(
                 is_duplicate=False,
                 responded_to=False,
                 response_in_progress=False)
 
             LOG.debug(f'new events: {new_events}')
 
-            failed_events: List[TwitterEvent] = TwitterEvent.get_all_by(
+            failed_events: list[TwitterEvent] = TwitterEvent.get_all_by(
                 is_duplicate=False,
                 error_on_lookup=True,
                 responded_to=True,
                 response_in_progress=False)
 
-            failed_events_that_need_response: List[TwitterEvent] = self._filter_failed_twitter_events(failed_events)
+            failed_events_that_need_response: list[TwitterEvent] = self._filter_failed_twitter_events(failed_events)
 
-            events_to_respond_to: [List[TwitterEvent]] = new_events + failed_events_that_need_response
+            events_to_respond_to: [list[TwitterEvent]] = new_events + failed_events_that_need_response
 
             LOG.debug(f'events to respond to: {events_to_respond_to}')
 
@@ -445,7 +445,7 @@ class TrafficViolationsTweeter:
 
     def _process_response(self,
         request_object: Type[BaseLookupRequest],
-        response_parts: List[Any],
+        response_parts: list[Any],
         successful_lookup: bool = False) -> Optional[int]:
 
         """Directs the response to a Twitter message, depending on whether
@@ -537,7 +537,7 @@ class TrafficViolationsTweeter:
                 if self.aggregator.lookup_has_valid_plates(
                     lookup_request=lookup_request) and not perform_lookup_for_user:
 
-                    response_parts: List[Any]
+                    response_parts: list[Any]
 
                     if lookup_request.is_direct_message():
                         response_parts = [L10N.NON_FOLLOWER_DIRECT_MESSAGE_REPLY_STRING]
@@ -639,9 +639,9 @@ class TrafficViolationsTweeter:
         return '\n'.join(return_message)
 
     def _recursively_process_status_updates(self,
-                                            response_parts: Union[List[any], List[str]],
+                                            response_parts: Union[list[any], list[str]],
                                             message_id: Optional[int] = None,
-                                            user_mention_ids: Optional[List[str]] = None) -> Optional[int]:
+                                            user_mention_ids: Optional[list[str]] = None) -> Optional[int]:
 
         """Status responses from the aggregator return lists
         of chunked information (by violation type, by borough, by year, etc.).

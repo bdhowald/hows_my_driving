@@ -1,8 +1,6 @@
 import os
 import requests
 
-from typing import Dict
-from typing import List
 from typing import Optional
 
 from traffic_violations import settings
@@ -20,7 +18,7 @@ class LocationService:
 
 
 
-    def get_borough_from_location_strings(self, location_parts: List[str]) -> Optional[str]:
+    def get_borough_from_location_strings(self, location_parts: list[str]) -> Optional[str]:
         return self._detect_borough(location_parts=location_parts)
 
 
@@ -28,7 +26,7 @@ class LocationService:
 
         # sanitized_parts = [re.sub('\(?[ENSW]/?B\)? *', '', part)
         #                    for part in location_parts]
-        location_strs: List[str] = self._normalize_address(
+        location_strs: list[str] = self._normalize_address(
             location_parts=location_parts)
 
         # location_str = re.sub('[ENSW]B *', '', location_str)
@@ -45,10 +43,10 @@ class LocationService:
                 return boro_from_geocode
 
             else:
-                params: Dict[str, str] = {
+                params: dict[str, str] = {
                     'address': geo_string,
                     'key': self.GEOCODING_SERVICE_API_KEY}
-                results: Optional[Dict[str, str]] = self._make_geocoding_request(
+                results: Optional[dict[str, str]] = self._make_geocoding_request(
                     params=params)
 
                 if results:
@@ -73,7 +71,7 @@ class LocationService:
             return geocode.borough
 
 
-    def _make_geocoding_request(self, params) -> Optional[Dict[str, str]]:
+    def _make_geocoding_request(self, params) -> Optional[dict[str, str]]:
         req = requests.get(self.GEOCODING_SERVICE_ENDPOINT, params=params)
 
         if req.json().get(self.RESULTS_KEY):
@@ -82,14 +80,14 @@ class LocationService:
             return None
 
 
-    def _normalize_address(self, location_parts) -> List[str]:
+    def _normalize_address(self, location_parts) -> list[str]:
         return [f"{' '.join(location_parts)} New York NY",
                 f"{' '.join(location_parts)} New York NY"]
 
 
     def _parse_geocoding_response_for_borough(self, response) -> Optional[str]:
         if response.get(self.RESULTS_COMPONENTS_KEY):
-            boros: List = [comp['long_name'] for comp in response.get(
+            boros: list = [comp['long_name'] for comp in response.get(
                 self.RESULTS_COMPONENTS_KEY) if comp.get('types') and self.BOROUGH_KEY in comp['types']]
 
             if boros:

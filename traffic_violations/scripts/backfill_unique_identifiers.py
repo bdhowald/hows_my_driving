@@ -10,8 +10,6 @@ import threading
 from sqlalchemy import and_
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from typing import List
-
 from traffic_violations.jobs.base_job import BaseJob
 
 from traffic_violations.models.campaign import Campaign
@@ -76,7 +74,7 @@ class BackfillUniqueIdentifiersJob(BaseJob):
             random.SystemRandom().choice(
               string.ascii_lowercase + string.digits) for _ in range(self.UNIQUE_IDENTIFIER_STRING_LENGTH))
 
-    def _update_lookups(self, identifiers: List[str], lookups: List[PlateLookup], is_dry_run: bool):
+    def _update_lookups(self, identifiers: list[str], lookups: list[PlateLookup], is_dry_run: bool):
         for i in range(0, len(lookups)):
             lookups[i].unique_identifier = identifiers[i]
             print(lookups[i].id, identifiers[i],)

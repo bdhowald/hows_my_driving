@@ -7,8 +7,6 @@ import statistics
 from datetime import datetime, time, timedelta
 from sqlalchemy import and_
 from sqlalchemy.sql.expression import func
-from typing import List
-
 from traffic_violations.constants import L10N
 
 from traffic_violations.jobs.base_job import BaseJob
@@ -57,7 +55,7 @@ class DailySummaryJob(BaseJob):
         full_query = PlateLookup.query.join(subquery,
                                             (PlateLookup.id == subquery.c.most_recent_vehicle_lookup))
 
-        yesterdays_lookups: List[PlateLookup] = full_query.all()
+        yesterdays_lookups: list[PlateLookup] = full_query.all()
 
         num_lookups: int = len(yesterdays_lookups)
         ticket_counts: int = [
@@ -111,7 +109,7 @@ class DailySummaryJob(BaseJob):
             f"There have been {'{:,}'.format(total_dvaa_drivers)} such vehicles queried "
             f"since June 6, 2018.")
 
-        messages: List[str] = [
+        messages: list[str] = [
             lookups_summary_string,
             rdaa_summary_string,
             dvaa_summary_string]

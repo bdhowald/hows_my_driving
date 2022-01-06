@@ -3,8 +3,6 @@ import ddt
 import mock
 import unittest
 
-from typing import Dict
-
 from unittest.mock import call, MagicMock
 
 from traffic_violations.jobs.covid_19_camera_offender_job import (
@@ -79,7 +77,7 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
                                  mocked_traffic_violations_tweeter_send_status: MagicMock,
                                  mocked_covid_19_camera_offender_get_by: MagicMock,
                                  mocked_open_data_service_look_up_vehicle: MagicMock,
-                                 open_data_results: Dict[str, str],
+                                 open_data_results: dict[str, str],
                                  dry_run: bool = False,
                                  offender_record_exists: bool = False):
 
