@@ -260,7 +260,21 @@ class TestOpenDataService(unittest.TestCase):
                 summons['borough'] = [boro for boro, precincts in PRECINCTS_BY_BOROUGH.items(
                 ) if int(summons['violation_precinct']) in precincts][0]
                 summons['has_date'] = True
-                summons['violation'] = HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS[summons['violation_code']]
+                
+                violation_code_definition = HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS.get(summons['violation_code'])
+                humanized_description = None
+                if violation_code_definition:
+                    if isinstance(violation_code_definition, list) and summons['issue_date']:
+                        # Some violation codes have applied to multiple violations.
+                        for possible_description in violation_code_definition:
+                            if (datetime.strptime(possible_description['start_date'], '%Y-%m-%d').date() <
+                                datetime.strptime(summons['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').date()):
+
+                                humanized_description = possible_description['description']
+                    else:
+                        humanized_description = violation_code_definition
+
+                summons['violation'] = humanized_description
                 fiscal_year_databases_violations_dict[summons['summons_number']] = summons
 
         merged_violations = {**open_parking_and_camera_violations_dict,

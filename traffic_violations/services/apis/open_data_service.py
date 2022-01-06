@@ -274,19 +274,6 @@ class OpenDataService:
         return merged_dict
 
     def _normalize_fiscal_year_database_summons(self, summons) -> dict[str, Any]:
-        # get human readable ticket type name
-        if summons.get('violation_description') is None:
-            if summons.get('violation_code') and HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS.get(summons['violation_code']):
-                summons['violation'] = HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS.get(
-                    summons['violation_code'])
-        else:
-            if HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS.get(summons['violation_description']):
-                summons['violation'] = HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS.get(
-                    summons['violation_description'])
-            else:
-                summons['violation'] = re.sub(
-                    '[0-9]*-', '', summons['violation_description'])
-
         if summons.get('issue_date') is None:
             summons['has_date'] = False
         else:
@@ -318,6 +305,32 @@ class OpenDataService:
                             [street_name, intersecting_street])
                         if geocoded_borough:
                             summons['borough'] = geocoded_borough.lower()
+
+        # get human readable ticket type name
+        if summons.get('violation_description') is None:
+            if summons.get('violation_code'):
+                violation_code_definition = HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS.get(summons['violation_code'])
+                humanized_description = None
+
+                if violation_code_definition:
+                    if isinstance(violation_code_definition, list) and summons['issue_date']:
+                        # Some violation codes have applied to multiple violations.
+                        for possible_description in violation_code_definition:
+                            if (datetime.strptime(possible_description['start_date'], '%Y-%m-%d').date() <
+                                datetime.strptime(summons['issue_date'], self.TIME_FORMAT).date()):
+
+                                humanized_description = possible_description['description']
+                    else:
+                        humanized_description = violation_code_definition
+
+                summons['violation'] = humanized_description
+        else:
+            if HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS.get(summons['violation_description']):
+                summons['violation'] = HUMANIZED_NAMES_FOR_FISCAL_YEAR_DATABASE_VIOLATIONS.get(
+                    summons['violation_description'])
+            else:
+                summons['violation'] = re.sub(
+                    '[0-9]*-', '', summons['violation_description'])
 
         return summons
 
