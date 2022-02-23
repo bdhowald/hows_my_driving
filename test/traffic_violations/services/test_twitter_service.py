@@ -159,7 +159,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             None, message_not_needing_event]
 
         client_api_mock = MagicMock(name='client_api')
-        client_api_mock.list_direct_messages.return_value = [
+        client_api_mock.get_direct_messages.return_value = [
           message_needing_event, message_not_needing_event]
         client_api_mock.lookup_users.return_value = [sender]
         self.tweeter._client_api = client_api_mock

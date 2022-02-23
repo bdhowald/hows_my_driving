@@ -257,7 +257,7 @@ class TrafficViolationsTweeter:
             # at a time until 3.9, so it'll have to do.
 
             direct_messages_since_last_twitter_event = self._get_twitter_client_api(
-                ).list_direct_messages(
+                ).get_direct_messages(
                     count=self.MAX_DIRECT_MESSAGES_RETURNED)
 
             received_messages = [message for message in direct_messages_since_last_twitter_event if
@@ -390,7 +390,7 @@ class TrafficViolationsTweeter:
         """Set the application (non-client) api connection for this instance"""
 
         if not self._app_api:
-            self._app_api = twitter_api_wrapper.TwitterApplicationApiWrapper()
+            self._app_api = twitter_api_wrapper.TwitterApplicationApiWrapper().get_connection()
 
         return self._app_api
 
@@ -398,7 +398,7 @@ class TrafficViolationsTweeter:
         """Set the client api connection for this instance"""
 
         if not self._client_api:
-            self._client_api = twitter_api_wrapper.TwitterClientApiWrapper()
+            self._client_api = twitter_api_wrapper.TwitterClientApiWrapper().get_connection()
 
         return self._client_api
 
