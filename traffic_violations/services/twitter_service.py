@@ -422,7 +422,7 @@ class TrafficViolationsTweeter:
             next_cursor: int = -1
 
             while next_cursor:
-                results, cursors = self._get_twitter_application_api().followers_ids(cursor=next_cursor)
+                results, cursors = self._get_twitter_application_api().get_follower_ids(cursor=next_cursor)
                 next_cursor = cursors[1]
                 follower_ids += results
 

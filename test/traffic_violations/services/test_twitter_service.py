@@ -38,7 +38,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         # mock followers ids to be empty so that asking if the
         # requesting user is a follower always returns True
-        self.tweeter._client_api.followers_ids.return_value = []
+        self.tweeter._client_api.get_follower_ids.return_value = []
         self.log_patcher = mock.patch(
             'traffic_violations.services.twitter_service.LOG')
 
@@ -417,7 +417,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.reply_argument_builder.build_reply_data = build_reply_data_mock
 
         application_api_mock = MagicMock(name='application_api')
-        application_api_mock.followers_ids.return_value = ([
+        application_api_mock.get_follower_ids.return_value = ([
             user_id if is_follower else (user_id + 1)], (123, 0))
         self.tweeter._app_api = application_api_mock
 
@@ -593,7 +593,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter.reply_argument_builder.build_reply_data = build_reply_data_mock
 
         application_api_mock = MagicMock(name='application_api')
-        application_api_mock.followers_ids.return_value = ([user_id], (123, 0))
+        application_api_mock.get_follower_ids.return_value = ([user_id], (123, 0))
         self.tweeter._app_api = application_api_mock
 
         process_response_mock = MagicMock(name='process_response')
@@ -621,7 +621,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     @ddt.unpack
     def test_get_follower_ids(self, expect_called: bool, minutes_ago: int):
         application_api_mock = MagicMock(name='application_api')
-        application_api_mock.followers_ids.return_value = ([1], (0, 0))
+        application_api_mock.get_follower_ids.return_value = ([1], (0, 0))
         self.tweeter._app_api = application_api_mock
 
         self.tweeter._follower_ids_last_fetched = datetime.utcnow() - timedelta(
@@ -630,9 +630,9 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         self.tweeter._get_follower_ids()
 
         if expect_called:
-            application_api_mock.followers_ids.assert_called_with(cursor=-1)
+            application_api_mock.get_follower_ids.assert_called_with(cursor=-1)
         else:
-            application_api_mock.followers_ids.assert_not_called()
+            application_api_mock.get_follower_ids.assert_not_called()
 
     @mock.patch(
         'traffic_violations.services.twitter_service.TrafficViolationsTweeter._is_production')
