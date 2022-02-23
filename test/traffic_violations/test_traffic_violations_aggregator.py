@@ -9,6 +9,7 @@ import unittest
 
 from datetime import datetime, timezone, timedelta
 from freezegun import freeze_time
+from typing import Dict, List
 
 from unittest.mock import MagicMock
 
@@ -246,7 +247,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                                                            potential_vehicle_data,
                                                            string_parts):
 
-        potential_vehicles: list[Vehicle] = [
+        potential_vehicles: List[Vehicle] = [
             Vehicle(**data) for data in potential_vehicle_data]
 
         self.assertEqual(self.aggregator._find_potential_vehicles_using_combined_fields(
@@ -546,8 +547,8 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
     @freeze_time("2027-07-23 09:42:25")
     def test_form_plate_lookup_response_parts(self,
                                               mocked_tweet_exists,
-                                              data: dict[str, any],
-                                              response: list[str],
+                                              data: Dict[str, any],
+                                              response: List[str],
                                               username: str):
 
         mocked_tweet_exists.return_value = True

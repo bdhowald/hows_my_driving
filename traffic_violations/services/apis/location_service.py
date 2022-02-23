@@ -1,7 +1,7 @@
 import os
 import requests
 
-from typing import Optional
+from typing import Dict, List, Optional
 
 from traffic_violations import settings
 from traffic_violations.models.geocode import Geocode
@@ -18,7 +18,7 @@ class LocationService:
 
 
 
-    def get_borough_from_location_strings(self, location_parts: list[str]) -> Optional[str]:
+    def get_borough_from_location_strings(self, location_parts: List[str]) -> Optional[str]:
         return self._detect_borough(location_parts=location_parts)
 
 
@@ -26,7 +26,7 @@ class LocationService:
 
         # sanitized_parts = [re.sub('\(?[ENSW]/?B\)? *', '', part)
         #                    for part in location_parts]
-        location_strs: list[str] = self._normalize_address(
+        location_strs: List[str] = self._normalize_address(
             location_parts=location_parts)
 
         # location_str = re.sub('[ENSW]B *', '', location_str)
@@ -43,10 +43,10 @@ class LocationService:
                 return boro_from_geocode
 
             else:
-                params: dict[str, str] = {
+                params: Dict[str, str] = {
                     'address': geo_string,
                     'key': self.GEOCODING_SERVICE_API_KEY}
-                results: Optional[dict[str, str]] = self._make_geocoding_request(
+                results: Optional[Dict[str, str]] = self._make_geocoding_request(
                     params=params)
 
                 if results:
@@ -71,7 +71,7 @@ class LocationService:
             return geocode.borough
 
 
-    def _make_geocoding_request(self, params) -> Optional[dict[str, str]]:
+    def _make_geocoding_request(self, params) -> Optional[Dict[str, str]]:
         req = requests.get(self.GEOCODING_SERVICE_ENDPOINT, params=params)
 
         if req.json().get(self.RESULTS_KEY):
@@ -80,7 +80,7 @@ class LocationService:
             return None
 
 
-    def _normalize_address(self, location_parts) -> list[str]:
+    def _normalize_address(self, location_parts) -> List[str]:
         return [f"{' '.join(location_parts)} New York NY",
                 f"{' '.join(location_parts)} New York NY"]
 

@@ -5,7 +5,7 @@ import requests_futures.sessions
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-from typing import Any
+from typing import Any, Dict
 
 
 class TweetDetectionService:
@@ -29,7 +29,7 @@ class TweetDetectionService:
         return re.search('errorpage-body-content', result.content.decode("utf-8")) is None
 
 
-    def _perform_query(self, url: str) -> dict[str, Any]:
+    def _perform_query(self, url: str) -> Dict[str, Any]:
         response = self.api.get(url, stream=True)
 
         return response.result()

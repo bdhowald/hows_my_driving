@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import List
 
 from traffic_violations.models.response.open_data_service_plate_lookup \
     import OpenDataServicePlateLookup
@@ -7,4 +8,4 @@ from traffic_violations.models.response.open_data_service_plate_lookup \
 @dataclass
 class TrafficViolationsAggregatorResponse:
     """ Represents the results of a query from open data apis."""
-    plate_lookups: list[OpenDataServicePlateLookup] = field(default_factory=list)
+    plate_lookups: List[OpenDataServicePlateLookup] = field(default_factory=list)

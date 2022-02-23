@@ -6,7 +6,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import and_, or_
 from sqlalchemy.sql.expression import func
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from traffic_violations.constants import L10N, lookup_sources
 
@@ -81,7 +81,7 @@ class RecklessDriverRetrospectiveJob(BaseJob):
         else:
             threshold_attribute: str = 'boot_eligible_under_rdaa_threshold'
 
-        base_query: list[Tuple[int]] = PlateLookup.query.session.query(
+        base_query: List[Tuple[int]] = PlateLookup.query.session.query(
             func.max(PlateLookup.id).label('most_recent_vehicle_lookup')
         ).filter(
             or_(
@@ -106,9 +106,9 @@ class RecklessDriverRetrospectiveJob(BaseJob):
             PlateLookup.state
         ).all()
 
-        lookup_ids_to_update: list[int] = [id[0] for id in recent_plate_lookup_ids]
+        lookup_ids_to_update: List[int] = [id[0] for id in recent_plate_lookup_ids]
 
-        lookups_to_update: list[PlateLookup] = PlateLookup.get_all_in(
+        lookups_to_update: List[PlateLookup] = PlateLookup.get_all_in(
             id=lookup_ids_to_update)
 
         if not lookups_to_update:
@@ -226,7 +226,7 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                     f'{red_light_camera_violations_string}'
                     f'{speed_camera_violations_string}')
 
-                messages: list[str] = [
+                messages: List[str] = [
                     reckless_driver_summary_string,
                     reckless_driver_update_string]
 

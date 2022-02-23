@@ -13,6 +13,7 @@ LOGGING_LEVELS = {'critical': logging.CRITICAL,
 
 LOG = logging.getLogger(__name__)
 
+
 def run():
     tweeter = TrafficViolationsTweeter()
     # if sys.argv[-1] == 'print_daily_summary':

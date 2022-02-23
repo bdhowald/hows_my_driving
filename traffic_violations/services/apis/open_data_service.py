@@ -8,7 +8,7 @@ from collections import Counter
 from datetime import datetime
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from traffic_violations import settings
 from traffic_violations.constants.borough_codes import BOROUGH_CODES
@@ -70,7 +70,7 @@ class OpenDataService:
 
         self.location_service = LocationService()
 
-    def lookup_covid_19_camera_violations(self) -> list[dict[str, str]]:
+    def lookup_covid_19_camera_violations(self) -> List[Dict[str, str]]:
         """Search for all camera violations for all vehicles between two
         timestamps.
         """
@@ -116,7 +116,7 @@ class OpenDataService:
              ')&'
              '$group=plate,state&$order=total_camera_violations%20desc')
 
-        open_parking_and_camera_violations_response: dict[str, str] = self._perform_query(
+        open_parking_and_camera_violations_response: Dict[str, str] = self._perform_query(
             query_string=open_parking_and_camera_violations_query_string)
 
         return open_parking_and_camera_violations_response['data']
@@ -144,7 +144,7 @@ class OpenDataService:
                 message=str(exc),
                 success=False)
 
-    def _add_fine_data_for_open_parking_and_camera_violations_summons(self, summons) -> dict[str, Any]:
+    def _add_fine_data_for_open_parking_and_camera_violations_summons(self, summons) -> Dict[str, Any]:
         for output_key in self.OUTPUT_FINE_KEYS:
             summons[output_key] = 0
 
@@ -192,16 +192,16 @@ class OpenDataService:
                             for v in violations.values() if v.get('outstanding')), 2)
         )
 
-        tickets: list[Tuple[str, int]] = Counter([v['violation'].title() for v in violations.values(
+        tickets: List[Tuple[str, int]] = Counter([v['violation'].title() for v in violations.values(
         ) if v.get('violation') is not None]).most_common()
 
-        years: list[Tuple[str, int]] = Counter([datetime.strptime(v['issue_date'], self.TIME_FORMAT).strftime('%Y') if v.get(
+        years: List[Tuple[str, int]] = Counter([datetime.strptime(v['issue_date'], self.TIME_FORMAT).strftime('%Y') if v.get(
             'has_date') else 'No Year Available' for v in violations.values()]).most_common()
 
-        boroughs: list[Tuple[str, int]] = Counter([v['borough'].title() for v in violations.values(
+        boroughs: List[Tuple[str, int]] = Counter([v['borough'].title() for v in violations.values(
         ) if v.get('borough')]).most_common()
 
-        camera_violations_by_type: dict[str, CameraStreakData] = { violation_type: self._find_max_camera_violations_streak(
+        camera_violations_by_type: Dict[str, CameraStreakData] = { violation_type: self._find_max_camera_violations_streak(
             sorted([datetime.strptime(v['issue_date'], self.TIME_FORMAT) for v in violations.values(
             ) if v.get('violation') == violation_type])) for violation_type in CAMERA_VIOLATIONS }
 
@@ -223,7 +223,7 @@ class OpenDataService:
         )
 
     def _find_max_camera_violations_streak(self,
-                                           list_of_violation_times: list[datetime]) -> Optional[CameraStreakData]:
+                                           list_of_violation_times: List[datetime]) -> Optional[CameraStreakData]:
 
         if list_of_violation_times:
             max_streak = 0
@@ -256,10 +256,10 @@ class OpenDataService:
         return None
 
     def _merge_violations(self,
-                          original_dict: dict[str, Any],
-                          overwrite_dict: dict[str, Any]) -> dict[str, Any]:
+                          original_dict: Dict[str, Any],
+                          overwrite_dict: Dict[str, Any]) -> Dict[str, Any]:
 
-        merged_dict: dict[str, Any] = {**original_dict, **overwrite_dict}
+        merged_dict: Dict[str, Any] = {**original_dict, **overwrite_dict}
 
         for key, value in merged_dict.items():
             if key in original_dict and key in overwrite_dict:
@@ -273,7 +273,7 @@ class OpenDataService:
 
         return merged_dict
 
-    def _normalize_fiscal_year_database_summons(self, summons) -> dict[str, Any]:
+    def _normalize_fiscal_year_database_summons(self, summons) -> Dict[str, Any]:
         if summons.get('issue_date') is None:
             summons['has_date'] = False
         else:
@@ -334,7 +334,7 @@ class OpenDataService:
 
         return summons
 
-    def _normalize_open_parking_and_camera_violations_summons(self, summons) -> dict[str, Any]:
+    def _normalize_open_parking_and_camera_violations_summons(self, summons) -> Dict[str, Any]:
         # get human readable ticket type name
         if summons.get('violation') is not None:
             summons['violation'] = HUMANIZED_NAMES_FOR_OPEN_PARKING_AND_CAMERA_VIOLATIONS[
@@ -378,12 +378,12 @@ class OpenDataService:
             plate_query = self._perform_medallion_query(
                 plate_query=plate_query)
 
-        opacv_result: dict[str, Any] = self._perform_open_parking_and_camera_violations_query(
+        opacv_result: Dict[str, Any] = self._perform_open_parking_and_camera_violations_query(
             plate_query=plate_query, since=since, until=until)
-        fiscal_year_result: dict[str, Any] = self._perform_fiscal_year_database_queries(
+        fiscal_year_result: Dict[str, Any] = self._perform_fiscal_year_database_queries(
             plate_query=plate_query, since=since, until=until)
 
-        violations: dict[str, Any] = self._merge_violations(opacv_result, fiscal_year_result)
+        violations: Dict[str, Any] = self._merge_violations(opacv_result, fiscal_year_result)
 
         return self._calculate_aggregate_data(plate_query=plate_query,
                                               violations=violations)
@@ -392,10 +392,10 @@ class OpenDataService:
     def _perform_fiscal_year_database_queries(self,
                                               plate_query: PlateQuery,
                                               since: datetime,
-                                              until: datetime) -> dict[str, Any]:
+                                              until: datetime) -> Dict[str, Any]:
         """Grab data from each of the fiscal year violation datasets"""
 
-        violations: dict[str, Any] = {}
+        violations: Dict[str, Any] = {}
 
         # iterate through the endpoints
         for year, endpoint in FISCAL_YEAR_DATABASE_ENDPOINTS.items():
@@ -406,10 +406,10 @@ class OpenDataService:
                 f"registration_state={plate_query.state}"
                 f"{'&$where=plate_type%20in(' + ','.join(['%27' + type + '%27' for type in plate_query.plate_types.split(',')]) + ')' if plate_query.plate_types is not None else ''}")
 
-            fiscal_year_database_response: dict[str, Any] = self._perform_query(
+            fiscal_year_database_response: Dict[str, Any] = self._perform_query(
                 query_string=fiscal_year_database_query_string)
 
-            fiscal_year_database_data: dict[str, str] = \
+            fiscal_year_database_data: Dict[str, str] = \
                 fiscal_year_database_response['data']
 
             LOG.debug(
@@ -422,7 +422,7 @@ class OpenDataService:
                     summons=record)
 
                 # structure response and only use the data we need
-                new_data: dict[str, Any] = {
+                new_data: Dict[str, Any] = {
                     needed_field: record.get(needed_field) for needed_field in FISCAL_YEAR_DATABASE_NEEDED_FIELDS}
 
                 if new_data.get('has_date'):
@@ -457,16 +457,16 @@ class OpenDataService:
         LOG.debug(
             f'Querying medallion data from {medallion_query_string}')
 
-        medallion_response: dict[str, dict[str, Any]] = self._perform_query(query_string=medallion_query_string)
+        medallion_response: Dict[str, Dict[str, Any]] = self._perform_query(query_string=medallion_query_string)
 
-        medallion_data: dict[str, Any] = medallion_response['data']
+        medallion_data: Dict[str, Any] = medallion_response['data']
 
         LOG.debug(
             f'Medallion data for {plate_query.state}:{plate_query.plate} – '
             f'{medallion_data}')
 
         if medallion_data:
-            sorted_list: dict[str, Any] = sorted(
+            sorted_list: Dict[str, Any] = sorted(
                 set([res[self.MEDALLION_PLATE_KEY] for res in medallion_data]))
 
             return PlateQuery(
@@ -483,10 +483,10 @@ class OpenDataService:
     def _perform_open_parking_and_camera_violations_query(self,
                                                           plate_query: PlateQuery,
                                                           since: datetime,
-                                                          until: datetime) -> dict[str, Any]:
+                                                          until: datetime) -> Dict[str, Any]:
         """Grab data from 'Open Parking and Camera Violations'"""
 
-        violations: dict[str, Any] = {}
+        violations: Dict[str, Any] = {}
 
         # response from city open data portal
         open_parking_and_camera_violations_query_string: str = (
@@ -495,10 +495,10 @@ class OpenDataService:
             f'state={plate_query.state}'
             f"{'&$where=license_type%20in(' + ','.join(['%27' + type + '%27' for type in plate_query.plate_types.split(',')]) + ')' if plate_query.plate_types is not None else ''}")
 
-        open_parking_and_camera_violations_response: dict[str, Any] = self._perform_query(
+        open_parking_and_camera_violations_response: Dict[str, Any] = self._perform_query(
             query_string=open_parking_and_camera_violations_query_string)
 
-        open_parking_and_camera_violations_data: list[dict[str, Any]] = \
+        open_parking_and_camera_violations_data: List[Dict[str, Any]] = \
             open_parking_and_camera_violations_response['data']
 
         LOG.debug(
@@ -539,7 +539,7 @@ class OpenDataService:
 
         return violations
 
-    def _perform_query(self, query_string: str) -> dict[str, Any]:
+    def _perform_query(self, query_string: str) -> Dict[str, Any]:
         full_url: str = f'{self._add_query_limit_and_token(query_string)}'
         response = self.api.get(full_url)
 

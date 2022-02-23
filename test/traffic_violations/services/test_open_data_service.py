@@ -7,6 +7,7 @@ import unittest
 
 from collections import Counter
 from datetime import datetime, timedelta
+from typing import List
 
 from traffic_violations.constants import regexps as regexp_constants
 from traffic_violations.constants.borough_codes import BOROUGH_CODES
@@ -301,10 +302,10 @@ class TestOpenDataService(unittest.TestCase):
             paid=paid,
             outstanding=amount_due)
 
-        tickets: list[Tuple[str, int]] = Counter([v['violation'].title() for v in merged_violations.values(
+        tickets: List[Tuple[str, int]] = Counter([v['violation'].title() for v in merged_violations.values(
         ) if v.get('violation')]).most_common()
 
-        years: list[Tuple[str, int]] = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get(
+        years: List[Tuple[str, int]] = Counter([datetime.strptime(v['issue_date'], '%Y-%m-%dT%H:%M:%S.%f').strftime('%Y') if v.get(
             'has_date') else 'No Year Available' for v in merged_violations.values()]).most_common()
 
         boroughs = Counter([v['borough'].title()

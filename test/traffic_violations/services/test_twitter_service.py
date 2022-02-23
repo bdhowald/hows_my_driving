@@ -9,6 +9,7 @@ import unittest
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 
+from typing import List
 from typing import Optional
 
 from unittest.mock import call, MagicMock
@@ -350,7 +351,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                                                 twitter_event_mock: MagicMock,
                                                 event_type: str,
                                                 is_follower: bool,
-                                                response_parts: Optional[list[str]] = None):
+                                                response_parts: Optional[List[str]] = None):
         db_id = 1
         random_id = random.randint(1000000000000000000, 2000000000000000000)
         user_handle = 'bdhowald'
@@ -988,7 +989,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
     def test_recursively_process_status_updates(
         self,
         mocked_log: MagicMock,
-        response_parts: list[str]
+        response_parts: List[str]
     ) -> None:
         original_id = 1
 
