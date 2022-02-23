@@ -482,7 +482,7 @@ class TrafficViolationsTweeter:
                         ).create_favorite(message_id)
 
                 # But don't crash on error
-                except tweepy.error.TweepError as te:
+                except tweepy.errors.TweepyException as te:
                     # There's no easy way to know if this status has already
                     # been favorited
                     pass
@@ -567,7 +567,7 @@ class TrafficViolationsTweeter:
                             non_follower_reply)
                         NonFollowerReply.query.session.commit()
 
-                    except tweepy.error.TweepError as e:
+                    except tweepy.errors.TweepyException as e:
                         event.error_on_lookup = True
                         event.num_times_failed += 1
                         event.last_failed_at_time = datetime.utcnow()
@@ -590,7 +590,7 @@ class TrafficViolationsTweeter:
                                     request_object=reply_to_event['request_object'],
                                     response_parts=reply_to_event['response_parts'],
                                     successful_lookup=reply_to_event.get('successful_lookup'))
-                            except tweepy.error.TweepError as e:
+                            except tweepy.errors.TweepyException as e:
                                 reply_to_event['error_on_lookup'] = True
 
                     # Update error status
