@@ -70,7 +70,7 @@ class TrafficViolationsAggregator:
 
     def initiate_reply(self, lookup_request: Type[BaseLookupRequest]):
         """Look up the plates in a request and return the results."""
-        LOG.info('Calling initiate_reply')
+        LOG.debug('Calling initiate_reply')
 
         if lookup_request.requires_response():
             return self._create_response(lookup_request)
@@ -140,9 +140,7 @@ class TrafficViolationsAggregator:
         return violations_string
 
     def _create_response(self, request_object: Type[BaseLookupRequest]) -> dict:
-
-        LOG.info('\n')
-        LOG.info('Calling create_response')
+        LOG.debug('Calling create_response')
 
         # Grab tweet details for reply.
         LOG.debug(f'request_object: {request_object}')

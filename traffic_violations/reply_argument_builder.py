@@ -26,7 +26,7 @@ class ReplyArgumentBuilder:
                          message: any,
                          message_source: LookupSource):
 
-        LOG.info(
+        LOG.debug(
             f'args for reply data:\n'
             f'message: {message}\n'
             f'message_source: {message_source}\n')

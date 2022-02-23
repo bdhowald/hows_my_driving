@@ -103,18 +103,18 @@ class OpenDataService:
              'issue_date%20LIKE%20%2710/__/2020%27%20or%20'
              'issue_date%20LIKE%20%2711/__/2020%27%20or%20'
              'issue_date%20LIKE%20%270_/__/2021%27%20or%20'
-             'issue_date%20LIKE%20%2710/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/0_/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/1_/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/20/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/21/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/22/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/23/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/24/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/25/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/26/2020%27%20or%20'
+             'issue_date%20LIKE%20%2710/__/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/0_/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/1_/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/20/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/21/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/22/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/23/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/24/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/25/2021%27%20or%20'
+             'issue_date%20LIKE%20%2711/26/2021%27'
              ')&'
-             '$group=plate,state&$order=count%20desc')
+             '$group=plate,state&$order=total_camera_violations%20desc')
 
         open_parking_and_camera_violations_response: dict[str, str] = self._perform_query(
             query_string=open_parking_and_camera_violations_query_string)
