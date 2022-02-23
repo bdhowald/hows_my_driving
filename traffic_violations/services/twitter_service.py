@@ -106,7 +106,7 @@ class TrafficViolationsTweeter:
 
         sender_ids = set(int(message.message_create['sender_id']) for message in messages)
 
-        sender_objects = self._get_twitter_client_api().lookup_users(sender_ids)
+        sender_objects = self._get_twitter_client_api().lookup_users(user_id=sender_ids)
         senders = {sender.id_str:sender for sender in sender_objects}
 
         for message in messages:
