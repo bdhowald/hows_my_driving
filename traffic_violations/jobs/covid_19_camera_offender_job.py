@@ -42,8 +42,8 @@ class Covid19CameraOffenderJob(BaseJob):
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
-        start_date = datetime.date(2020, 3, 10, 0, 0)
-        end_date = datetime.date(2021, 11, 26, 23, 59, 59)
+        start_date = datetime.datetime(2020, 3, 10, 0, 0)
+        end_date = datetime.datetime(2021, 11, 26, 23, 59, 59)
 
         days_in_period = (end_date - start_date).days
         num_years = days_in_period / 365.0
