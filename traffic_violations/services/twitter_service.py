@@ -7,7 +7,7 @@ import tweepy
 
 from datetime import datetime, timedelta
 from sqlalchemy import and_
-from typing import Any, List, Optional, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union
 
 from traffic_violations import settings
 from traffic_violations.constants import L10N
@@ -495,10 +495,14 @@ class TrafficViolationsTweeter:
             user_mention_ids = [
                 x for x in user_mention_ids if x != str(HMDNY_TWITTER_USER_ID)]
 
-            return self._recursively_process_status_updates(
+            response = self._recursively_process_status_updates(
                 response_parts=response_parts,
                 message_id=message_id,
                 user_mention_ids=user_mention_ids)
+
+            if response:
+                # tuple(message_id, ...)
+                return response[0]
 
         else:
             LOG.error('Unkown message source. Cannot respond.')
@@ -649,7 +653,7 @@ class TrafficViolationsTweeter:
                                             message_id: Optional[int] = None,
                                             user_mention_ids: Optional[List[str]] = None,
                                             has_sent_first_reply: Optional[bool] = False
-    ) -> Optional[int]:
+    ) -> Optional[Tuple[int, bool]]:
 
         """Status responses from the aggregator return lists
         of chunked information (by violation type, by borough, by year, etc.).
