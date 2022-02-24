@@ -679,9 +679,10 @@ class TrafficViolationsTweeter:
                 if self._is_production():
                     new_message = self._get_twitter_application_api(
                         ).update_status(
-                            status=part,
+                            auto_populate_reply_metadata=True,
+                            exclude_reply_user_ids=excluded_reply_user_ids,
                             in_reply_to_status_id=message_id,
-                            exclude_reply_user_ids=excluded_reply_user_ids)
+                            status=part)
 
                     message_id = new_message.id
 
