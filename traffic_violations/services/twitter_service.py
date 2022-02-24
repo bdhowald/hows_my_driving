@@ -492,6 +492,9 @@ class TrafficViolationsTweeter:
             user_mention_ids = (request_object.mentioned_user_ids if
                 request_object.mentioned_user_ids else None)
 
+            user_mention_ids = [
+                x for x in user_mention_ids if x != str(HMDNY_TWITTER_USER_ID)]
+
             return self._recursively_process_status_updates(
                 response_parts=response_parts,
                 message_id=message_id,
@@ -670,12 +673,15 @@ class TrafficViolationsTweeter:
                     message_id=message_id,
                     user_mention_ids=user_mention_ids)
             else:
+                excluded_reply_user_ids = ','.join(
+                    user_mention_ids) if user_mention_ids else None
+
                 if self._is_production():
                     new_message = self._get_twitter_application_api(
                         ).update_status(
                             status=part,
                             in_reply_to_status_id=message_id,
-                            exclude_reply_user_ids=user_mention_ids)
+                            exclude_reply_user_ids=excluded_reply_user_ids)
 
                     message_id = new_message.id
 

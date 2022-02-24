@@ -1018,20 +1018,22 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             call("message_id: 789")
         ])
 
+        excluded_reply_user_ids = ','.join(user_mention_ids)
+
         update_status_mock.assert_has_calls([
             call(
                 status='Some stuff\n',
                 in_reply_to_status_id=original_id,
-                exclude_reply_user_ids=user_mention_ids
+                exclude_reply_user_ids=excluded_reply_user_ids
             ),
             call(
                 status='Some other stuff\nSome more Stuff',
                 in_reply_to_status_id=123,
-                exclude_reply_user_ids=user_mention_ids
+                exclude_reply_user_ids=excluded_reply_user_ids
             ),
             call(
                 status='Yet more stuff',
                 in_reply_to_status_id=456,
-                exclude_reply_user_ids=user_mention_ids
+                exclude_reply_user_ids=excluded_reply_user_ids
             )
         ])
