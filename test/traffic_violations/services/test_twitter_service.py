@@ -1022,18 +1022,21 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
 
         update_status_mock.assert_has_calls([
             call(
-                status='Some stuff\n',
+                auto_populate_reply_metadata=True,
+                exclude_reply_user_ids=excluded_reply_user_ids,
                 in_reply_to_status_id=original_id,
-                exclude_reply_user_ids=excluded_reply_user_ids
+                status='Some stuff\n',
             ),
             call(
-                status='Some other stuff\nSome more Stuff',
+                auto_populate_reply_metadata=False,
+                exclude_reply_user_ids=excluded_reply_user_ids,
                 in_reply_to_status_id=123,
-                exclude_reply_user_ids=excluded_reply_user_ids
+                status='Some other stuff\nSome more Stuff',
             ),
             call(
-                status='Yet more stuff',
+                auto_populate_reply_metadata=False,
+                exclude_reply_user_ids=excluded_reply_user_ids,
                 in_reply_to_status_id=456,
-                exclude_reply_user_ids=excluded_reply_user_ids
+                status='Yet more stuff',
             )
         ])

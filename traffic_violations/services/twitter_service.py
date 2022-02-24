@@ -647,7 +647,9 @@ class TrafficViolationsTweeter:
     def _recursively_process_status_updates(self,
                                             response_parts: Union[List[any], List[str]],
                                             message_id: Optional[int] = None,
-                                            user_mention_ids: Optional[List[str]] = None) -> Optional[int]:
+                                            user_mention_ids: Optional[List[str]] = None,
+                                            has_sent_first_reply: Optional[bool] = False
+    ) -> Optional[int]:
 
         """Status responses from the aggregator return lists
         of chunked information (by violation type, by borough, by year, etc.).
@@ -668,21 +670,26 @@ class TrafficViolationsTweeter:
         for part in response_parts:
             # Some may be lists themselves
             if isinstance(part, list):
-                message_id = self._recursively_process_status_updates(
+                message_id, has_sent_first_reply = self._recursively_process_status_updates(
                     response_parts=part,
                     message_id=message_id,
-                    user_mention_ids=user_mention_ids)
+                    user_mention_ids=user_mention_ids,
+                    has_sent_first_reply=has_sent_first_reply)
             else:
                 excluded_reply_user_ids = ','.join(
                     user_mention_ids) if user_mention_ids else None
 
                 if self._is_production():
+                    should_auto_populate_reply_metadata = not has_sent_first_reply
                     new_message = self._get_twitter_application_api(
                         ).update_status(
-                            auto_populate_reply_metadata=True,
+                            auto_populate_reply_metadata=should_auto_populate_reply_metadata,
                             exclude_reply_user_ids=excluded_reply_user_ids,
                             in_reply_to_status_id=message_id,
                             status=part)
+                    
+                    if not has_sent_first_reply:
+                        has_sent_first_reply = True
 
                     message_id = new_message.id
 
@@ -695,7 +702,7 @@ class TrafficViolationsTweeter:
                         "would be called in production.")
                     return None
 
-        return message_id
+        return (message_id, has_sent_first_reply)
 
     def _send_direct_message(self, message: str, recipient_id: int) -> Optional[int]:
         """Send a direct message to a Twitter user."""
