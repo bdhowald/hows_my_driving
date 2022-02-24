@@ -1,3 +1,4 @@
+import logging
 import pytz
 import re
 import tweepy
@@ -8,6 +9,8 @@ from typing import List
 from traffic_violations.constants import (lookup_sources,
     regexps as regexp_constants, twitter as twitter_constants)
 from traffic_violations.models.twitter_event import TwitterEvent
+
+LOG = logging.getLogger(__name__)
 
 
 class BaseLookupRequest:
@@ -66,6 +69,7 @@ class AccountActivityAPIDirectMessage(BaseLookupRequest):
             regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
         self.mentioned_user_ids: List[str] = re.split(
             ',', message.user_mention_ids) if message.user_mention_ids is not None else []
+        LOG.info(f"self.mentioned_user_ids in AccountActivityApiDirectMessage: {self.mentioned_user_ids}")
         self.mentioned_users: List[str] = re.split(
             ' ', message.user_mentions) if message.user_mentions is not None else []
         self.needs_reply: bool = message.user_handle != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -91,6 +95,7 @@ class AccountActivityAPIStatus(BaseLookupRequest):
             regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
         self.mentioned_user_ids: List[str] = re.split(
             ',', message.user_mention_ids) if message.user_mention_ids is not None else []
+        LOG.info(f"self.mentioned_user_ids in AccountActivityAPIStatus: {self.mentioned_user_ids}")
         self.mentioned_users: List[str] = re.split(
             ' ', message.user_mentions) if message.user_mentions is not None else []
         self.needs_reply: bool = message.user_handle != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -180,6 +185,7 @@ class SearchStatus(BaseLookupRequest):
                 self.legacy_string_parts: List[str] = re.split(
                     regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
                 self.mentioned_user_ids: List[str] = array_of_user_ids
+                LOG.info(f"self.mentioned_user_ids in SearchStatus: {self.mentioned_user_ids}")
                 self.mentioned_users: List[str] = [s.lower()
                                                      for s in array_of_usernames]
                 self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -216,6 +222,7 @@ class StreamExtendedStatus(BaseLookupRequest):
                     self.legacy_string_parts: List[str] = re.split(
                         regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
                     self.mentioned_user_ids: List[str] = array_of_user_ids
+                    LOG.info(f"self.mentioned_user_ids in in StreamExtendedStatus: {self.mentioned_user_ids}")
                     self.mentioned_users: List[str] = [
                         s.lower() for s in array_of_usernames]
                     self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
@@ -277,6 +284,7 @@ class StreamingStatus(BaseLookupRequest):
                 self.legacy_string_parts: List[str] = re.split(
                     regexp_constants.LEGACY_STRING_PARTS_REGEX, modified_string.lower())
                 self.mentioned_user_ids: List[str] = array_of_user_ids
+                LOG.info(f"self.mentioned_user_ids in in StreamingStatus: {self.mentioned_user_ids}")
                 self.mentioned_users: List[str] = [s.lower()
                                                      for s in array_of_usernames]
                 self.needs_reply: bool = message.user.screen_name != twitter_constants.HMDNY_TWITTER_HANDLE
