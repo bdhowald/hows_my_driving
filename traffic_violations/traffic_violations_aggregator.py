@@ -396,8 +396,8 @@ class TrafficViolationsAggregator:
                                      for s in violations])
         LOG.debug(f'total_violations: {total_violations}')
 
-        now_in_eastern_time = self.utc.localize(datetime.now())
-        time_prefix = now_in_eastern_time.strftime('As of %I:%M:%S %p on %B %-d, %Y:\n\n')
+        now_in_eastern_time = self.eastern.localize(datetime.now())
+        time_prefix = now_in_eastern_time.strftime('As of %I:%M:%S %p %Z on %B %-d, %Y:\n\n')
 
         # Append username to blank string to start to build tweet.
         violations_string += (f'@{username} {time_prefix}' if lookup_source
