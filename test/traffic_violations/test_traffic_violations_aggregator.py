@@ -475,7 +475,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'unique_identifier': 'abcd1234',
             },
             'response': [
-                '@bdhowald As of 09:42:25 AM EDT on July 23, 2027:\n\n'
+                '@bdhowald As of 05:42:25 AM EDT on July 23, 2027:\n\n'
                 '#NY_HME6483 has been queried 8 times.\n'
                 '\n'
                 'This vehicle was last queried on ' + adjusted_time.strftime(
@@ -484,7 +484,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'https://twitter.com/BarackObama/status/12345678901234567890. ' +
                 'Since then, #NY_HME6483 has received 21 new tickets.\n'
                 '\n',
-                '@HowsMyDrivingNY As of 09:42:25 AM EDT on July 23, 2027:\n'
+                '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
                 'Total parking and camera violation tickets: 44\n'
                 '\n'
@@ -492,7 +492,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '14 | No Standing - Day/Time Limits\n'
                 '5   | Failure To Stop At Red Light\n'
                 '3   | No Parking - Street Cleaning\n',
-                '@HowsMyDrivingNY As of 09:42:25 AM EDT on July 23, 2027:\n'
+                '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
@@ -501,7 +501,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '1   | No Violation Description Available\n'
                 '1   | Bus Lane Violation\n'
                 '1   | No Standing - Commercial Meter Zone\n',
-                '@HowsMyDrivingNY As of 09:42:25 AM EDT on July 23, 2027:\n'
+                '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
                 'Parking and camera violation tickets for '
                 '#NY_HME6483, cont\'d:\n'
@@ -509,14 +509,14 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '1   | Expired Meter\n'
                 '1   | Double Parking\n'
                 '1   | No Angle Parking\n',
-                '@HowsMyDrivingNY As of 09:42:25 AM EDT on July 23, 2027:\n'
+                '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
                 'Violations by year for #NY_HME6483:\n'
                 '\n'
                 '2   | 2016\n'
                 '8   | 2017\n'
                 '13 | 2018\n',
-                '@HowsMyDrivingNY As of 09:42:25 AM EDT on July 23, 2027:\n'
+                '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
                 'Violations by borough for #NY_HME6483:\n'
                 '\n'
@@ -524,13 +524,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '7   | Brooklyn\n'
                 '2   | Queens\n'
                 '13 | Staten Island\n',
-                '@HowsMyDrivingNY As of 09:42:25 AM EDT on July 23, 2027:\n'
+                '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
                 'Under the Dangerous Vehicle Abatement Act, '
                 'this vehicle could have been booted or impounded due to its 5 '
                 'red light camera violations (>= 5/year) from September 7, 2015 to June 5, '
                 '2016.\n',
-                '@HowsMyDrivingNY As of 09:42:25 AM EDT on July 23, 2027:\n'
+                '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
                 'Under the Dangerous Vehicle Abatement Act, '
                 'this vehicle could have been booted or impounded due to its 15 '
@@ -1256,10 +1256,10 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         unique_identifier = 'ab12cd34'
 
-        response_parts = [['@BarackObama As of 06:27:52 PM EDT on June 18, 2034:\n'
+        response_parts = [['@BarackObama As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
                            '#PA_GLF7467 has been queried 2 times.\n\n',
-                           '@HowsMyDrivingNY As of 06:27:52 PM EDT on June 18, 2034:\n'
+                           '@HowsMyDrivingNY As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
                            'Total parking and camera violation tickets: 49\n'
                            '\n'
@@ -1268,7 +1268,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                            '5   | No Violation Description Available\n'
                            '3   | Fire Hydrant\n'
                            '3   | No Parking - Day/Time Limits\n',
-                           '@HowsMyDrivingNY As of 06:27:52 PM EDT on June 18, 2034:\n'
+                           '@HowsMyDrivingNY As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
                            'Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n\n'
@@ -1276,7 +1276,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                            '3   | School Zone Speed Camera Violation\n'
                            '2   | No Parking - Except Authorized Vehicles\n'
                            '2   | Bus Lane Violation\n',
-                           '@HowsMyDrivingNY As of 06:27:52 PM EDT on June 18, 2034:\n'
+                           '@HowsMyDrivingNY As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
                            'Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n'
@@ -1285,13 +1285,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                            '1   | No Standing - Day/Time Limits\n'
                            '1   | No Standing - Except Authorized Vehicle\n'
                            '1   | Obstructing Traffic Or Intersection\n',
-                           '@HowsMyDrivingNY As of 06:27:52 PM EDT on June 18, 2034:\n'
+                           '@HowsMyDrivingNY As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
                            'Parking and camera violation tickets for '
                            '#PA_GLF7467, cont\'d:\n'
                            '\n'
                            '1   | Double Parking\n',
-                           '@HowsMyDrivingNY As of 06:27:52 PM EDT on June 18, 2034:\n'
+                           '@HowsMyDrivingNY As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
                            'Known fines for #PA_GLF7467:\n\n'
                            '$1,000.00 | Fined\n'
