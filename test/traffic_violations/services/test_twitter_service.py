@@ -536,6 +536,8 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             }
         ]
 
+        last_failed_at_time = datetime.utcnow() - last_failed_time
+
 
         twitter_event = TwitterEvent(
             id=db_id,
@@ -544,7 +546,7 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             event_text=event_text,
             event_type=event_type,
             in_reply_to_message_id=in_reply_to_message_id,
-            last_failed_at_time=(datetime.utcnow() - last_failed_time),
+            last_failed_at_time=last_failed_at_time,
             location=location,
             num_times_failed=num_times_failed,
             responded_to=responded_to,
@@ -579,8 +581,12 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         lookup_request = (direct_message_lookup_request if
             event_type == 'direct_message' else status_lookup_request)
 
+        # twitter_event_mock.get_all_by.return_value.filter.side_effect = [[], [twitter_event], [], [], []]
         twitter_event_mock.get_all_by.side_effect = [[], [twitter_event]]
         twitter_event_mock.query.filter_by().filter().count.return_value = 0
+
+        twitter_event_mock.num_times_failed = num_times_failed
+        twitter_event_mock.last_failed_at_time = last_failed_at_time
 
         tweet_exists_mock = MagicMock(name='tweet_exists')
         tweet_exists_mock.return_value = True if tweet_exists else False
@@ -608,6 +614,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 lookup_request=lookup_request)
         else:
             self.tweeter.aggregator.initiate_reply.assert_not_called()
+
+        if event_type == 'status' and num_times_failed < 5:
+            self.tweeter.tweet_detection_service.tweet_exists.assert_called()
+        else:
+            self.tweeter.tweet_detection_service.tweet_exists.assert_not_called()
 
         self.tweeter.terminate_lookups()
 

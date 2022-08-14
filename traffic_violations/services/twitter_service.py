@@ -184,6 +184,13 @@ class TrafficViolationsTweeter:
         failed_events_that_need_response: List[TwitterEvent] = []
 
         for failed_event in failed_events:
+            # If this event has failed five or more times, give up.
+            if failed_event.num_times_failed >= 5:
+                failed_event.error_on_lookup = False
+                failed_event.query.session.commit()
+
+                continue
+
             # If event is a tweet, but can no longer be found, there's nothing we can do.
             if (failed_event.event_type == TwitterMessageType.STATUS.value and
                 not self.tweet_detection_service.tweet_exists(id=failed_event.event_id,
