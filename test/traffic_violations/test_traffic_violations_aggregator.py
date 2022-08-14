@@ -199,8 +199,6 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 {'original_string': 'xx:7kvj935', 'valid_plate': False},
                 {'original_string': '79217:ny:med', 'valid_plate': True,
                  'plate': '79217', 'state': 'ny', 'plate_types': 'med'},
-                {'original_string': 'ny:med', 'valid_plate': True,
-                 'plate': 'med', 'state': 'ny'}
             ],
             'string_parts': ['@HowsMyDrivingNY', 'I', 'found', 'some', 'more',
                              'ny:123abcd', 'ca:6vmd948', 'xx:7kvj935',

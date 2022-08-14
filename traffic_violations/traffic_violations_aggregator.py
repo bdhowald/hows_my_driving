@@ -333,10 +333,19 @@ class TrafficViolationsAggregator:
     def _find_potential_vehicles_using_combined_fields(self, list_of_strings: List[str]) -> List[Vehicle]:
         """Parse tweet text for vehicles using new logic of '<state>:<plate>'"""
 
-        plate_tuples: Union[Tuple[str, str, str], Tuple[str, str]] = [[part.strip() for part in match.split(':')] for match in re.findall(regexp_constants.PLATE_FORMAT_REGEX, ' '.join(
+        potential_plates: Union[Tuple[str, str, str], Tuple[str, str]] = [[part.strip() for part in match.split(':')] for match in re.findall(regexp_constants.PLATE_FORMAT_REGEX, ' '.join(
             list_of_strings)) if all(substr not in match.lower() for substr in ['://', 'state:', 'plate:'])]
 
-        return self._infer_plate_and_state_data(plate_tuples)
+        for start_plate in potential_plates:
+            for comparison_plate in potential_plates:
+                if start_plate == comparison_plate:
+                    # Skip on self-comparison
+                    continue
+                if set(start_plate) < set(comparison_plate):
+                    # Remove plate if it is subset of another plate match
+                    potential_plates.remove(start_plate)
+
+        return self._infer_plate_and_state_data(potential_plates)
 
 
     def _form_campaign_lookup_response_parts(self,
