@@ -947,13 +947,21 @@ class TrafficViolationsAggregator:
 
         LOG.debug('The data seems to be in the wrong format.')
 
+        lookup_unique_identifier_matches = [regexp_constants.HMDNY_LOOKUP_PATTERN.search(
+            s) != None for s in request_object.string_tokens()]
         state_matches = [regexp_constants.STATE_ABBREVIATIONS_PATTERN.search(
             s.upper()) != None for s in request_object.string_tokens()]
         number_matches = [regexp_constants.NUMBER_PATTERN.search(s.upper()) != None for s in list(filter(lambda part: re.sub(
             r'\.|@', '', part.lower()) not in set(request_object.mentioned_users), request_object.string_tokens()))]
 
-        # We have what appears to be a plate and a state abbreviation.
-        if all([any(state_matches), any(number_matches)]):
+        if any(lookup_unique_identifier_matches):
+            # Do nothing here, since someone is probably sharing a website lookup.
+            non_vehicle_response_parts = []
+            LOG.debug(
+                'Ignoring message since user quoting website lookup.')
+
+        elif all([any(state_matches), any(number_matches)]):
+            # We have what appears to be a plate and a state abbreviation.
             LOG.debug(
                 'There is both plate and state information in this message.')
 

@@ -1367,12 +1367,26 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         mocked_perform_campaign_lookup.assert_called_with(included_campaigns)
 
+    @ddt.data({
+        'expect_response': True,
+        'text': '@howsmydrivingny plate dkr9364 state ny',
+    }, {
+        'expect_response': False,
+        'text': ("Did you know you can just block the crosswalk "
+                 "and not have registration in NYC?  And nothing "
+                 "will happen to you or your vehicle.\n\n"
+                 "I just looked up #NY_EWS6142's 50"
+                 "violations using @HowsMyDrivingNY: "
+                 "https://howsmydrivingny.nyc/yg8dlmum")
+    })
+    @ddt.unpack
     @mock.patch(
         'traffic_violations.traffic_violations_aggregator.TrafficViolationsAggregator._detect_campaigns')
     def test_create_response_with_search_status(self,
-                                                mocked_detect_campaigns):
+                                                mocked_detect_campaigns,
+                                                expect_response: bool,
+                                                text: str):
         """ Test plateless lookup """
-
         now = datetime.now()
 
         message_id = random.randint(1000000000000000000, 2000000000000000000)
@@ -1384,7 +1398,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         message_object.entities['user_mentions'] = [
             {'id': '123', 'screen_name': 'HowsMyDrivingNY'}]
         message_object.id = message_id
-        message_object.full_text = '@howsmydrivingny plate dkr9364 state ny'
+        message_object.full_text = text
         message_object.user.screen_name = user_handle
 
         request_object = SearchStatus(
@@ -1392,10 +1406,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
             message_source='status'
         )
 
-        response_parts = [
-            [f"I’d be happy to look that up for you!\n\nJust a reminder, "
-             f"the format is <state|province|territory>:<plate>, "
-             f"e.g. NY:abc1234"]]
+        if expect_response:
+            response_parts = [
+                [f"I’d be happy to look that up for you!\n\nJust a reminder, "
+                f"the format is <state|province|territory>:<plate>, "
+                f"e.g. NY:abc1234"]]
+        else:
+            response_parts = [[]]
 
         response = {
             'error_on_lookup': False,

@@ -1,19 +1,5 @@
 import re
 
-HASHTAG_PATTERN = re.compile('[^#\w]+', re.UNICODE)
-
-LEGACY_STRING_PARTS_REGEX = r'(?<!state:|plate:)\s'
-
-medallion_regex = r'^[0-9][A-Z][0-9]{2}$'
-MEDALLION_PATTERN = re.compile(medallion_regex)
-
-numbers_regex = r'[0-9]{4}'
-NUMBER_PATTERN = re.compile(numbers_regex)
-
-PLATE_FORMAT_REGEX = r'(?=(\b[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]+\s*:\s*[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\b|\b[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\s*:\s*[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+\s*:\s*[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\b|\b[a-zA-Z0-9]+\s*:\s*[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\s*:\s*[a-zA-Z9]{2}\b|\b[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\s*:\s*[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\s*:\s*[a-zA-Z0-9]+\s*:\s*[a-zA-Z9]{2}\b|\b[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+\s*:\s*[a-zA-Z9]{2}\b))'
-
-PLATE_PATTERN = re.compile('[\W_]+', re.UNICODE)
-
 PLATE_TYPES = ['AGC', 'AGR', 'AMB', 'APP', 'ARG',
                'ATD', 'ATV', 'AYG', 'BOB', 'BOT',
                'CBS', 'CCK', 'CHC', 'CLG', 'CMB',
@@ -32,7 +18,6 @@ PLATE_TYPES = ['AGC', 'AGR', 'AMB', 'APP', 'ARG',
                'STG', 'SUP', 'THC', 'TOW', 'TRA',
                'TRC', 'TRL', 'USC', 'USS', 'VAS',
                'VPL', 'WUG']
-PLATE_TYPES_PATTERN = re.compile(f"^({'|'.join(PLATE_TYPES)})$")
 
 STATE_ABBREVIATIONS = ['99', 'AB', 'AK', 'AL', 'AR',
                        'AZ', 'BC', 'CA', 'CO', 'CT',
@@ -49,12 +34,22 @@ STATE_ABBREVIATIONS = ['99', 'AB', 'AK', 'AL', 'AR',
                        'RI', 'SC', 'SD', 'SK', 'TN',
                        'TX', 'UT', 'VA', 'VI', 'VT',
                        'WA', 'WI', 'WV', 'WY', 'YT']
-STATE_ABBREVIATIONS_PATTERN = re.compile(f"^({'|'.join(STATE_ABBREVIATIONS)})$")
 
+LEGACY_STRING_PARTS_REGEX = r'(?<!state:|plate:)\s'
+PLATE_FORMAT_REGEX = r'(?=(\b[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]+\s*:\s*[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\b|\b[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\s*:\s*[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+\s*:\s*[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\b|\b[a-zA-Z0-9]+\s*:\s*[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\s*:\s*[a-zA-Z9]{2}\b|\b[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\s*:\s*[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]{3}(?:,[a-zA-Z0-9]{3})*\s*:\s*[a-zA-Z0-9]+\s*:\s*[a-zA-Z9]{2}\b|\b[a-zA-Z9]{2}\s*:\s*[a-zA-Z0-9]+\b|\b[a-zA-Z0-9]+\s*:\s*[a-zA-Z9]{2}\b))'
+
+medallion_regex = r'^[0-9][A-Z][0-9]{2}$'
+numbers_regex = r'[0-9]{4}'
 state_minus_words_regex = r'^(99|AB|AK|AL|AR|AZ|BC|CA|CO|CT|DC|DE|DP|FL|FM|FO|GA|GU|GV|IA|ID|IL|KS|KY|LA|MA|MB|MD|MH|MI|MN|MO|MP|MS|MT|MX|NB|NC|ND|NE|NF|NH|NJ|NM|NS|NT|NU|NV|NY|PA|PE|PR|PW|QC|RI|SC|SD|SK|STATE|TN|TX|UT|VA|VI|VT|WA|WI|WV|WY|YT)$'
+
+HASHTAG_PATTERN = re.compile('[^#\w]+', re.UNICODE)
+HMDNY_LOOKUP_PATTERN = re.compile('howsmydrivingny.nyc/[a-z0-9]{8}', re.IGNORECASE)
+MEDALLION_PATTERN = re.compile(medallion_regex)
+NUMBER_PATTERN = re.compile(numbers_regex)
+PLATE_PATTERN = re.compile('[\W_]+', re.UNICODE)
+PLATE_TYPES_PATTERN = re.compile(f"^({'|'.join(PLATE_TYPES)})$")
+STATE_ABBREVIATIONS_PATTERN = re.compile(f"^({'|'.join(STATE_ABBREVIATIONS)})$")
 STATE_MINUS_WORDS_PATTERN = re.compile(state_minus_words_regex)
-
-
 
 # state_full_regex   =
 # r'^(ALABAMA|ALASKA|ARKANSAS|ARIZONA|CALIFORNIA|COLORADO|CONNECTICUT|DELAWARE|D\.C\.|DISTRICT
