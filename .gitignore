@@ -18,3 +18,5 @@ pip-selfcheck.json
 
 .env
 crontab.txt
+
+venv

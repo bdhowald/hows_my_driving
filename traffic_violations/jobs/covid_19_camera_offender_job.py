@@ -42,8 +42,8 @@ class Covid19CameraOffenderJob(BaseJob):
     def perform(self, *args, **kwargs):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
-        start_date = datetime.datetime(2020, 3, 10, 0, 0)
-        end_date = datetime.datetime(2021, 11, 26, 23, 59, 59)
+        start_date = datetime.date(2020, 3, 10)
+        end_date = datetime.date.today()
 
         days_in_period = (end_date - start_date).days
         num_years = days_in_period / 365.0
@@ -51,7 +51,9 @@ class Covid19CameraOffenderJob(BaseJob):
         tweeter = TrafficViolationsTweeter()
 
         nyc_open_data_service: OpenDataService = OpenDataService()
-        covid_19_camera_offender_raw_data: List[Dict[str, str]] = nyc_open_data_service.lookup_covid_19_camera_violations()
+        covid_19_camera_offender_raw_data: List[Dict[str, str]] = nyc_open_data_service.lookup_covid_19_camera_violations(
+            start_date, end_date
+        )
 
         for vehicle in covid_19_camera_offender_raw_data:
             plate = vehicle['plate']

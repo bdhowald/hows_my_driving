@@ -84,8 +84,8 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
 
         job = Covid19CameraOffenderJob()
 
-        start_date = datetime.datetime(2020, 3, 10)
-        end_date = datetime.datetime(2021, 11, 26)
+        start_date = datetime.date(2020, 3, 10)
+        end_date = datetime.date.today()
 
         days_in_period = (end_date - start_date).days
         num_years = days_in_period / 365.0
@@ -131,7 +131,7 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
             if int(offender['speed_camera_count']) else '')
 
         covid_19_reckless_driver_string = (
-            'From March 10, 2020 to November 26, 2021, '
+            f"From March 10, 2020 to {end_date.strftime('%B %-d, %Y')}, "
             f"#{offender['state']}_{offender['plate']} "
             f"received {offender['red_light_camera_count'] + offender['speed_camera_count']} "
             f'camera violations:\n\n'

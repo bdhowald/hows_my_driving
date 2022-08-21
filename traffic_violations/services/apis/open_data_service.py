@@ -38,6 +38,7 @@ from traffic_violations.models.special_purpose.covid_19_camera_offender import (
 from traffic_violations.services.constants.exceptions import \
     APIFailureException
 from traffic_violations.services.apis.location_service import LocationService
+from traffic_violations.services.apis.queries import covid_19_camera_violations
 
 LOG = logging.getLogger(__name__)
 
@@ -70,51 +71,17 @@ class OpenDataService:
 
         self.location_service = LocationService()
 
-    def lookup_covid_19_camera_violations(self) -> List[Dict[str, str]]:
+    def lookup_covid_19_camera_violations(
+        self,
+        start_date: datetime.date,
+        end_date: datetime.date
+    ) -> List[Dict[str, str]]:
         """Search for all camera violations for all vehicles between two
         timestamps.
         """
-
-        # Ugly hardcoded query, but necessary since
-        # Open Parking and Camera Violations has a string 'issue_date',
-        # meaning that queries must use LIKE operators
         open_parking_and_camera_violations_query_string: str = (
-            f'{OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT}?'
-             '$select=plate,state,count(summons_number)%20as%20total_camera_violations,'
-             'sum(case%20when%20violation='
-             '%27PHTO%20SCHOOL%20ZN%20SPEED%20VIOLATION%27'
-             '%20then%201%20else%200%20end)%20as%20speed_camera_count,'
-             'sum(case%20when%20violation='
-             '%27FAILURE%20TO%20STOP%20AT%20RED%20LIGHT%27'
-             '%20then%201%20else%200%20end)%20as%20red_light_camera_count&'
-             '$where=violation%20in%20('
-             '%27PHTO%20SCHOOL%20ZN%20SPEED%20VIOLATION%27,'
-             '%27FAILURE%20TO%20STOP%20AT%20RED%20LIGHT%27'
-             ')%20and%20('
-             'issue_date%20LIKE%20%2703/1_/2020%27%20or%20'
-             'issue_date%20LIKE%20%2703/2_/2020%27%20or%20'
-             'issue_date%20LIKE%20%2703/3_/2020%27%20or%20'
-             'issue_date%20LIKE%20%2704/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%2705/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%2706/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%2707/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%2708/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%2709/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%2710/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%2711/__/2020%27%20or%20'
-             'issue_date%20LIKE%20%270_/__/2021%27%20or%20'
-             'issue_date%20LIKE%20%2710/__/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/0_/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/1_/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/20/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/21/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/22/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/23/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/24/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/25/2021%27%20or%20'
-             'issue_date%20LIKE%20%2711/26/2021%27'
-             ')&'
-             '$group=plate,state&$order=total_camera_violations%20desc')
+            covid_19_camera_violations.get_covid_19_camera_violations_query(start_date, end_date)
+        )
 
         open_parking_and_camera_violations_response: Dict[str, str] = self._perform_query(
             query_string=open_parking_and_camera_violations_query_string)
