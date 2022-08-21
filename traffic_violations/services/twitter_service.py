@@ -313,6 +313,8 @@ class TrafficViolationsTweeter:
                      TwitterEvent.event_type == TwitterMessageType.STATUS.value)
             ).order_by(TwitterEvent.event_id.desc()).first()
 
+            LOG.info(f"Most recent undetected twitter event: {most_recent_undetected_twitter_event.event_id}")
+
             if most_recent_undetected_twitter_event:
 
                 statuses_since_last_twitter_event: List[tweepy.models.Status] = []
@@ -582,6 +584,7 @@ class TrafficViolationsTweeter:
                         NonFollowerReply.query.session.commit()
 
                     except tweepy.errors.TweepyException as e:
+                        LOG.error(e)
                         event.error_on_lookup = True
                         event.num_times_failed += 1
                         event.last_failed_at_time = datetime.utcnow()

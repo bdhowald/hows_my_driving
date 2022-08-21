@@ -38,7 +38,7 @@ class BackfillUniqueIdentifiersJob(BaseJob):
         is_dry_run: bool = kwargs.get('is_dry_run') or False
 
         threads = []
-        num_threads = 100
+        num_threads = 15
 
         num_records = PlateLookup.query.count()
         chunk_length = math.ceil(num_records/num_threads)

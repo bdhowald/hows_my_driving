@@ -43,7 +43,7 @@ class BackfillCameraViolationsJob(BaseJob):
                 count_towards_frequency=True)
 
         threads = []
-        num_threads = 100
+        num_threads = 15
         chunk_length = math.ceil(len(plate_lookups)/num_threads)
 
         for n in range(0, num_threads):
