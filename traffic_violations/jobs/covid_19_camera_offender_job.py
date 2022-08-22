@@ -80,8 +80,8 @@ class Covid19CameraOffenderJob(BaseJob):
 
             response: OpenDataServiceResponse = nyc_open_data_service.look_up_vehicle(
                 plate_query=plate_query,
-                since=start_date,
-                until=end_date)
+                since=datetime.datetime.combine(start_date, datetime.datetime.min.time()),
+                until=datetime.datetime.combine(end_date, datetime.datetime.min.time()))
 
             plate_lookup: OpenDataServicePlateLookup = response.data
 
