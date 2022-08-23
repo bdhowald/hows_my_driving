@@ -4,11 +4,11 @@ import re
 import urllib
 
 from traffic_violations.constants.open_data import endpoints
+from traffic_violations.services.apis.queries import utils
 
 DATE_FORMAT_STRING = '%m/%d/%Y'
 ISSUE_DATE_TEMPLATE_STRING = "issue_date LIKE"
 MONTHS_IN_YEAR = 12
-STRIP_EXCESS_CHARACTERS_REGEX = r'\n\s+'
 
 
 def get_covid_19_camera_violations_query(
@@ -18,14 +18,14 @@ def get_covid_19_camera_violations_query(
     if start_date > end_date:
         raise ValueError('start_date cannot come after end_date')
 
-    select_clause = _format_query_string(_build_select_clause())
-    where_clause = _format_query_string(_build_where_clause(start_date, end_date))
-    group_clause = _format_query_string(_build_group_clause())
-    order_clause = _format_query_string(_build_order_clause())
+    select_clause = utils.format_query_string(_build_select_clause())
+    where_clause = utils.format_query_string(_build_where_clause(start_date, end_date))
+    group_clause = utils.format_query_string(_build_group_clause())
+    order_clause = utils.format_query_string(_build_order_clause())
 
     return(
         f"{endpoints.OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT}?"
-        f"{_format_query_string('&'.join([select_clause, where_clause, group_clause, order_clause]))}"
+        f"{'&'.join([select_clause, where_clause, group_clause, order_clause])}"
     )
 
 def _build_group_clause() -> str:
@@ -147,6 +147,3 @@ def _get_issue_date_statements(
                     )
 
     return ' OR '.join(all_statements)
-
-def _format_query_string(raw_string: str) -> str:
-    return re.sub(STRIP_EXCESS_CHARACTERS_REGEX, '', raw_string)

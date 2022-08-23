@@ -5,7 +5,7 @@ import unittest
 from typing import Optional
 
 from traffic_violations.services.apis.queries import covid_19_camera_violations
-from unittest.mock import MagicMock
+
 
 @ddt.ddt
 class TestCovid19CameraViolations(unittest.TestCase):

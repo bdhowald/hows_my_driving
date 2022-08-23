@@ -39,6 +39,7 @@ from traffic_violations.services.constants.exceptions import \
     APIFailureException
 from traffic_violations.services.apis.location_service import LocationService
 from traffic_violations.services.apis.queries import covid_19_camera_violations
+from traffic_violations.services.apis.queries import fiscal_year_database
 
 LOG = logging.getLogger(__name__)
 
@@ -368,10 +369,11 @@ class OpenDataService:
         for year, endpoint in FISCAL_YEAR_DATABASE_ENDPOINTS.items():
 
             fiscal_year_database_query_string: str = (
-                f"{endpoint}?"
-                f"plate_id={plate_query.plate}&"
-                f"registration_state={plate_query.state}"
-                f"{'&$where=plate_type%20in(' + ','.join(['%27' + type + '%27' for type in plate_query.plate_types.split(',')]) + ')' if plate_query.plate_types is not None else ''}")
+                fiscal_year_database.get_violations_query(
+                    fiscal_year_endpoint=endpoint,
+                    plate_query=plate_query
+                )
+            )
 
             fiscal_year_database_response: Dict[str, Any] = self._perform_query(
                 query_string=fiscal_year_database_query_string)
