@@ -443,6 +443,7 @@ class TrafficViolationsAggregator:
             description='title',
             default_description='No Year Available',
             prefix_format_string=L10N.LOOKUP_TICKETS_STRING.format(
+                L10N.VEHICLE_HASHTAG.format(state, plate),
                 total_violations),
             result_format_string=L10N.LOOKUP_RESULTS_DETAIL_STRING,
             username_prefix=username_prefix)

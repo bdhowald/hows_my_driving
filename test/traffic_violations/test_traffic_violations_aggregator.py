@@ -378,7 +378,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 adjusted_time.strftime('%I:%M%p') + '. '
                 'Since then, #NY_HME6483 has received 2 new tickets.\n'
                 '\n',
-                'Total parking and camera violation tickets: 25\n'
+                'Total parking and camera violation tickets for #NY_HME6483: 25\n'
                 '\n'
                 '14 | No Standing - Day/Time Limits\n'
                 '3   | No Parking - Street Cleaning\n'
@@ -484,7 +484,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '\n',
                 '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
-                'Total parking and camera violation tickets: 44\n'
+                'Total parking and camera violation tickets for #NY_HME6483: 44\n'
                 '\n'
                 '15 | School Zone Speed Camera Violation\n'
                 '14 | No Standing - Day/Time Limits\n'
@@ -1119,7 +1119,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 [
                     f'#{state}_{returned_plate} has been queried 1 time.\n'
                     '\n',
-                    'Total parking and camera violation tickets: 15\n'
+                    f'Total parking and camera violation tickets for #{state}_{returned_plate}: 15\n'
                     '\n'
                     '4 | No Standing - Day/Time Limits\n'
                     '3 | No Parking - Street Cleaning\n'
@@ -1259,7 +1259,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                            '#PA_GLF7467 has been queried 2 times.\n\n',
                            '@HowsMyDrivingNY As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
-                           'Total parking and camera violation tickets: 49\n'
+                           'Total parking and camera violation tickets for #PA_GLF7467: 49\n'
                            '\n'
                            '17 | No Parking - Street Cleaning\n'
                            '6   | Expired Meter\n'
