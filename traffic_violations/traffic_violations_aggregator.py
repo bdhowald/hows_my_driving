@@ -259,7 +259,7 @@ class TrafficViolationsAggregator:
             hashtag=tuple(
                 [regexp_constants.HASHTAG_PATTERN.sub('', string) for string in string_tokens]))
 
-    def _detect_plate_types(self, plate_types_input) -> bool:
+    def _detect_plate_types(self, plate_types_input: str) -> bool:
         if ',' in plate_types_input:
             parts = plate_types_input.upper().split(',')
             return any([regexp_constants.PLATE_TYPES_PATTERN.search(part) != None for part in parts])
@@ -601,8 +601,8 @@ class TrafficViolationsAggregator:
 
         plate_types: Optional[str] = None
         if vehicle.plate_types is not None:
-            plate_types = ','.join(
-                sorted([type.strip() for type in vehicle.plate_types.upper().split(',')]))
+            plate_types = sorted(
+                [type.strip() for type in vehicle.plate_types.upper().split(',')])
 
         state: str = vehicle.state.upper()
 

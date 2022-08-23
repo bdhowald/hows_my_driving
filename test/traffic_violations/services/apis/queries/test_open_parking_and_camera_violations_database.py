@@ -5,7 +5,7 @@ from typing import List
 from typing import Optional
 
 from traffic_violations.models.plate_query import PlateQuery
-from traffic_violations.services.apis.queries import fiscal_year_database
+from traffic_violations.services.apis.queries import open_parking_and_camera_violations_database
 
 @ddt.ddt
 class TestFiscalYearDatabase(unittest.TestCase):
@@ -14,24 +14,24 @@ class TestFiscalYearDatabase(unittest.TestCase):
         'plate': 'ABC1234',
         'state': 'NY',
         'expected': (
-            "https://data.cityofnewyork.us/resource/pvqr-7yc4.json?$where=    "
-            "plate_id='ABC1234' AND registration_state='NY'"
+            "https://data.cityofnewyork.us/resource/uvbq-3m68.json?$where=    "
+            "plate='ABC1234' AND state='NY'"
         )
     }, {   
         'plate': 'ABC1234',
         'plate_types': ['PAS'],
         'state': 'NY',
         'expected': (
-            "https://data.cityofnewyork.us/resource/pvqr-7yc4.json?$where=    "
-            "plate_id='ABC1234' AND registration_state='NY' AND plate_type IN ('PAS')"
+            "https://data.cityofnewyork.us/resource/uvbq-3m68.json?$where=    "
+            "plate='ABC1234' AND state='NY' AND license_type IN ('PAS')"
         )
     }, {
         'plate': 'ABC1234',
         'plate_types': ['COM','PAS'],
         'state': 'NY',
         'expected': (
-            "https://data.cityofnewyork.us/resource/pvqr-7yc4.json?$where=    "
-            "plate_id='ABC1234' AND registration_state='NY' AND plate_type IN ('COM','PAS')"
+            "https://data.cityofnewyork.us/resource/uvbq-3m68.json?$where=    "
+            "plate='ABC1234' AND state='NY' AND license_type IN ('COM','PAS')"
         )
     })
     @ddt.unpack
@@ -47,9 +47,8 @@ class TestFiscalYearDatabase(unittest.TestCase):
             state=state,
             plate_types=plate_types
         )
-        endpoint = 'https://data.cityofnewyork.us/resource/pvqr-7yc4.json'
         self.assertEqual(
-            fiscal_year_database.get_violations_query(endpoint, plate_query),
+            open_parking_and_camera_violations_database.get_violations_query(plate_query),
             expected
         )
 

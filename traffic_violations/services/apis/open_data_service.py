@@ -40,6 +40,7 @@ from traffic_violations.services.constants.exceptions import \
 from traffic_violations.services.apis.location_service import LocationService
 from traffic_violations.services.apis.queries import covid_19_camera_violations
 from traffic_violations.services.apis.queries import fiscal_year_database
+from traffic_violations.services.apis.queries import open_parking_and_camera_violations_database
 
 LOG = logging.getLogger(__name__)
 
@@ -457,13 +458,11 @@ class OpenDataService:
 
         violations: Dict[str, Any] = {}
 
-        # response from city open data portal
         open_parking_and_camera_violations_query_string: str = (
-            f'{OPEN_PARKING_AND_CAMERA_VIOLATIONS_ENDPOINT}?'
-            f'plate={plate_query.plate}&'
-            f'state={plate_query.state}'
-            f"{'&$where=license_type%20in(' + ','.join(['%27' + type + '%27' for type in plate_query.plate_types.split(',')]) + ')' if plate_query.plate_types is not None else ''}")
+            open_parking_and_camera_violations_database.get_violations_query(plate_query=plate_query)
+        )
 
+        # response from city open data portal
         open_parking_and_camera_violations_response: Dict[str, Any] = self._perform_query(
             query_string=open_parking_and_camera_violations_query_string)
 
