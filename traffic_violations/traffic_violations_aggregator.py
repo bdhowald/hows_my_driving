@@ -56,6 +56,7 @@ class TrafficViolationsAggregator:
 
     CAMERA_VIOLATIONS = ['Bus Lane Violation',
                          'Failure To Stop At Red Light',
+                         'Mobile Bus Lane Violation',
                          'School Zone Speed Camera Violation']
 
     MYSQL_TIME_FORMAT: str = '%Y-%m-%d %H:%M:%S'
@@ -823,6 +824,7 @@ class TrafficViolationsAggregator:
             open_data_plate_lookup: OpenDataServicePlateLookup = open_data_response.data
 
             bus_lane_camera_violations = 0
+            mobile_bus_lane_camera_violations = 0
             red_light_camera_violations = 0
             speed_camera_violations = 0
 
@@ -832,10 +834,15 @@ class TrafficViolationsAggregator:
 
                     if violation_type_summary['title'] == 'Bus Lane Violation':
                         bus_lane_camera_violations = violation_count
-                    if violation_type_summary['title'] == 'Failure To Stop At Red Light':
+                    elif violation_type_summary['title'] == 'Failure To Stop At Red Light':
                         red_light_camera_violations = violation_count
+                    elif violation_type_summary['title'] == 'Mobile Bus Lane Violation':
+                        mobile_bus_lane_camera_violations = violation_count
                     elif violation_type_summary['title'] == 'School Zone Speed Camera Violation':
                         speed_camera_violations = violation_count
+
+            total_bus_lane_camera_violations = (
+                bus_lane_camera_violations + mobile_bus_lane_camera_violations)
 
             camera_streak_data: CameraStreakData = open_data_plate_lookup.camera_streak_data
 
@@ -853,7 +860,7 @@ class TrafficViolationsAggregator:
                         camera_streak_data['Mixed'].max_streak >=
                         thresholds.RECKLESS_DRIVER_ACCOUNTABILITY_ACT_THRESHOLD
                         if camera_streak_data['Mixed'] else False),
-                    bus_lane_camera_violations=bus_lane_camera_violations,
+                    bus_lane_camera_violations=total_bus_lane_camera_violations,
                     created_at=plate_query.created_at,
                     message_id=plate_query.message_id,
                     message_source=plate_query.message_source,

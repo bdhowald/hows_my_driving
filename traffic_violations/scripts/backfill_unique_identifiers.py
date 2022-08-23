@@ -28,10 +28,6 @@ LOG = logging.getLogger(__name__)
 class BackfillUniqueIdentifiersJob(BaseJob):
     """ Backfill camera violations for old lookups """
 
-    CAMERA_VIOLATIONS = ['Bus Lane Violation',
-                         'Failure To Stop At Red Light',
-                         'School Zone Speed Camera Violation']
-
     UNIQUE_IDENTIFIER_STRING_LENGTH = 8
 
     def perform(self, *args, **kwargs):

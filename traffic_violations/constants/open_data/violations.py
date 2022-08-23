@@ -1,6 +1,7 @@
-CAMERA_VIOLATIONS = ['Failure to Stop at Red Light',
-
-                         'School Zone Speed Camera Violation']
+CAMERA_VIOLATIONS = [
+    'Failure to Stop at Red Light',
+    'School Zone Speed Camera Violation'
+]
 CAMERA_STREAK_DATA_TYPES = CAMERA_VIOLATIONS + ['Mixed']
 
 # humanized names for violations

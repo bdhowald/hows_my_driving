@@ -33,9 +33,12 @@ LOG = logging.getLogger(__name__)
 class RecklessDriverRetrospectiveJob(BaseJob):
     """ Tweet out a previously-repored reckless driver. """
 
-    CAMERA_VIOLATIONS = ['Bus Lane Violation',
-                         'Failure To Stop At Red Light',
-                         'School Zone Speed Camera Violation']
+    CAMERA_VIOLATIONS = [
+        # 'Bus Lane Violation',
+        'Failure To Stop At Red Light',
+        #  'Mobile Bus Lane Violation',
+        'School Zone Speed Camera Violation'
+    ]
 
     LEAP_DAY_DATE = 29
     LEAP_DAY_MONTH = 2
@@ -143,7 +146,8 @@ class RecklessDriverRetrospectiveJob(BaseJob):
 
             lookup_after_query: OpenDataServicePlateLookup = data_after_query.data
 
-            new_bus_lane_camera_violations: Optional[int] = None
+            # new_bus_lane_camera_violations: Optional[int] = None
+            # new_mobile_bus_lane_camera_violations: Optional[int] = None
             new_speed_camera_violations: Optional[int] = None
             new_red_light_camera_violations: Optional[int] = None
 
@@ -151,15 +155,20 @@ class RecklessDriverRetrospectiveJob(BaseJob):
                 if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
                     violation_count = violation_type_summary['count']
 
-                    if violation_type_summary['title'] == 'Bus Lane Violation':
-                        new_bus_lane_camera_violations = violation_count
+                    # if violation_type_summary['title'] == 'Bus Lane Violation':
+                    #     new_bus_lane_camera_violations = violation_count
                     if violation_type_summary['title'] == 'Failure To Stop At Red Light':
                         new_red_light_camera_violations = violation_count
-                    if violation_type_summary['title'] == 'School Zone Speed Camera Violation':
+                    # elif violation_type_summary['title'] == 'Mobile Bus Lane Violation':
+                    #     new_mobile_bus_lane_camera_violations = violation_count
+                    elif violation_type_summary['title'] == 'School Zone Speed Camera Violation':
                         new_speed_camera_violations = violation_count
 
-            if new_bus_lane_camera_violations is None:
-                new_bus_lane_camera_violations = 0
+            # if new_bus_lane_camera_violations is None:
+            #     new_bus_lane_camera_violations = 0
+
+            # if new_mobile_bus_lane_camera_violations is None:
+            #     new_mobile_bus_lane_camera_violations = 0
 
             if new_red_light_camera_violations is None:
                 new_red_light_camera_violations = 0

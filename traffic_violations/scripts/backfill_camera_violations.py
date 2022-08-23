@@ -25,9 +25,12 @@ LOG = logging.getLogger(__name__)
 class BackfillCameraViolationsJob(BaseJob):
     """ Backfill camera violations for old lookups """
 
-    CAMERA_VIOLATIONS = ['Bus Lane Violation',
-                         'Failure To Stop At Red Light',
-                         'School Zone Speed Camera Violation']
+    CAMERA_VIOLATIONS = [
+        # 'Bus Lane Violation',
+        'Failure To Stop At Red Light',
+        #  'Mobile Bus Lane Violation',
+        'School Zone Speed Camera Violation'
+    ]
 
     def perform(self, *args, **kwargs):
         all_vehicles: bool = kwargs.get('all_vehicles') or False
@@ -77,19 +80,24 @@ class BackfillCameraViolationsJob(BaseJob):
 
             open_data_plate_lookup: OpenDataServicePlateLookup = open_data_response.data
 
+            # bus_lane_camera_violations: Optional[int] = None
+            # mobile_bus_lane_camera_violations: Optional[int] = None
+
             for violation_type_summary in open_data_plate_lookup.violations:
                 if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
                     violation_count = violation_type_summary['count']
 
-                    if violation_type_summary['title'] == 'Bus Lane Violation':
-                        previous_lookup.bus_lane_camera_violations = violation_count
+                    # if violation_type_summary['title'] == 'Bus Lane Violation':
+                    #     bus_lane_camera_violations = violation_count
                     if violation_type_summary['title'] == 'Failure To Stop At Red Light':
                         previous_lookup.red_light_camera_violations = violation_count
+                    # elif violation_type_summary['title'] == 'Mobile Bus Lane Violation':
+                    #     mobile_bus_lane_camera_violations = violation_count
                     elif violation_type_summary['title'] == 'School Zone Speed Camera Violation':
                         previous_lookup.speed_camera_violations = violation_count
 
-            if not previous_lookup.bus_lane_camera_violations:
-                previous_lookup.bus_lane_camera_violations = 0
+            # previous_lookup.bus_lane_camera_violations = (
+            #     (bus_lane_camera_violations or 0) + (mobile_bus_lane_camera_violations or 0)
 
             if not previous_lookup.red_light_camera_violations:
                 previous_lookup.red_light_camera_violations = 0
