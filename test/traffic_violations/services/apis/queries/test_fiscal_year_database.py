@@ -17,9 +17,9 @@ class TestFiscalYearDatabase(unittest.TestCase):
             "https://data.cityofnewyork.us/resource/pvqr-7yc4.json?$where=    "
             "plate_id='ABC1234' AND registration_state='NY'"
         )
-    }, {   
+    }, {
         'plate': 'ABC1234',
-        'plate_types': ['PAS'],
+        'plate_types': 'PAS',
         'state': 'NY',
         'expected': (
             "https://data.cityofnewyork.us/resource/pvqr-7yc4.json?$where=    "
@@ -27,7 +27,7 @@ class TestFiscalYearDatabase(unittest.TestCase):
         )
     }, {
         'plate': 'ABC1234',
-        'plate_types': ['COM','PAS'],
+        'plate_types': 'COM,PAS',
         'state': 'NY',
         'expected': (
             "https://data.cityofnewyork.us/resource/pvqr-7yc4.json?$where=    "

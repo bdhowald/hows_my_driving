@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 @dataclass(frozen=True)
 class PlateQuery:
@@ -9,6 +9,6 @@ class PlateQuery:
     plate: str
     state: str
     message_id: Optional[int] = None
-    plate_types: Optional[List[str]] = None
+    plate_types: Optional[str] = None
     username: Optional[str] = None
 

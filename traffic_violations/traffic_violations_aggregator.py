@@ -601,8 +601,8 @@ class TrafficViolationsAggregator:
 
         plate_types: Optional[str] = None
         if vehicle.plate_types is not None:
-            plate_types = sorted(
-                [type.strip() for type in vehicle.plate_types.upper().split(',')])
+            plate_types = ','.join(
+                sorted([type.strip() for type in vehicle.plate_types.upper().split(',')]))
 
         state: str = vehicle.state.upper()
 

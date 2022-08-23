@@ -21,8 +21,8 @@ def _build_where_clause(plate_query: PlateQuery) -> str:
         return base_string
 
     quoted_plate_types: List[str] = [
-        f"'{plate_type}'" for plate_type in plate_query.plate_types]
-    
+        f"'{plate_type}'" for plate_type in plate_query.plate_types.split(',')]
+
     return (
         f"{base_string} AND plate_type IN ({','.join(quoted_plate_types)})"
     )
