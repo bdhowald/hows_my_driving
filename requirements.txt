@@ -1,6 +1,6 @@
 alembic==1.7.5
 astroid==2.9.0
-certifi==2021.10.8
+certifi==2022.12.7
 chardet==4.0.0
 charset-normalizer==2.0.9
 ddt==1.4.4
