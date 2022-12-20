@@ -76,6 +76,8 @@ class TrafficViolationsAggregator:
 
     UNIQUE_IDENTIFIER_STRING_LENGTH = 8
 
+    USE_EMOJI_CARDS = False
+
     def __init__(self):
         self.tweet_detection_service = TweetDetectionService()
 
@@ -517,7 +519,7 @@ class TrafficViolationsAggregator:
         username_prefix = (f'@{twitter_constants.HMDNY_TWITTER_HANDLE} {time_prefix}' if lookup_source
                                == lookup_sources.LookupSource.STATUS.value else '')
 
-        if camera_violations:
+        if camera_violations and self.USE_EMOJI_CARDS:
             normalized_dict = {}
             for camera_violation_type in camera_violations:
                 title = camera_violation_type['title']
