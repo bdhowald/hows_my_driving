@@ -517,7 +517,7 @@ class TrafficViolationsAggregator:
         username_prefix = (f'@{twitter_constants.HMDNY_TWITTER_HANDLE} {time_prefix}' if lookup_source
                                == lookup_sources.LookupSource.STATUS.value else '')
 
-        if camera_violations and username == 'bdhowald':
+        if camera_violations:
             normalized_dict = {}
             for camera_violation_type in camera_violations:
                 title = camera_violation_type['title']
