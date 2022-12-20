@@ -313,9 +313,11 @@ class TrafficViolationsTweeter:
                      TwitterEvent.event_type == TwitterMessageType.STATUS.value)
             ).order_by(TwitterEvent.event_id.desc()).first()
 
-            LOG.info(f"Most recent undetected twitter event: {most_recent_undetected_twitter_event.event_id}")
-
             if most_recent_undetected_twitter_event:
+                LOG.info(
+                    f"Most recent undetected twitter event: "
+                    f"{most_recent_undetected_twitter_event.event_id}"
+                )
 
                 statuses_since_last_twitter_event: List[tweepy.models.Status] = []
                 max_status_id: Optional[int] = None

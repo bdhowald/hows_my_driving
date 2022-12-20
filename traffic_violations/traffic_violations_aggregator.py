@@ -10,7 +10,13 @@ from datetime import datetime, timedelta
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from sqlalchemy import and_, func
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Type
+from typing import Union
 
 from traffic_violations.constants import (L10N, endpoints, lookup_sources,
     thresholds, twitter as twitter_constants, regexps as regexp_constants)
@@ -54,10 +60,17 @@ class TrafficViolationsAggregator:
             thresholds.DANGEROUS_VEHICLE_ABATEMENT_ACT_SCHOOL_ZONE_SPEED_CAMERA_THRESHOLD
     }
 
-    CAMERA_VIOLATIONS = ['Bus Lane Violation',
-                         'Failure To Stop At Red Light',
-                         'Mobile Bus Lane Violation',
-                         'School Zone Speed Camera Violation']
+    BUS_LANE_VIOLATION = 'Bus Lane Violation'
+    MOBILE_BUS_LANE_VIOLATION = 'Mobile Bus Lane Violation'
+    RED_LIGHT_CAMERA_VIOLATION = 'Failure To Stop At Red Light'
+    SPEED_CAMERA_VIOLATION = 'School Zone Speed Camera Violation'
+
+    CAMERA_VIOLATIONS = [BUS_LANE_VIOLATION,
+                         RED_LIGHT_CAMERA_VIOLATION,
+                         MOBILE_BUS_LANE_VIOLATION,
+                         SPEED_CAMERA_VIOLATION]
+
+    MAX_EMOJI_PER_VIOLATION_TYPE = 25
 
     MYSQL_TIME_FORMAT: str = '%Y-%m-%d %H:%M:%S'
 
@@ -85,6 +98,64 @@ class TrafficViolationsAggregator:
 
         return any(potential_vehicle.valid_plate for potential_vehicle
             in potential_vehicles)
+
+    def _build_camera_emoji_summary(
+        self,
+        camera_violations: Dict[str, Union[int, str]],
+        username: str,
+    ) -> List[str]:
+        """Build camera summary tweet using colored emoji."""
+
+        increment = 5
+
+        username_string = username if username else ''
+
+        cur_string = username_string
+
+        camera_string_parts = []
+
+        for camera_violation_type in [
+            self.SPEED_CAMERA_VIOLATION,
+            self.RED_LIGHT_CAMERA_VIOLATION,
+            self.BUS_LANE_VIOLATION,
+        ]:
+            camera_violation_count = camera_violations.get(camera_violation_type)
+            if camera_violation_count:
+
+                if camera_violation_type == self.SPEED_CAMERA_VIOLATION:
+                    camera_string = L10N.EMOJI_SPEED_CAMERA_STRING
+                    emoji_character = L10N.EMOJI_SPEED_CAMERA_CHARACTER
+                elif camera_violation_type in [
+                    self.BUS_LANE_VIOLATION, self.MOBILE_BUS_LANE_VIOLATION
+                ]:
+                    camera_string = L10N.EMOJI_BUS_CAMERA_STRING
+                    # cur_string += L10N.EMOJI_BUS_CAMERA_STRING
+                    emoji_character = L10N.EMOJI_BUS_CAMERA_CHARACTER
+                elif camera_violation_type == self.RED_LIGHT_CAMERA_VIOLATION:
+                    camera_string = L10N.EMOJI_RED_LIGHT_CAMERA_STRING
+                    # cur_string += L10N.EMOJI_RED_LIGHT_CAMERA_STRING
+                    emoji_character = L10N.EMOJI_RED_LIGHT_CAMERA_CHARACTER
+
+                cur_string += camera_string
+
+                emoji_to_display = min(self.MAX_EMOJI_PER_VIOLATION_TYPE, camera_violation_count)
+
+                for multiple_of_five in range(0, emoji_to_display, increment):
+                    # how many do we have
+                    next_count = min(emoji_to_display - multiple_of_five, increment)
+
+                    # add the emoji!
+                    cur_string += f"{emoji_character * next_count}\n"
+
+                if camera_violation_count > self.MAX_EMOJI_PER_VIOLATION_TYPE:
+                    cur_string += f'... {camera_violation_count}\n'
+                else:
+                    cur_string += f'{camera_violation_count}\n'
+
+                camera_string_parts.append(cur_string)
+                cur_string = ''
+
+        return ['\n'.join(camera_string_parts)]
 
     def _create_repeat_lookup_string(
             self,
@@ -406,6 +477,11 @@ class TrafficViolationsAggregator:
                                      for s in violations])
         LOG.debug(f'total_violations: {total_violations}')
 
+        camera_violations = [
+            violation_type for violation_type in violations
+                if violation_type['title'] in self.CAMERA_VIOLATIONS
+        ]
+
         now_in_eastern_time = self.utc.localize(datetime.now()).astimezone(self.eastern)
         time_prefix = now_in_eastern_time.strftime('As of %I:%M:%S %p %Z on %B %-d, %Y:\n\n')
 
@@ -435,6 +511,29 @@ class TrafficViolationsAggregator:
 
         username_prefix = (f'@{twitter_constants.HMDNY_TWITTER_HANDLE} {time_prefix}' if lookup_source
                                == lookup_sources.LookupSource.STATUS.value else '')
+
+        if camera_violations and username == 'bdhowald':
+            normalized_dict = {}
+            for camera_violation_type in camera_violations:
+                title = camera_violation_type['title']
+                count = camera_violation_type['count']
+
+                if title in [
+                    self.BUS_LANE_VIOLATION, self.MOBILE_BUS_LANE_VIOLATION
+                ]:
+                    if normalized_dict.get(self.BUS_LANE_VIOLATION):
+                        normalized_dict[self.BUS_LANE_VIOLATION] += count
+                    else:
+                        normalized_dict[self.BUS_LANE_VIOLATION] = count
+                elif title == self.RED_LIGHT_CAMERA_VIOLATION:
+                    normalized_dict[self.RED_LIGHT_CAMERA_VIOLATION] = count
+                elif title == self.SPEED_CAMERA_VIOLATION:
+                    normalized_dict[self.SPEED_CAMERA_VIOLATION] = count
+
+            response_chunks += self._build_camera_emoji_summary(
+                camera_violations=normalized_dict,
+                username=username_prefix,
+            )
 
         response_chunks += self._handle_response_part_formation(
             collection=violations,
@@ -832,13 +931,13 @@ class TrafficViolationsAggregator:
                 if violation_type_summary['title'] in self.CAMERA_VIOLATIONS:
                     violation_count = violation_type_summary['count']
 
-                    if violation_type_summary['title'] == 'Bus Lane Violation':
+                    if violation_type_summary['title'] == self.BUS_LANE_VIOLATION:
                         bus_lane_camera_violations = violation_count
-                    elif violation_type_summary['title'] == 'Failure To Stop At Red Light':
+                    elif violation_type_summary['title'] == self.RED_LIGHT_CAMERA_VIOLATION:
                         red_light_camera_violations = violation_count
-                    elif violation_type_summary['title'] == 'Mobile Bus Lane Violation':
+                    elif violation_type_summary['title'] == self.MOBILE_BUS_LANE_VIOLATION:
                         mobile_bus_lane_camera_violations = violation_count
-                    elif violation_type_summary['title'] == 'School Zone Speed Camera Violation':
+                    elif violation_type_summary['title'] == self.SPEED_CAMERA_VIOLATION:
                         speed_camera_violations = violation_count
 
             total_bus_lane_camera_violations = (

@@ -693,8 +693,32 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         username = 'BarackObama'
         message_id = random.randint(1000000000000000000, 2000000000000000000)
 
-        response_parts = [['@BarackObama #PA_GLF7467 has been queried 1 time.\n\nTotal parking and camera violation tickets: 49\n\n17 | No Parking - Street Cleaning\n6   | Expired Meter\n5   | No Violation Description Available\n3   | Fire Hydrant\n3   | No Parking - Day/Time Limits\n', "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n3   | Failure To Display Meter Receipt\n3   | School Zone Speed Camera Violation\n2   | No Parking - Except Authorized Vehicles\n2   | Bus Lane Violation\n1   | Failure To Stop At Red Light\n",
-                           "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n1   | No Standing - Day/Time Limits\n1   | No Standing - Except Authorized Vehicle\n1   | Obstructing Traffic Or Intersection\n1   | Double Parking\n", '@BarackObama Known fines for #PA_GLF7467:\n\n$1,000.00 | Fined\n$225.00     | Outstanding\n$775.00     | Paid\n']]
+        response_parts = [
+            [
+                '@BarackObama #PA_GLF7467 has been queried 1 time.\n\n'
+                'Total parking and camera violation tickets: 49\n\n'
+                '17 | No Parking - Street Cleaning\n'
+                '6   | Expired Meter\n'
+                '5   | No Violation Description Available\n'
+                '3   | Fire Hydrant\n'
+                '3   | No Parking - Day/Time Limits\n',
+                "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n"
+                '3   | Failure To Display Meter Receipt\n'
+                '3   | School Zone Speed Camera Violation\n'
+                '2   | No Parking - Except Authorized Vehicles\n'
+                '2   | Bus Lane Violation\n'
+                '1   | Failure To Stop At Red Light\n',
+                "@BarackObama Parking and camera violation tickets for #PA_GLF7467, cont'd:\n\n"
+                '1   | No Standing - Day/Time Limits\n'
+                '1   | No Standing - Except Authorized Vehicle\n'
+                '1   | Obstructing Traffic Or Intersection\n'
+                '1   | Double Parking\n',
+                '@BarackObama Known fines for #PA_GLF7467:\n\n'
+                '$1,000.00 | Fined\n'
+                '$225.00     | Outstanding\n'
+                '$775.00     | Paid\n'
+            ]
+        ]
 
         lookup_request = AccountActivityAPIStatus(
             message=TwitterEvent(

@@ -320,6 +320,142 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'plate_types': 'pas',
                 'state': 'NY',
                 'violations': [
+                    {'title': 'School Zone Speed Camera Violation', 'count': 37},
+                    {'title': 'Failure To Stop At Red Light', 'count': 32},
+                    {'title': 'Bus Lane Violation', 'count': 17},
+                    {'title': 'Mobile Bus Lane Violation', 'count': 14},
+                    {'title': 'No Standing - Day/Time Limits', 'count': 14},
+                    {'title': 'No Parking - Street Cleaning', 'count': 3},
+                    {'title': 'No Standing - Commercial Meter Zone',
+                     'count': 1},
+                    {'title': 'Failure To Display Meter Receipt', 'count': 1},
+                    {'title': 'No Violation Description Available',
+                     'count': 1},
+                    {'title': 'Expired Meter', 'count': 1},
+                    {'title': 'Double Parking', 'count': 1},
+                    {'title': 'No Angle Parking', 'count': 1}
+                ],
+                'years': [
+                    {'title': '2016', 'count': 25},
+                    {'title': '2016', 'count': 27},
+                    {'title': '2017', 'count': 33},
+                    {'title': '2018', 'count': 38}
+                ],
+                'previous_result': PlateLookup(
+                    created_at=previous_time,
+                    message_id=12345678901234567890,
+                    message_source='direct_message',
+                    num_tickets=23,
+                    username='BarackObama'
+                ),
+                'frequency': 8,
+                'boroughs': [
+                    {'count': 26, 'title': 'Bronx'},
+                    {'count': 32, 'title': 'Brooklyn'},
+                    {'count': 27, 'title': 'Queens'},
+                    {'count': 38, 'title': 'Staten Island'}
+                ],
+                'fines': FineData(**{'fined': 1080.0, 'reduced': 80.0,
+                                     'paid': 100.0, 'outstanding': 900.0}),
+                'camera_streak_data': {
+                    'Failure to Stop at Red Light': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 17,
+                        'max_streak_date': 'June 5, 2016'}),
+                    'Mixed': CameraStreakData(**{
+                        'min_streak_date': 'September 7, 2015',
+                        'max_streak': 32,
+                        'max_streak_date': 'August 5, 2016'}),
+                    'School Zone Speed Camera Violation': CameraStreakData(**{
+                        'min_streak_date': 'October 14, 2015',
+                        'max_streak': 26,
+                        'max_streak_date': 'August 5, 2016'}),
+                },
+                'unique_identifier': 'a1b2c3d4',
+            },
+            'response': [
+                '#NY_HME6483 (types: pas) has been queried 8 times.\n'
+                '\n'
+                'This vehicle was last queried on ' + adjusted_time.strftime(
+                    '%B %-d, %Y') + ' at ' +
+                adjusted_time.strftime('%I:%M%p') + '. '
+                'Since then, #NY_HME6483 has received 100 new tickets.\n'
+                '\n',
+                'Speed violations:\n'
+                '🟨🟨🟨🟨🟨\n'
+                '🟨🟨🟨🟨🟨\n'
+                '🟨🟨🟨🟨🟨\n'
+                '🟨🟨🟨🟨🟨\n'
+                '🟨🟨🟨🟨🟨\n'
+                '... 37\n\n'
+                'Red Light violations:\n'
+                '🟥🟥🟥🟥🟥\n'
+                '🟥🟥🟥🟥🟥\n'
+                '🟥🟥🟥🟥🟥\n'
+                '🟥🟥🟥🟥🟥\n'
+                '🟥🟥🟥🟥🟥\n'
+                '... 32\n\n'
+                'Bus Lane violations:\n'
+                '🟦🟦🟦🟦🟦\n'
+                '🟦🟦🟦🟦🟦\n'
+                '🟦🟦🟦🟦🟦\n'
+                '🟦🟦🟦🟦🟦\n'
+                '🟦🟦🟦🟦🟦\n'
+                '... 31\n',
+                'Total parking and camera violation tickets for #NY_HME6483: 123\n'
+                '\n'
+                '37 | School Zone Speed Camera Violation\n'
+                '32 | Failure To Stop At Red Light\n'
+                '17 | Bus Lane Violation\n'
+                '14 | Mobile Bus Lane Violation\n'
+                '14 | No Standing - Day/Time Limits\n'
+                '3   | No Parking - Street Cleaning\n',
+                'Parking and camera violation tickets for '
+                '#NY_HME6483, cont\'d:\n'
+                '\n'
+                '1   | No Standing - Commercial Meter Zone\n'
+                '1   | Failure To Display Meter Receipt\n'
+                '1   | No Violation Description Available\n'
+                '1   | Expired Meter\n'
+                '1   | Double Parking\n'
+                '1   | No Angle Parking\n',
+                'Violations by year for #NY_HME6483:\n'
+                '\n'
+                '25 | 2016\n'
+                '27 | 2016\n'
+                '33 | 2017\n'
+                '38 | 2018\n',
+                'Violations by borough for #NY_HME6483:\n'
+                '\n'
+                '26 | Bronx\n'
+                '32 | Brooklyn\n'
+                '27 | Queens\n'
+                '38 | Staten Island\n',
+                'Known fines for #NY_HME6483:\n'
+                '\n'
+                '$1,080.00 | Fined\n'
+                '$80.00       | Reduced\n'
+                '$100.00     | Paid\n'
+                '$900.00     | Outstanding\n',
+                'Under the Dangerous Vehicle Abatement Act, '
+                'this vehicle could have been booted or impounded due to its 17 '
+                'red light camera violations (>= 5/year) from September 7, 2015 to '
+                'June 5, 2016.\n',
+                'Under the Dangerous Vehicle Abatement Act, '
+                'this vehicle could have been booted or impounded due to its 26 '
+                'school zone speed camera violations (>= 15/year) from October 14, 2015 to '
+                'August 5, 2016.\n',
+                'View more details at https://howsmydrivingny.nyc/a1b2c3d4.'
+            ],
+            'username': 'bdhowald'
+        },
+        {
+            'data': {
+                'lookup_source': 'direct_message',
+                'plate': 'HME6483',
+                'plate_types': 'pas',
+                'state': 'NY',
+                'violations': [
                     {'title': 'No Standing - Day/Time Limits', 'count': 14},
                     {'title': 'No Parking - Street Cleaning', 'count': 3},
                     {'title': 'Failure To Display Meter Receipt', 'count': 1},
@@ -334,7 +470,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                     {'title': 'No Angle Parking', 'count': 1}
                 ],
                 'years': [
-                    {'title': '2016', 'count': 2},
+                    {'title': '2016', 'count': 4},
                     {'title': '2017', 'count': 8},
                     {'title': '2018', 'count': 13}
                 ],
@@ -347,7 +483,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 ),
                 'frequency': 8,
                 'boroughs': [
-                    {'count': 1, 'title': 'Bronx'},
+                    {'count': 3, 'title': 'Bronx'},
                     {'count': 7, 'title': 'Brooklyn'},
                     {'count': 2, 'title': 'Queens'},
                     {'count': 13, 'title': 'Staten Island'}
@@ -356,17 +492,11 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                                      'paid': 100.0, 'outstanding': 30.0}),
                 'camera_streak_data': {
                     'Failure to Stop at Red Light': CameraStreakData(**{
-                        'min_streak_date': 'September 7, 2015',
-                        'max_streak': 4,
-                        'max_streak_date': 'June 5, 2016'}),
-                    'Mixed': CameraStreakData(**{
-                        'min_streak_date': 'September 7, 2015',
-                        'max_streak': 18,
-                        'max_streak_date': 'August 5, 2016'}),
-                    'School Zone Speed Camera Violation': CameraStreakData(**{
-                        'min_streak_date': 'October 14, 2015',
-                        'max_streak': 14,
-                        'max_streak_date': 'August 5, 2016'}),
+                        'min_streak_date': 'September 7, 2016',
+                        'max_streak': 1,
+                        'max_streak_date': 'September 7, 2016'}),
+                    'Mixed': None,
+                    'School Zone Speed Camera Violation': None,
                 },
                 'unique_identifier': 'a1b2c3d4',
             },
@@ -378,6 +508,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 adjusted_time.strftime('%I:%M%p') + '. '
                 'Since then, #NY_HME6483 has received 2 new tickets.\n'
                 '\n',
+                'Red Light violations:\n'
+                '🟥\n'
+                '1\n'
+                '\n'
+                'Bus Lane violations:\n'
+                '🟦\n'
+                '1\n',
                 'Total parking and camera violation tickets for #NY_HME6483: 25\n'
                 '\n'
                 '14 | No Standing - Day/Time Limits\n'
@@ -395,12 +532,12 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 '1   | No Angle Parking\n',
                 'Violations by year for #NY_HME6483:\n'
                 '\n'
-                '2   | 2016\n'
+                '4   | 2016\n'
                 '8   | 2017\n'
                 '13 | 2018\n',
                 'Violations by borough for #NY_HME6483:\n'
                 '\n'
-                '1   | Bronx\n'
+                '3   | Bronx\n'
                 '7   | Brooklyn\n'
                 '2   | Queens\n'
                 '13 | Staten Island\n',
@@ -482,6 +619,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 'https://twitter.com/BarackObama/status/12345678901234567890. ' +
                 'Since then, #NY_HME6483 has received 21 new tickets.\n'
                 '\n',
+                '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
+                '\n'
+                'Speed violations:\n'
+                '🟨🟨🟨🟨🟨\n'
+                '🟨🟨🟨🟨🟨\n'
+                '🟨🟨🟨🟨🟨\n'
+                '15\n\n'
+                'Red Light violations:\n'
+                '🟥🟥🟥🟥🟥\n'
+                '5\n\n'
+                'Bus Lane violations:\n'
+                '🟦\n'
+                '1\n',
                 '@HowsMyDrivingNY As of 05:42:25 AM EDT on July 23, 2027:\n'
                 '\n'
                 'Total parking and camera violation tickets for #NY_HME6483: 44\n'
@@ -1119,6 +1269,13 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
                 [
                     f'#{state}_{returned_plate} has been queried 1 time.\n'
                     '\n',
+                    'Red Light violations:\n'
+                    '🟥\n'
+                    '1\n'
+                    '\n'
+                    'Bus Lane violations:\n'
+                    '🟦\n'
+                    '1\n',
                     f'Total parking and camera violation tickets for #{state}_{returned_plate}: 15\n'
                     '\n'
                     '4 | No Standing - Day/Time Limits\n'
@@ -1257,6 +1414,19 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         response_parts = [['@BarackObama As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
                            '#PA_GLF7467 has been queried 2 times.\n\n',
+                           '@HowsMyDrivingNY As of 02:27:52 PM EDT on June 18, 2034:\n'
+                           '\n'
+                           'Speed violations:\n'
+                           '🟨🟨🟨\n'
+                           '3\n'
+                           '\n'
+                           'Red Light violations:\n'
+                           '🟥\n'
+                           '1\n'
+                           '\n'
+                           'Bus Lane violations:\n'
+                           '🟦🟦\n'
+                           '2\n',
                            '@HowsMyDrivingNY As of 02:27:52 PM EDT on June 18, 2034:\n'
                            '\n'
                            'Total parking and camera violation tickets for #PA_GLF7467: 49\n'

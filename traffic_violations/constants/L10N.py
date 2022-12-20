@@ -2,6 +2,8 @@ from string import Template
 
 from traffic_violations.constants.endpoints import HOWS_MY_DRIVING_NY_WEBSITE
 
+CONTINUED_STRING = ", cont'd"
+
 DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING = (
    '{}'
    'Under the Dangerous Vehicle Abatement Act, '
@@ -10,15 +12,22 @@ DANGEROUS_VEHICLE_ABATEMENT_ACT_REPEAT_OFFENDER_STRING = (
    '(>= {}/year) from {} '
    'to {}.\n')
 
-LAST_QUERIED_STRING = "This vehicle was last queried on {} at {}"
+EMOJI_BUS_CAMERA_CHARACTER = '🟦'
+EMOJI_BUS_CAMERA_STRING = 'Bus Lane violations:\n'
+EMOJI_RED_LIGHT_CAMERA_CHARACTER = '🟥'
+EMOJI_RED_LIGHT_CAMERA_STRING = 'Red Light violations:\n'
+EMOJI_SPEED_CAMERA_CHARACTER = '🟨'
+EMOJI_SPEED_CAMERA_STRING = 'Speed violations:\n'
+
+LAST_QUERIED_STRING = 'This vehicle was last queried on {} at {}'
 
 LOOKUP_BOROUGH_STRING = 'Violations by borough for {}:\n\n'
 LOOKUP_BOROUGH_STRING_CONTD = "Violations by borough for {}, cont'd:\n\n"
 LOOKUP_RESULTS_DETAIL_STRING = '{}| {}\n'
 LOOKUP_SUMMARY_STRING = '{}{}has been queried {} time{}.\n\n'
-LOOKUP_TICKETS_STRING = "Total parking and camera violation tickets for {}: {}\n\n"
+LOOKUP_TICKETS_STRING = 'Total parking and camera violation tickets for {}: {}\n\n'
 LOOKUP_TICKETS_STRING_CONTD = "Parking and camera violation tickets for {}, cont'd:\n\n"
-LOOKUP_YEAR_STRING = "Violations by year for {}:\n\n"
+LOOKUP_YEAR_STRING = 'Violations by year for {}:\n\n'
 LOOKUP_YEAR_STRING_CONTD = "Violations by year for {}, cont'd:\n\n"
 
 NO_TICKETS_FOUND_STRING = "I couldn't find any tickets for {}:{}{}."
