@@ -102,15 +102,17 @@ class TrafficViolationsAggregator:
     def _build_camera_emoji_summary(
         self,
         camera_violations: Dict[str, Union[int, str]],
-        username: str,
+        prefix_string: str,
+        vehicle_hashtag: str,
     ) -> List[str]:
         """Build camera summary tweet using colored emoji."""
 
         increment = 5
 
-        username_string = username if username else ''
-
-        cur_string = username_string
+        cur_string = (
+            f"{prefix_string if prefix_string else ''}"
+            f"Camera violations for {vehicle_hashtag}:\n\n"
+        )
 
         camera_string_parts = []
 
@@ -155,7 +157,10 @@ class TrafficViolationsAggregator:
                 camera_string_parts.append(cur_string)
                 cur_string = ''
 
-        return ['\n'.join(camera_string_parts)]
+        if camera_string_parts:
+            return ['\n'.join(camera_string_parts)]
+        else:
+            return []
 
     def _create_repeat_lookup_string(
             self,
@@ -532,7 +537,8 @@ class TrafficViolationsAggregator:
 
             response_chunks += self._build_camera_emoji_summary(
                 camera_violations=normalized_dict,
-                username=username_prefix,
+                prefix_string=username_prefix,
+                vehicle_hashtag=L10N.VEHICLE_HASHTAG.format(state, plate)
             )
 
         response_chunks += self._handle_response_part_formation(
@@ -575,7 +581,6 @@ class TrafficViolationsAggregator:
                 username_prefix=username_prefix)
 
         if fine_data and fine_data.fines_assessed():
-
             cur_string = (f'{username_prefix}'
                           f'Known fines for {L10N.VEHICLE_HASHTAG.format(state, plate)}:\n\n')
 
