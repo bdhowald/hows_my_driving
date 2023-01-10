@@ -937,8 +937,9 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
         self.assertEqual(self.aggregator._perform_campaign_lookup(
             included_campaigns), result)
 
+    @ddt.data(200, 503)
     @mock.patch('traffic_violations.traffic_violations_aggregator.PlateLookup.get_by')
-    def test_perform_plate_lookup(self, mocked_plate_lookup_get_by):
+    def test_perform_plate_lookup(self, status_code, mocked_plate_lookup_get_by):
 
         rand_int = random.randint(1000000000000000000, 2000000000000000000)
         now = datetime.now()
@@ -1139,7 +1140,7 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         violations_mock = MagicMock(name='violations')
         violations_mock.json.return_value = violations
-        violations_mock.status_code = 200
+        violations_mock.status_code = status_code
 
         result_mock = MagicMock(name='result')
         result_mock.result.return_value = violations_mock
@@ -1155,21 +1156,20 @@ class TestTrafficViolationsAggregator(unittest.TestCase):
 
         requests_futures.sessions.FuturesSession = session_object_mock
 
-        self.assertEqual(self.aggregator._perform_plate_lookup(
-            campaigns=campaigns,
-            plate_query=plate_query,
-            unique_identifier=unique_identifier), result)
+        if status_code == 200:
+            self.assertEqual(self.aggregator._perform_plate_lookup(
+                campaigns=campaigns,
+                plate_query=plate_query,
+                unique_identifier=unique_identifier), result)
+        else:
+            result = self.aggregator._perform_plate_lookup(
+                campaigns=[],
+                plate_query=plate_query,
+                unique_identifier=unique_identifier)
 
-        # Try again with a forced error.
-        violations_mock.status_code = 503
-
-        result = self.aggregator._perform_plate_lookup(
-            campaigns=[],
-            plate_query=plate_query,
-            unique_identifier=unique_identifier)
+            self.assertRegex(str(result.message), 'server error when accessing')
 
         self.assertIsInstance(result, OpenDataServiceResponse)
-        self.assertRegex(str(result.message), 'server error when accessing')
 
     @ddt.data({
         'plate': 'HME6483',

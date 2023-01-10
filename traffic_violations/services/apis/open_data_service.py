@@ -349,6 +349,7 @@ class OpenDataService:
 
         opacv_result: Dict[str, Any] = self._perform_open_parking_and_camera_violations_query(
             plate_query=plate_query, since=since, until=until)
+
         fiscal_year_result: Dict[str, Any] = self._perform_fiscal_year_database_queries(
             plate_query=plate_query, since=since, until=until)
 
