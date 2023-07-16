@@ -178,8 +178,17 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
         'traffic_violations.services.twitter_service.TwitterEvent')
     def test_find_and_respond_to_missed_statuses(self, twitter_event_mock):
         db_id = 1
+
         event_id = random.randint(10000000000000000000, 20000000000000000000)
+        status_not_needing_event_event_id = event_id - 1
+        status_needing_event_1_event_id = event_id + 1
+        status_needing_event_2_event_id = event_id + 2
+
         event_text = '@HowsMyDrivingNY @bdhowald abc1234:ny'
+        status_not_needing_event_text = event_text
+        status_needing_event_1_text = event_text + '!'
+        status_needing_event_2_text = event_text + '!!'
+
         event_type = 'status'
         in_reply_to_message_id = random.randint(
             10000000000000000000, 20000000000000000000)
@@ -226,11 +235,11 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                 }
             ])
 
-        new_twitter_event = TwitterEvent(
+        new_twitter_event_1 = TwitterEvent(
             created_at=now.replace(tzinfo=pytz.timezone('UTC')).timestamp() * 1000,
             detected_via_account_activity_api=False,
-            event_id=event_id + 1,
-            event_text=event_text + '!',
+            event_id=status_needing_event_1_event_id,
+            event_text=status_needing_event_1_text,
             event_type=event_type,
             in_reply_to_message_id=in_reply_to_message_id,
             location=location,
@@ -240,8 +249,22 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
             user_mention_ids=[user_id],
             user_mentions=user_handle)
 
-        status_needing_event = MagicMock(
-            id=event_id + 1,
+        new_twitter_event_2 = TwitterEvent(
+            created_at=now.replace(tzinfo=pytz.timezone('UTC')).timestamp() * 1000,
+            detected_via_account_activity_api=False,
+            event_id=status_needing_event_2_event_id,
+            event_text=status_needing_event_2_text,
+            event_type=event_type,
+            in_reply_to_message_id=in_reply_to_message_id,
+            location=location,
+            responded_to=False,
+            user_handle=user_handle,
+            user_id=user_id,
+            user_mention_ids=[user_id],
+            user_mentions=user_handle)
+
+        status_needing_event_1 = MagicMock(
+            id=status_needing_event_1_event_id,
             created_at = now,
             entities={
                 'user_mentions': [
@@ -262,14 +285,42 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                     }
                 ]
             },
-            full_text=event_text + '!',
+            full_text=status_needing_event_1_text,
             in_reply_to_message_id=in_reply_to_message_id,
-            name='status_needing_event',
+            name='status_needing_event_1',
+            place=place,
+            user=user)
+
+        status_needing_event_2 = MagicMock(
+            id=status_needing_event_2_event_id,
+            created_at = now,
+            entities={
+                'user_mentions': [
+                    {
+                        'id': 123,
+                        'id_str': '123',
+                        'screen_name': user_handle
+                    },
+                    {
+                        'id': 456,
+                        'id_str': '456',
+                        'screen_name': 'OtherUser'
+                    },
+                    {
+                        'id': 789,
+                        'id_str': '456',
+                        'screen_name': 'SomeOtherUser'
+                    }
+                ]
+            },
+            full_text=status_needing_event_2_text,
+            in_reply_to_message_id=in_reply_to_message_id,
+            name='status_needing_event_2',
             place=place,
             user=user)
 
         status_not_needing_event = MagicMock(
-            id=event_id - 1,
+            id=status_not_needing_event_event_id,
             created_at = now - relativedelta(minutes=1),
             entities={
                 'user_mentions': [
@@ -290,28 +341,40 @@ class TestTrafficViolationsTweeter(unittest.TestCase):
                     }
                 ]
             },
-            full_text=event_text,
+            full_text=status_not_needing_event_text,
             in_reply_to_message_id=in_reply_to_message_id,
             name='status_not_needing_event',
             place=place,
             user=user)
 
-        twitter_event_mock.return_value = new_twitter_event
+        side_effect_mocks = [
+            (status_needing_event_2, None),
+            (status_needing_event_1, None),
+            (status_not_needing_event, status_not_needing_event)
+        ]
+
+        returned_statuses_from_api = [mock[0] for mock in side_effect_mocks]
+        matching_statuses_in_database = [mock[1] for mock in side_effect_mocks]
+
+        twitter_event_mock.side_effect = [new_twitter_event_1, new_twitter_event_2]
         twitter_event_mock.query.filter().order_by().first.return_value = older_twitter_event
-        twitter_event_mock.query.filter().first.side_effect = [
-            None, status_not_needing_event]
+        twitter_event_mock.query.filter().first.side_effect = matching_statuses_in_database
 
         client_api_mock = MagicMock(name='client_api')
-        client_api_mock.mentions_timeline.side_effect = [[
-            status_needing_event, status_not_needing_event], []]
+        client_api_mock.mentions_timeline.side_effect = [returned_statuses_from_api, []]
         self.tweeter._client_api = client_api_mock
 
         self.tweeter._find_and_respond_to_missed_statuses()
 
-        twitter_event_mock.query.session.add.assert_called_once_with(new_twitter_event)
+        calls = [
+            call(new_twitter_event_1),
+            call(new_twitter_event_2),
+        ]
+
+        twitter_event_mock.query.session.add.assert_has_calls(calls)
         twitter_event_mock.query.session.commit.assert_called_once_with()
 
-        self.mocked_log.debug.assert_called_with('Found 1 status that was previously undetected.')
+        self.mocked_log.debug.assert_called_with('Found 2 statuses that were previously undetected.')
 
         self.tweeter.terminate_lookups()
 

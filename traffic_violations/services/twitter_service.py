@@ -111,7 +111,9 @@ class TrafficViolationsTweeter:
         sender_objects = self._get_twitter_client_api().lookup_users(user_id=sender_ids)
         senders = {sender.id_str:sender for sender in sender_objects}
 
-        for message in messages:
+        messages_in_chronological_order = sorted(messages, key=lambda m: m.id)
+
+        for message in messages_in_chronological_order:
 
             existing_event: Optional[TwitterEvent] = TwitterEvent.query.filter(TwitterEvent.event_id == message.id).first()
 
@@ -152,7 +154,9 @@ class TrafficViolationsTweeter:
 
         undetected_messages = 0
 
-        for message in messages:
+        messages_in_chronological_order = sorted(messages, key=lambda m: m.id)
+
+        for message in messages_in_chronological_order:
             existing_event: Optional[TwitterEvent] = TwitterEvent.query.filter(TwitterEvent.event_id == message.id).first()
 
             if not existing_event and message.user.id != HMDNY_TWITTER_USER_ID:
