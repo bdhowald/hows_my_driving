@@ -396,7 +396,7 @@ class TrafficViolationsTweeter:
             LOG.debug(f'IDs of events to respond to: {[event.event_id for event in events_to_respond_to]}')
 
             for event in events_to_respond_to:
-                LOG.debug(f'Processing event with id {event.id} and event_id: ${event.event_id}')
+                LOG.debug(f'Processing event with id {event.id} and event_id: {event.event_id}')
                 self._process_twitter_event(event=event)
 
         except Exception as e:
