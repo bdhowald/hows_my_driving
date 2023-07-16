@@ -195,10 +195,14 @@ class TrafficViolationsTweeter:
 
                 continue
 
+            LOG.info(f'failed_event.event_type: {failed_event.event_type}')
+
             # If event is a tweet, but can no longer be found, there's nothing we can do.
             if (failed_event.event_type == TwitterMessageType.STATUS.value and
                 not self.tweet_detection_service.tweet_exists(id=failed_event.event_id,
                                                           username=failed_event.user_handle)):
+
+                LOG.info(f'Status of failed reply cannot be found.')
 
                 failed_event.error_on_lookup = False
                 failed_event.num_times_failed = 0
@@ -235,7 +239,7 @@ class TrafficViolationsTweeter:
                 LOG.debug(f'Event response cannot be retried automatically.')
 
 
-        LOG.debug(f'failed events to retry: {failed_events_that_need_response}')
+        LOG.debug(f'failed events to retry: {[event.id for event in failed_events_that_need_response]}')
 
         return failed_events_that_need_response
 
@@ -392,7 +396,7 @@ class TrafficViolationsTweeter:
             LOG.debug(f'IDs of events to respond to: {[event.event_id for event in events_to_respond_to]}')
 
             for event in events_to_respond_to:
-                LOG.debug(f'Processing event with id {event.event_id}')
+                LOG.debug(f'Processing event with id {event.id} and event_id: ${event.event_id}')
                 self._process_twitter_event(event=event)
 
         except Exception as e:
