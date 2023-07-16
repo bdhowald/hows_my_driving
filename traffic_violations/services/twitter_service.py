@@ -377,7 +377,7 @@ class TrafficViolationsTweeter:
                 responded_to=False,
                 response_in_progress=False)
 
-            LOG.debug(f'new events: {new_events}')
+            LOG.debug(f'IDs of new events: {[event.event_id for event in new_events]}')
 
             failed_events: List[TwitterEvent] = TwitterEvent.get_all_by(
                 is_duplicate=False,
@@ -389,9 +389,10 @@ class TrafficViolationsTweeter:
 
             events_to_respond_to: [List[TwitterEvent]] = new_events + failed_events_that_need_response
 
-            LOG.debug(f'events to respond to: {events_to_respond_to}')
+            LOG.debug(f'IDs of events to respond to: {[event.event_id for event in events_to_respond_to]}')
 
             for event in events_to_respond_to:
+                LOG.debug(f'Processing event with id {event.event_id}')
                 self._process_twitter_event(event=event)
 
         except Exception as e:
@@ -541,6 +542,7 @@ class TrafficViolationsTweeter:
             LOG.info(f'Event {event.id} is a duplicate, skipping.')
 
         else:
+            LOG.info(f'Event {event.id} is a new event, setting `response_in_progress=True`')
 
             event.response_in_progress = True
             TwitterEvent.query.session.commit()
