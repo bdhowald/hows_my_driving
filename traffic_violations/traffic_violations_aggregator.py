@@ -549,7 +549,7 @@ class TrafficViolationsAggregator:
                 L10N.VEHICLE_HASHTAG.format(state, plate)),
             count='count',
             description='title',
-            default_description='No Year Available',
+            default_description='No Violation Description Available',
             prefix_format_string=L10N.LOOKUP_TICKETS_STRING.format(
                 L10N.VEHICLE_HASHTAG.format(state, plate),
                 total_violations),

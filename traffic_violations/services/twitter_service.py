@@ -31,7 +31,7 @@ LOG = logging.getLogger(__name__)
 
 class TrafficViolationsTweeter:
 
-    PRODUCTION_APP_RATE_LIMITING_INTERVAL_IN_SECONDS = 3.0
+    PRODUCTION_APP_RATE_LIMITING_INTERVAL_IN_SECONDS = 30.0
 
     DEVELOPMENT_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS = 3000.0
     PRODUCTION_CLIENT_RATE_LIMITING_INTERVAL_IN_SECONDS = 300.0
@@ -239,7 +239,7 @@ class TrafficViolationsTweeter:
                 LOG.debug(f'Event response cannot be retried automatically.')
 
 
-        LOG.debug(f'failed events to retry: {[event.id for event in failed_events_that_need_response]}')
+        LOG.debug(f'IDs of failed events to retry: {[event.id for event in failed_events_that_need_response]}')
 
         return failed_events_that_need_response
 
