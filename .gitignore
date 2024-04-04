@@ -3,6 +3,7 @@ __pycache__/
 bin/
 include/
 lib/
+venv
 
 .Python
 .python-version
