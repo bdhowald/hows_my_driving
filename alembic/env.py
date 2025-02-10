@@ -28,8 +28,8 @@ target_metadata = None
 
 config.set_main_option(
     'sqlalchemy.url',
-    (f"mysql+pymysql:{os.getenv('MYSQL_USER')}//:{os.getenv('MYSQL_PASSWORD') or ''}"
-     f'@localhost/traffic_violations')
+    (f"mysql+pymysql://{os.getenv('MYSQL_USER')}:{os.getenv('MYSQL_PASSWORD') or ''}"
+     f"@localhost/{os.getenv('MYSQL_DATABASE')}")
 )
 
 
