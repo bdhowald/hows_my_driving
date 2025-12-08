@@ -100,7 +100,6 @@ class LocationService:
         new_geocode = geocode.Geocode(
             borough=borough,
             geocoder_id=self._google_geocoder.id,
-            geocoding_service=self.GEOCODING_SERVICE_NAME,
             lookup_string=query_string)
 
         geocode.Geocode.query.session.add(new_geocode)
