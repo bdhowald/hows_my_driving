@@ -4,7 +4,8 @@ import requests
 from typing import Dict, List, Optional
 
 from traffic_violations import settings
-from traffic_violations.models.geocode import Geocode
+from traffic_violations.models import geocode
+from traffic_violations.models import geocoder
 
 
 class LocationService:
@@ -16,7 +17,8 @@ class LocationService:
     RESULTS_KEY = 'results'
     RESULTS_COMPONENTS_KEY = 'address_components'
 
-
+    def __init__(self):
+        self._google_geocoder = geocoder.Geocoder.get_by(name="Google")
 
     def get_borough_from_location_strings(self, location_parts: List[str]) -> Optional[str]:
         return self._detect_borough(location_parts=location_parts)
@@ -95,11 +97,12 @@ class LocationService:
 
 
     def _save_new_geocode(self, borough, query_string) -> None:
-        new_geocode = Geocode(
+        new_geocode = geocode.Geocode(
             borough=borough,
+            geocoder_id=self._google_geocoder.id,
             geocoding_service=self.GEOCODING_SERVICE_NAME,
             lookup_string=query_string)
 
-        Geocode.query.session.add(new_geocode)
-        Geocode.query.session.commit()
+        geocode.Geocode.query.session.add(new_geocode)
+        geocode.Geocode.query.session.commit()
 
