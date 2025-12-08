@@ -1,7 +1,7 @@
 from sqlalchemy import Column
-from sqlalchemy import Index
-from sqlalchemy import Integer
 from sqlalchemy import String
+from sqlalchemy.dialects import mysql
+
 
 from traffic_violations.models.base import Base
 
@@ -11,5 +11,5 @@ class Geocoder(Base):
   __tablename__ = 'geocoder'
 
   # columns
-  id = Column(Integer, primary_key=True)
+  id = Column(mysql.TINYINT, primary_key=True)
   name = Column(String(32), nullable=False)
