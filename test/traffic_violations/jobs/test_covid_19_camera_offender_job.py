@@ -85,7 +85,7 @@ class TestCovid19CameraOffenderJob(unittest.TestCase):
         job = Covid19CameraOffenderJob()
 
         start_date = datetime.date(2020, 3, 10)
-        end_date = datetime.date.today()
+        end_date = datetime.date(2023, 7, 23)
 
         days_in_period = (end_date - start_date).days
         num_years = days_in_period / 365.0
