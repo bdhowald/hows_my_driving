@@ -67,10 +67,10 @@ class LocationService:
 
 
     def _get_existing_geocode(self, query_string) -> Optional[str]:
-        geocode: Optional[Geocode] = Geocode.get_by(lookup_string=query_string)
+        returned_geocode: Optional[Geocode] = geocode.Geocode.get_by(lookup_string=query_string)
 
-        if geocode:
-            return geocode.borough
+        if returned_geocode:
+            return returned_geocode.borough
 
 
     def _make_geocoding_request(self, params) -> Optional[Dict[str, str]]:
